@@ -1553,6 +1553,14 @@ export interface AgentUsageCounts {
 // so the extract.ts <-> usage.ts cycle is load-order safe.
 export { parseKimiUsage, extractKimiUsageSince } from "../adapters/kimi/usage.js";
 
+// ── Qwen Code (qwen-code) usage parsers ────────────────────────────────────
+// Implementation lives in src/adapters/qwen-code/usage.ts (per adapter
+// ownership); re-exported here so the hook-reachable session-extract bundle can
+// import the cursor-gated chats/<sessionId>.jsonl reader via the shared
+// loadExtract() loader, exactly like the kimi re-export above. Same load-order
+// safety: runtime callee buildAgentUsageEvent is hoisted within this module.
+export { parseQwenUsage, extractQwenUsageSince } from "../adapters/qwen-code/usage.js";
+
 /**
  * Pi (oh-my-pi) per-turn usage parser.
  *

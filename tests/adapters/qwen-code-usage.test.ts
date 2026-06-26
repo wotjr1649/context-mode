@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { parseQwenUsage, extractQwenUsageSince } from "../../src/adapters/qwen-code/usage.js";
+import { createHash } from "node:crypto";
+import { parseQwenUsage, extractQwenUsageSince, qwenProjectHash, qwenChatJsonlPath } from "../../src/adapters/qwen-code/usage.js";
 import { buildAgentUsageEvent } from "../../src/session/extract.js";
 
 /**
@@ -180,5 +181,34 @@ describe("extractQwenUsageSince", () => {
     const text = jsonl({ messageId: "m-1", model: "qwen3-coder-plus", usageMetadata: { promptTokenCount: 9, candidatesTokenCount: 1 } });
     const { cursor } = extractQwenUsageSince(text, null);
     expect(cursor).toBe("m-1");
+  });
+});
+
+describe("qwenProjectHash", () => {
+  // Pin against qwen's getProjectHash (paths.ts:262) — raw sha256 hex of the
+  // project root, NO salt, so the hash is fully recoverable in the hook.
+  it("is sha256 hex of the project root (non-win32)", () => {
+    if (process.platform === "win32") return; // win32 lowercases first; covered below
+    const root = "/Users/dev/my-project";
+    const expected = createHash("sha256").update(root).digest("hex");
+    expect(qwenProjectHash(root)).toBe(expected);
+    expect(qwenProjectHash(root)).toHaveLength(64);
+  });
+
+  it("is deterministic and path-sensitive", () => {
+    expect(qwenProjectHash("/a/b")).toBe(qwenProjectHash("/a/b"));
+    expect(qwenProjectHash("/a/b")).not.toBe(qwenProjectHash("/a/c"));
+  });
+});
+
+describe("qwenChatJsonlPath", () => {
+  it("builds <qwenHome>/tmp/<hash>/chats/<sessionId>.jsonl", () => {
+    const home = "/home/u/.qwen";
+    const root = "/work/proj";
+    const sid = "sess-abc";
+    const hash = qwenProjectHash(root);
+    expect(qwenChatJsonlPath(home, root, sid)).toBe(
+      `/home/u/.qwen/tmp/${hash}/chats/${sid}.jsonl`,
+    );
   });
 });

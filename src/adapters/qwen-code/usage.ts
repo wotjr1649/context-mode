@@ -29,6 +29,10 @@
  * buildAgentUsageEvent (native_cost_usd omitted). Pure, null-safe, NO regex.
  */
 
+import { createHash } from "node:crypto";
+import { join } from "node:path";
+import { platform } from "node:os";
+
 import { buildAgentUsageEvent, type AgentUsageCounts, type SessionEvent } from "../../session/extract.js";
 
 /** Floor-and-clamp a token field to a non-negative integer (mirrors omp/usage). */
@@ -191,4 +195,33 @@ export function extractQwenUsageSince(
   }
 
   return { events, cursor: lastId };
+}
+
+/**
+ * Hash a project root into qwen-code's `<project_id>` directory segment.
+ *
+ * EXACT port of qwen's `getProjectHash`
+ * (refs/platforms/qwen-code/packages/core/src/utils/paths.ts:262 —
+ * `crypto.createHash('sha256').update(normalizedPath).digest('hex')`). On
+ * Windows qwen lowercases the path first (case-insensitive FS); we mirror that
+ * so a hook running on win32 resolves the same tmp dir qwen itself wrote.
+ * Pure, deterministic, NO regex.
+ */
+export function qwenProjectHash(projectRoot: string): string {
+  const normalized = platform() === "win32" ? projectRoot.toLowerCase() : projectRoot;
+  return createHash("sha256").update(normalized).digest("hex");
+}
+
+/**
+ * Build the canonical session JSONL path qwen-code writes its ChatRecords to:
+ *   <qwenHome>/tmp/<sha256(projectRoot)>/chats/<sessionId>.jsonl
+ * (refs chatRecordingService.ts:451 location + storage.ts:316-320
+ * getProjectTempDir → getGlobalTempDir(<qwenHome>/tmp) + getProjectHash).
+ *
+ * `qwenHome` is normally `<homedir>/.qwen`. Pure path join — does NOT touch the
+ * FS, so it is fully unit-testable; existence probing + the glob fallback live
+ * in the Stop hook (which cannot import this TS at runtime). NO regex.
+ */
+export function qwenChatJsonlPath(qwenHome: string, projectRoot: string, sessionId: string): string {
+  return join(qwenHome, "tmp", qwenProjectHash(projectRoot), "chats", `${sessionId}.jsonl`);
 }
