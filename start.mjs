@@ -140,6 +140,16 @@ if (typeof globalThis.Bun === "undefined" && process.platform === "linux") {
 const cacheMatch = __dirname.match(
   /^(.*[\/\\]plugins[\/\\]cache[\/\\][^\/\\]+[\/\\][^\/\\]+[\/\\])([^\/\\]+)$/,
 );
+
+// Registry key is "<plugin>@<marketplace>", and our own install path spells both:
+//   .../plugins/cache/<marketplace>/<plugin>/<version>
+// Hardcoding "context-mode@context-mode" silently disables every self-heal below
+// under any other marketplace name. Fall back to the literal outside the cache
+// (a dev checkout), where there is no registry entry to heal anyway.
+const keyMatch = __dirname.match(
+  /[\/\\]plugins[\/\\]cache[\/\\]([^\/\\]+)[\/\\]([^\/\\]+)[\/\\][^\/\\]+$/,
+);
+const PLUGIN_KEY = keyMatch ? `${keyMatch[2]}@${keyMatch[1]}` : "context-mode@context-mode";
 if (cacheMatch) {
   try {
     const cacheParent = cacheMatch[1];
@@ -187,7 +197,7 @@ if (cacheMatch) {
 
         const ip = JSON.parse(readFileSync(ipPath, "utf-8"));
         for (const [key, entries] of Object.entries(ip.plugins || {})) {
-          if (key !== "context-mode@context-mode") continue;
+          if (key !== PLUGIN_KEY) continue;
           for (const entry of entries) {
             entry.installPath = newestDir;
             entry.version = newest;
@@ -203,7 +213,7 @@ if (cacheMatch) {
     if (existsSync(ipPath)) {
       const ip = JSON.parse(readFileSync(ipPath, "utf-8"));
       for (const [key, entries] of Object.entries(ip.plugins || {})) {
-        if (key !== "context-mode@context-mode") continue;
+        if (key !== PLUGIN_KEY) continue;
         for (const entry of entries) {
           const rp = entry.installPath;
           if (!rp || existsSync(rp) || rp === __dirname) continue;
@@ -240,7 +250,7 @@ if (cacheMatch) {
 try {
   const { healInstalledPlugins, healSettingsEnabledPlugins, healPluginJsonMcpServers, sweepStaleMcpJson } =
     await import("./scripts/heal-installed-plugins.mjs");
-  const pluginKey = "context-mode@context-mode";
+  const pluginKey = PLUGIN_KEY;
   const claudeConfigDir = resolveClaudeConfigDir();
   const registryPath = resolve(claudeConfigDir, "plugins", "installed_plugins.json");
   const pluginCacheRoot = resolve(claudeConfigDir, "plugins", "cache");
