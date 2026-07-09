@@ -429,7 +429,7 @@ git commit                     # 태그 없음
 - **단계 1:** `.github/`·`package.json`·워크플로에서 `mksglu`·`jsdelivr`·`shields.io`·`raw.githubusercontent.com/mksglu` grep 0건 (인용 링크 `#482`, `opencode#20259` 제외). 자동 커밋 봇 0건.
 - **단계 2:** §5.3의 판정 6개. 여섯 다 만족해야 성공.
 - **단계 6 (I1의 실제 검증):** 코드 변경 없이 `version`만 `1.0.1`로 올려 push → `/plugin marketplace update` + `/plugin update` → `installed_plugins.json`이 `1.0.1`을 가리키는가? 그렇다면 버전 문자열이 재설치 키라는 I1이 경험적으로 확인된다. 그렇지 않다면 앞으로 매 배포마다 재설치 절차를 다시 설계해야 한다.
-- **단계 3:** `tsc --noEmit` · `vitest run` · 15개 플랫폼 이름 잔재 grep 0건 · 미지원 플랫폼 런타임 하드페일 동작 확인.
+- **단계 3:** `tsc --noEmit` · `vitest run` · **16개** 플랫폼 식별자 잔재 grep 0건(`kilo` 포함, F51) · 미지원 플랫폼 런타임 하드페일 동작 확인.
   - vitest 메모리 캡: `--pool=forks --maxWorkers=1`, `NODE_OPTIONS=--max-old-space-size=2048`.
   - `hooks/core/*`는 `tsc` 밖이지만 그물은 이미 있다(F29). **새 테스트를 추가하는 게 아니라, 편집 후에도 커버리지가 유지되는지 확인**한다. `platform-detect.mjs`가 1개뿐이므로 여기만 보강을 검토한다.
 - **단계 4:**
