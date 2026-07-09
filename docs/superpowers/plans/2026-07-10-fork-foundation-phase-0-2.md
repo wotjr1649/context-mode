@@ -175,17 +175,23 @@ on:
   workflow_dispatch:
 ```
 
-- [ ] **Step 4: 봇과 상류 접점이 사라졌는지 확인한다 (GREEN)**
+- [ ] **Step 4: 봇과 상류 인프라 호출이 사라졌는지 확인한다 (GREEN)**
+
+> **범위 주의.** 이 태스크는 **워크플로와 스폰서 설정**만 다룬다. `.github/ISSUE_TEMPLATE/`의 상류 링크는 **Task 3**의 범위이므로 아직 남아 있는 게 정상이다. 게이트를 `.github/` 전체로 넓히면 Task 3 이전에는 결코 통과할 수 없다.
 
 ```bash
-grep -rlE "mksglu|jsdelivr|purge|shields\.io" .github/ ; test $? -eq 1 && echo "PASS: .github/ 에 상류 접점 없음"
+grep -rlE "mksglu|jsdelivr|purge|shields\.io" .github/workflows/ ; test $? -eq 1 && echo "PASS: 워크플로에 상류 접점 없음"
+test ! -f .github/FUNDING.yml && echo "PASS: FUNDING.yml 제거됨"
 git ls-files .github/workflows/
 awk '/^on:/,/^permissions:/' .github/workflows/bundle.yml
 ```
 Expected:
-- `PASS: .github/ 에 상류 접점 없음`
+- `PASS: 워크플로에 상류 접점 없음`
+- `PASS: FUNDING.yml 제거됨`
 - 워크플로는 `ci.yml`, `bundle.yml` 두 개
 - `on:` 아래에 `workflow_dispatch:` 하나만
+
+`.github/` 전체의 상류 접점 0건은 **Task 3 Step 7**에서 검증한다.
 
 - [ ] **Step 5: 인접 테스트가 통과하는지 확인한다**
 
