@@ -64,7 +64,9 @@ Codex(교차 모델) · 보안 감사 · 코드 정확성 · 레드팀 · 시퀀
 | **F36** | Claude의 마켓플레이스 이름은 `.claude-plugin/marketplace.json:2`의 `name`에서 온다. Codex 카탈로그는 `.agents/plugins/marketplace.json`로 **별개 파일**이므로 Claude 쪽만 바꿀 수 있다 | 판독 |
 | **F37** | MCP 도구 이름 접두사는 `mcp__plugin_<플러그인명>_<서버명>__`이며 **마켓플레이스명을 포함하지 않는다**(`mcp__plugin_context7_context7__`, `mcp__plugin_dotnet-msbuild_binlog__`). 마켓플레이스 개명은 `settings.json`의 권한 허용 목록을 깨뜨리지 않는다 | 관측 |
 | ~~F38~~ | ~~하드코딩은 전부 진단·업그레이드 경로다~~ **틀렸다. F42 참조** | — |
-| **F42** | `context-mode@context-mode` **리터럴 전수**: `src/adapters/codex/index.ts`(9, Codex — 이름 유지하므로 무관) · **`scripts/postinstall.mjs`(6)** · `src/cli.ts`(5) · **`start.mjs`(4)** · `src/server.ts`(1). `scripts/heal-installed-plugins.mjs`는 `pluginKey`를 **인자로 받으므로 하드코딩이 아니다**. 캐시 경로 리터럴은 `src/cli.ts:1642`, `src/util/sibling-mcp.ts:68`, `hooks/cache-heal-utils.mjs`(주석), `hooks/sessionstart.mjs:137`(주석). **`postinstall.mjs`(설치 시 실행 — 캐시에 `node_modules`가 있으므로 확인됨)와 `start.mjs`(매 부팅)는 진단이 아니라 설치·부팅 경로다** | grep + 캐시 판독 |
+| **F42** | `context-mode@context-mode` **리터럴 전수**: `src/adapters/codex/index.ts`(9, Codex — 이름 유지하므로 무관) · `scripts/postinstall.mjs`(6) · `src/cli.ts`(5) · `start.mjs`(4) · `src/server.ts`(1). `scripts/heal-installed-plugins.mjs`는 `pluginKey`를 **인자로 받으므로 하드코딩이 아니다** | grep |
+| **F52** | **F42의 캐시 경로 목록이 틀렸다.** `hooks/cache-heal-utils.mjs`를 "주석"으로 분류했으나, **`:291`의 `versionSegmentRe = /(context-mode[/\\]context-mode[/\\])([^/\\]+)([/\\]bin)/g`는 살아 있는 코드다.** `:309`에서 쓰이고 `hooks/sessionstart.mjs:132,158`이 `selfHealShellSnapshots`로 매 세션 시작마다 호출한다. 개명 후 경로는 `context-mode-js/context-mode/<v>/bin`이라 매칭에 실패해 **셸 스냅샷 자가치유가 조용히 no-op**이 된다(손상은 없다). 원래 grep이 `cache/` 접두사를 붙여 놓쳤다. **단계 3의 소비자 목록에 반드시 포함한다.** 나머지 캐시 경로 리터럴: `src/cli.ts:1642`, `src/util/sibling-mcp.ts:68`, `hooks/sessionstart.mjs:137`(주석) | 최종 브랜치 리뷰 + 실물 확인 |
+| **F53** | `start.mjs`의 네 지점(`:190` forward-heal 게이트, `:206` reverse-heal 게이트, `:243` `pluginKey` 리터럴, `:253` 소비자)이 옛 키로 게이트되며, **`symlinkSync`는 `:206`의 게이트 안쪽에 있다** — 게이트 밖 폴백이 없다. `start.mjs`는 esbuild 번들 대상이 아니므로(`package.json`의 `files`에 raw로 실림) 수정에 번들 재생성이 필요 없고 `tests/scripts/start-mjs-*.test.ts` 3개가 커버한다 | 최종 브랜치 리뷰 + 실물 확인 |
 | **F43** | `healSettingsEnabledPlugins`(`heal-installed-plugins.mjs:163-168`)는 `current === false`일 때만 `explicit-opt-out`으로 건너뛴다. `undefined`/`null`/`""`는 전부 `true`로 되살린다. `start.mjs:253`이 리터럴 옛 키를 넘기므로, **개명 후에도 `settings.json`의 `enabledPlugins["context-mode@context-mode"]`가 매 부팅 `true`로 재기입된다** | 스크립트 본문 |
 | **F44** | **`postinstall.mjs`의 치유 블록(110~205)은 `if (isGlobalInstall())`로 감싸여 있고, `isGlobalInstall()`은 `npm_config_global !== "true"`면 `false`를 반환한다(`:89-90`).** `/plugin install`은 캐시 디렉토리로의 비-global `npm install`이므로 **그 6개 리터럴은 전부 스킵된다.** 옛 키를 되살리는 유일한 실행 경로는 `start.mjs:253`이다 | 스크립트 본문 |
 | **F45** | `start.mjs`의 forward-heal(`:190`)과 reverse-heal(`:206`)은 `if (key !== "context-mode@context-mode") continue`로 게이트된다. `healInstalledPlugins`는 `entries.length === 0`이면 `skipped: "no-entry"`를 반환하며 **항목을 생성하지 않는다**(`:62-65`) | 스크립트 본문 |
@@ -169,9 +171,11 @@ Codex(교차 모델) · 보안 감사 · 코드 정확성 · 레드팀 · 시퀀
 
 **단계 2의 대응 (코드 수정 불필요):** `healSettingsEnabledPlugins`는 `current === false`를 `explicit-opt-out`으로 존중한다(F43). 커토버에서 `~/.claude/settings.json`의 `enabledPlugins`에 **`"context-mode@context-mode": false`를 명시**하면 그 하나가 봉쇄된다. 삭제하거나 비워두면 다시 `true`가 된다. Claude는 이 `false`를 덮어쓰지 않는다(F47⑤).
 
-**남는 손실(수용):** 새 키에 대한 `healInstalledPlugins`의 HEAL 3/4가 돌지 않는다. 위험이 아니라 안전망 상실이며, 고장 시 **조용히가 아니라 드러나게** 실패한다.
+**단계 2로 앞당긴 대응 (최종 브랜치 리뷰의 지적).** `start.mjs`의 네 지점을 `__dirname` 파생으로 고친다(F53). 게이트 밖 symlink 폴백이 없으므로, 그대로 두면 fork는 Claude Code 자동 업데이트가 만든 레지스트리 어긋남(#46915)을 **스스로 복구할 수단이 전혀 없다.** `start.mjs`는 번들 대상이 아니라 수정 비용이 4줄이고, 이번 단계에서 `deps-heal`·`lock-heal`에 이미 적용·검증한 패턴 그대로다.
 
-**단계 3의 대응:** `postinstall.mjs`·`start.mjs`·`src/cli.ts`·`src/server.ts`의 `pluginKey`를 `__dirname`에서 파생시킨다(`.../cache/<마켓플레이스>/<플러그인>/<버전>` → `<플러그인>@<마켓플레이스>`). 상류 결함이기도 하다 — 하드코딩된 키는 `context-mode` 이외의 마켓플레이스명을 전부 깨뜨린다.
+부수 효과: `healSettingsEnabledPlugins`가 우리 키를 대상으로 삼게 되어 **커토버의 `enabledPlugins[옛 키] = false` 완화책이 필수에서 벨트로 내려간다.**
+
+**단계 3에 남는 대응:** `postinstall.mjs`(6) · `src/cli.ts`(5) · `src/server.ts`(1)의 `pluginKey` 리터럴, `start.mjs`의 `healScript` 템플릿(`:338`), 캐시 경로 리터럴(`src/cli.ts:1642`, `src/util/sibling-mcp.ts:68`), 그리고 **`hooks/cache-heal-utils.mjs:291`의 정규식(F52)**. 상류 결함이기도 하다 — 하드코딩된 키는 `context-mode` 이외의 마켓플레이스명을 전부 깨뜨린다.
 
 Codex 어댑터의 같은 리터럴은 Codex 카탈로그 이름을 유지하므로 영향받지 않는다(F36).
 
@@ -333,7 +337,13 @@ git commit                     # 태그 없음
 7. **그물 4 — 런타임 하드페일.** 미지원 `clientInfo.name`이 들어오면 조용히 `claude-code`로 폴백하지 말고 명시적으로 실패시킨다. 축소된 타입은 오라우팅을 막지 못한다.
 8. **죽은 코드 제거:** `foreignWorkspaceEnv`/`foreignIdentificationEnv`(F24). 소비 테스트(`tests/util/project-dir-matrix.test.ts`, `tests/adapters/detect.test.ts`)도 함께 정리.
 9. **스크립트·매니페스트 수정(D5):** `scripts/version-sync.mjs`의 `TARGETS` **10개(F39)** 중 삭제된 7개 경로 제거(남는 것은 `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`) · `package.json`의 `version` 스크립트 `git add` 목록 동기화 · **`files` 필드에서 `.openclaw-plugin`·`openclaw.plugin.json` 제거(F32)** · `postinstall.mjs`의 OpenClaw 감지 블록 제거 · `install:openclaw` 스크립트 제거 · `scripts/ctx-debug.sh` 정리.
-9b. **`pluginKey` 파생 수정(F42·F43, D11의 이월분):** `scripts/postinstall.mjs`(6곳) · `start.mjs`(4곳) · `src/cli.ts`(5곳) · `src/server.ts`(1곳)의 `"context-mode@context-mode"` 리터럴을 `__dirname` 파생으로 바꾼다 — `.../cache/<마켓플레이스>/<플러그인>/<버전>` → `<플러그인>@<마켓플레이스>`. 캐시 경로 리터럴(`src/cli.ts:1642`, `src/util/sibling-mcp.ts:68`)도 함께. **이건 상류 결함이다** — 하드코딩된 키는 `context-mode` 이외의 마켓플레이스명을 전부 깨뜨린다. §12의 이슈 후보. `src/adapters/codex/index.ts`의 같은 리터럴은 Codex 카탈로그명을 유지하므로 손대지 않는다.
+9b. **`pluginKey` 파생 수정 잔여분(F42·F43·F52, D11의 이월분).** `start.mjs`의 네 지점은 **단계 2에서 이미 고쳤다**(F53). 여기서 남은 것:
+   - `scripts/postinstall.mjs`(6곳) · `src/cli.ts`(5곳) · `src/server.ts`(1곳)의 `"context-mode@context-mode"` 리터럴 → `__dirname` 파생
+   - `start.mjs:338`의 `healScript` 템플릿(배포되는 `cache-heal.mjs`의 원본)
+   - 캐시 경로 리터럴: `src/cli.ts:1642`, `src/util/sibling-mcp.ts:68`
+   - **`hooks/cache-heal-utils.mjs:291`의 `versionSegmentRe` 정규식(F52).** 주석이 아니라 매 세션 시작에 도는 코드다. 이걸 놓치면 셸 스냅샷 자가치유가 fork에서 계속 no-op이다
+   
+   **이건 상류 결함이다** — 하드코딩된 키는 `context-mode` 이외의 마켓플레이스명을 전부 깨뜨린다. §12의 이슈 후보. `src/adapters/codex/index.ts`의 같은 리터럴은 Codex 카탈로그명을 유지하므로 손대지 않는다.
 9c. **`web/` 상류 fetch 제거(F40):** `web/{index,insight,context-saving}.html`, `web/og/render-og.mjs`.
 10. **번들 재생성:** `npm run build`. `session-attribution.bundle.mjs`는 어느 목록에도 없다(F25). 런타임 로드되는 살아 있는 코드이므로 `bundle`·`assert-bundle` 목록에 **편입**하거나 미사용임을 확인 후 제거한다.
 11. `docs/platform-support.md`(17플랫폼 나열) 갱신.

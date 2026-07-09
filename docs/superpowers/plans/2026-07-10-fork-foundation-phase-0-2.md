@@ -579,6 +579,131 @@ pure-JS and a compromised version's postinstall must not run."
 
 ---
 
+### Task 4c: `start.mjs`가 레지스트리 키를 자기 경로에서 파생하게 한다
+
+**Files:** Modify `start.mjs`
+
+**출처:** 최종 브랜치 리뷰의 Important I1. 스펙은 이 수정을 단계 3으로 미뤄뒀으나, 리뷰어가 **게이트 밖 symlink 폴백이 없다**는 것을 확인했고 사용자가 단계 2로 앞당기기로 결정했다.
+
+**왜 필요한가:** `start.mjs`의 네 지점이 `"context-mode@context-mode"` 리터럴로 게이트된다. 마켓플레이스를 `context-mode-js`로 개명한 뒤에는 실제 키가 `context-mode@context-mode-js`이므로 넷 다 no-op이 된다:
+
+| 위치 | 잃는 것 |
+|---|---|
+| `:190` | forward-heal — 레지스트리를 최신 버전 dir로 갱신 |
+| `:206` | reverse-heal — `installPath`가 사라졌을 때 symlink 생성. **`symlinkSync`가 이 게이트 안쪽에 있어 폴백이 없다** |
+| `:243` | `healInstalledPlugins`의 HEAL 3/4 |
+| `:253` | `healSettingsEnabledPlugins` |
+
+이 기계장치는 Claude Code 자동 업데이트가 만드는 레지스트리 어긋남(`claude-code#46915`)을 복구하려고 존재한다. 마켓플레이스가 `autoUpdate: true`인 이상 그건 우리가 자초하는 실패 모드다.
+
+`start.mjs`는 esbuild 번들 대상이 **아니다**(`package.json`의 `files`에 raw로 실린다) — 번들 재생성이 필요 없다.
+
+- [ ] **Step 1: 네 지점이 리터럴로 게이트됨을 확인한다 (RED)**
+
+```bash
+grep -n '"context-mode@context-mode"' start.mjs
+```
+Expected: `190`, `206`, `243`, `338` 네 줄. (`338`은 `healScript` 템플릿 — **이번엔 손대지 않는다.** 단계 3 몫이다.)
+
+- [ ] **Step 2: `cacheMatch` 바로 아래에 키 파생을 추가한다**
+
+`start.mjs:140-142`의 `const cacheMatch = ...` 선언 직후, `if (cacheMatch) {` **앞에** 다음을 삽입한다. 모듈 스코프여야 `:243`에서도 보인다.
+
+```js
+// Registry key is "<plugin>@<marketplace>", and our own install path spells both:
+//   .../plugins/cache/<marketplace>/<plugin>/<version>
+// Hardcoding "context-mode@context-mode" silently disables every self-heal below
+// under any other marketplace name. Fall back to the literal outside the cache
+// (a dev checkout), where there is no registry entry to heal anyway.
+const keyMatch = __dirname.match(
+  /[\/\\]plugins[\/\\]cache[\/\\]([^\/\\]+)[\/\\]([^\/\\]+)[\/\\][^\/\\]+$/,
+);
+const PLUGIN_KEY = keyMatch ? `${keyMatch[2]}@${keyMatch[1]}` : "context-mode@context-mode";
+```
+
+- [ ] **Step 3: forward-heal 게이트 (`:190`)**
+
+들여쓰기 10칸. 이 줄은 파일에서 유일하다(다음 스텝의 `:206`은 8칸).
+
+교체 전:
+```js
+          if (key !== "context-mode@context-mode") continue;
+```
+교체 후:
+```js
+          if (key !== PLUGIN_KEY) continue;
+```
+
+- [ ] **Step 4: reverse-heal 게이트 (`:206`)**
+
+들여쓰기 8칸.
+
+교체 전:
+```js
+        if (key !== "context-mode@context-mode") continue;
+```
+교체 후:
+```js
+        if (key !== PLUGIN_KEY) continue;
+```
+
+- [ ] **Step 5: `pluginKey` 리터럴 (`:243`)**
+
+교체 전:
+```js
+  const pluginKey = "context-mode@context-mode";
+```
+교체 후:
+```js
+  const pluginKey = PLUGIN_KEY;
+```
+
+`:253`의 `healSettingsEnabledPlugins({ settingsPath, pluginKey })`는 그대로 둔다 — 이제 올바른 키를 받는다.
+
+- [ ] **Step 6: 확인 (GREEN)**
+
+```bash
+# 남는 리터럴은 healScript 템플릿(:338) 하나뿐이어야 한다
+grep -n '"context-mode@context-mode"' start.mjs
+grep -c 'PLUGIN_KEY' start.mjs
+node --check start.mjs && echo "PASS: 구문 OK"
+```
+Expected: 리터럴은 `338`행과 파생부의 폴백 두 곳만 · `PLUGIN_KEY` 4회 이상 · `PASS: 구문 OK`
+
+```bash
+NODE_OPTIONS=--max-old-space-size=2048 npx vitest run \
+  tests/scripts/start-mjs-mcp-boot.test.ts \
+  tests/scripts/start-mjs-reexec-teardown-862.test.ts \
+  tests/scripts/start-mjs-win-install-861.test.ts \
+  --pool=forks --maxWorkers=1
+```
+Expected: 전부 통과, 출력 청결.
+
+- [ ] **Step 7: 커밋**
+
+```bash
+git add start.mjs
+git commit -m "fix(start): derive the registry key from our own cache path
+
+start.mjs gated four self-heal sites on the literal 'context-mode@context-mode'.
+Renaming this fork's Claude marketplace to context-mode-js makes the live key
+'context-mode@context-mode-js', so forward-heal, reverse-heal, HEAL 3/4 and the
+settings.enabledPlugins repair all silently no-op. symlinkSync sits inside the
+reverse-heal gate, so there is no un-gated fallback: a registry that drifts to a
+deleted cache dir would never be repaired — the exact failure this machinery
+exists for (claude-code#46915), and the one autoUpdate:true invites.
+
+Derive '<plugin>@<marketplace>' from __dirname instead. Same pattern already
+shipped this phase in deps-heal and lock-heal. Falls back to the old literal
+outside the plugin cache, where there is no registry entry to heal.
+
+The healScript template at :338 keeps its literal — phase 3 rebuilds it.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
 ### Task 5: 커토버 + 6중 판정 — **정지 게이트**
 
 **Files:** 없음 (저장소를 건드리지 않는다)
