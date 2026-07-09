@@ -475,9 +475,20 @@ codex plugin marketplace upgrade context-mode
 ```
 Codex는 SHA 기준(F8)이라 이 한 줄로 끝난다. 이름은 그대로다.
 
-- [ ] **Step 7: (사용자) `settings.json` 정합 확인**
+- [ ] **Step 7: (사용자) `~/.claude/settings.json`의 `enabledPlugins`에 옛 키를 `false`로 명시한다**
 
-`extraKnownMarketplaces`에 `context-mode-js` 키만 있고 옛 `context-mode` 키는 없어야 한다. `enabledPlugins`도 마찬가지다. 옛 키가 남으면 `heal-installed-plugins.mjs:105-110`이 매 부팅 재기입한다.
+**지우면 안 된다. `false`여야 한다.**
+
+```json
+  "enabledPlugins": {
+    "context-mode@context-mode": false,
+    "context-mode@context-mode-js": true
+  }
+```
+
+이유: 개명 후에도 fork의 `postinstall.mjs:150`과 `start.mjs:243`은 리터럴 `"context-mode@context-mode"`를 `healSettingsEnabledPlugins`에 넘긴다. 그 함수는 `current === false`일 때만 `explicit-opt-out`으로 건너뛰고, `undefined`면 **`true`로 되살린다**(F43). 키를 지우면 매 설치·매 부팅 유령 플러그인이 다시 활성화된다.
+
+`extraKnownMarketplaces`에는 `context-mode-js` 키만 남아야 한다.
 
 - [ ] **Step 8: (에이전트, 새 세션) 정적 판정 — 1·2·3·6**
 
@@ -495,13 +506,21 @@ else {
   const real = fs.realpathSync(entry.installPath);
   const runHook = fs.readFileSync(path.join(real, 'hooks', 'run-hook.mjs'), 'utf8');
   const codexHook = fs.readFileSync(path.join(real, 'hooks', 'codex', 'pretooluse.mjs'), 'utf8');
+  const settings = JSON.parse(fs.readFileSync(path.join(cfg, 'settings.json'), 'utf8'));
+  const ep = settings.enabledPlugins || {};
+  const mp = settings.extraKnownMarketplaces || {};
   const checks = [
     ['1. version === 1.0.0',           entry.version === '1.0.0'],
     ['2. realpath = context-mode-js/context-mode/1.0.0',
                                        /context-mode-js[\\/]context-mode[\\/]1\.0\.0$/.test(real)],
     ['3a. run-hook.mjs 명시적 exit',    /process\.exit\(0\)/.test(runHook)],
     ['3b. codex flushAndExit',         codexHook.includes('flushAndExit')],
-    ['6. 옛 레지스트리 항목 제거됨',      !oldEntry],
+    ['6a. 옛 레지스트리 항목 제거됨',    !oldEntry],
+    ['6b. 옛 enabledPlugins 키 === false (지우면 안 됨, F43)',
+                                       ep['context-mode@context-mode'] === false],
+    ['6c. 새 enabledPlugins 키 === true', ep['context-mode@context-mode-js'] === true],
+    ['6d. 마켓플레이스는 context-mode-js 하나',
+                                       !!mp['context-mode-js'] && !mp['context-mode']],
   ];
   console.log('installPath(real):', real);
   for (const [n, ok] of checks) console.log((ok ? 'PASS' : 'FAIL') + '  ' + n);
