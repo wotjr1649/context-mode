@@ -1,6 +1,7 @@
 {
   "name": "context-mode",
   "version": "1.0.169",
+  "private": true,
   "type": "module",
   "description": "MCP plugin that saves 98% of your context window. Works with Claude Code, Gemini CLI, VS Code Copilot, OpenCode, and Codex CLI. Sandboxed code execution, FTS5 knowledge base, and intent-driven search.",
   "author": "Mert Koseoğlu",
@@ -24,9 +25,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/mksglu/context-mode"
+    "url": "https://github.com/wotjr1649/context-mode"
   },
-  "homepage": "https://github.com/mksglu/context-mode#readme",
+  "homepage": "https://github.com/wotjr1649/context-mode#readme",
   "pi": {
     "extensions": [
       "./build/adapters/pi/extension.js"
@@ -47,7 +48,7 @@
       "./build/adapters/omp/plugin.js"
     ]
   },
-  "bugs": "https://github.com/mksglu/context-mode/issues",
+  "bugs": "https://github.com/wotjr1649/context-mode/issues",
   "main": "./build/adapters/opencode/plugin.js",
   "exports": {
     ".": "./build/adapters/opencode/plugin.js",
