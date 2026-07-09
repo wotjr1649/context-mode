@@ -53,8 +53,8 @@ Codex(교차 모델) · 보안 감사 · 코드 정확성 · 레드팀 · 시퀀
 | F25 | `hooks/session-attribution.bundle.mjs`는 커밋돼 있고 `hooks/session-loaders.mjs:42`가 런타임 동적 import 하지만 `bundle` 스크립트에도 `assert-bundle` 목록에도 **없다**(관리 밖) | grep |
 | F26 | **`tsc`는 삭제 편집지점을 전부 열거하지 못한다.** 반례: `detect.ts:337 getSessionDirSegments(platform: string)`, `detect.ts:395 platformOverride as PlatformId`, `cli.ts:77 HOOK_MAP: Record<string,…>`, `cli.ts:158 hookDispatch(platform: string)`, `analytics.ts:628 ReadonlyArray<readonly [string, …]>` | 판독 |
 | F27 | **`hooks/formatters/` 4개를 프로덕션이 아무도 import하지 않는다.** 유일 참조는 `tests/hooks/formatters.test.ts`. 실제 경로는 `hooks/core/formatters.mjs`의 `formatters[platform]`(`:344`). `formatDecision`이 중복 구현 | grep |
-| F28 | `tests/adapters/` 밖에 클라이언트 전용 테스트 21개 존재(`tests/hooks/*-hooks.test.ts` 9 · `tests/fixtures/cursor/*` 5 · 기타 7) | `git ls-files` |
-| F29 | `.mjs` 안전망 존재: `core/routing.mjs` 11개 테스트, `core/tool-naming.mjs` 5개, `core/platform-detect.mjs` 1개, `core/formatters.mjs`는 `tests/formatters.test.ts`+`tests/core/cli.test.ts` | grep |
+| F28 | `tests/adapters/` 밖에 클라이언트 전용 테스트 **21개**(직접 카운트). 내역: `tests/hooks/`의 클라이언트 훅 테스트 **9**(그중 `kimi-config-dir.test.ts`는 `-hooks` 접미사가 아니다) · `tests/fixtures/cursor/*` **5** · `tests/fixtures/kimi-wire.jsonl` · `tests/opencode-plugin.test.ts` · `tests/pi-extension.test.ts` · `tests/plugins/openclaw.test.ts` · `tests/session/parse-{gemini,openclaw,opencode}-usage.test.ts` **3** | `git ls-files` |
+| F29 | `.mjs` 안전망 존재. 수치는 **테스트 케이스가 아니라 그 모듈을 참조하는 테스트 파일 수**다: `core/routing.mjs` 11파일, `core/tool-naming.mjs` 5파일, `core/platform-detect.mjs` 1파일. `core/formatters.mjs`는 `tests/formatters.test.ts`+`tests/core/cli.test.ts` | grep |
 | F30 | 유지되는 두 어댑터는 `configs/codex/*`만 문자열 참조(`codex/hooks.ts:70`, `codex/index.ts:674,699,724`). `cli.ts`는 `configs/`를 문자열 참조하지 않는다 | grep |
 | F31 | `tests/tier2-smoke-assert.test.ts`가 `assert-stats.mjs`를 spawn하고 `stats.json`(`:23`)을 읽는다. `package.json`의 `files` 필드에는 `stats.json`·`CLAUDE.md`가 없다 | 판독 |
 | F32 | `package.json`의 `files` 필드가 `.openclaw-plugin`·`openclaw.plugin.json`을 나열한다 → 단계 3 삭제 시 함께 수정해야 한다 | 판독 |
@@ -65,7 +65,15 @@ Codex(교차 모델) · 보안 감사 · 코드 정확성 · 레드팀 · 시퀀
 | **F37** | MCP 도구 이름 접두사는 `mcp__plugin_<플러그인명>_<서버명>__`이며 **마켓플레이스명을 포함하지 않는다**(`mcp__plugin_context7_context7__`, `mcp__plugin_dotnet-msbuild_binlog__`). 마켓플레이스 개명은 `settings.json`의 권한 허용 목록을 깨뜨리지 않는다 | 관측 |
 | ~~F38~~ | ~~하드코딩은 전부 진단·업그레이드 경로다~~ **틀렸다. F42 참조** | — |
 | **F42** | `context-mode@context-mode` **리터럴 전수**: `src/adapters/codex/index.ts`(9, Codex — 이름 유지하므로 무관) · **`scripts/postinstall.mjs`(6)** · `src/cli.ts`(5) · **`start.mjs`(4)** · `src/server.ts`(1). `scripts/heal-installed-plugins.mjs`는 `pluginKey`를 **인자로 받으므로 하드코딩이 아니다**. 캐시 경로 리터럴은 `src/cli.ts:1642`, `src/util/sibling-mcp.ts:68`, `hooks/cache-heal-utils.mjs`(주석), `hooks/sessionstart.mjs:137`(주석). **`postinstall.mjs`(설치 시 실행 — 캐시에 `node_modules`가 있으므로 확인됨)와 `start.mjs`(매 부팅)는 진단이 아니라 설치·부팅 경로다** | grep + 캐시 판독 |
-| **F43** | `healSettingsEnabledPlugins`(`heal-installed-plugins.mjs:163-168`)는 `current === false`일 때만 `explicit-opt-out`으로 건너뛴다. `undefined`/`null`/`""`는 전부 `true`로 되살린다. `postinstall.mjs:150`과 `start.mjs:243`이 리터럴 옛 키를 넘기므로, **마켓플레이스 개명 후에도 `settings.json`의 `enabledPlugins["context-mode@context-mode"]`가 매 설치·매 부팅 `true`로 재기입된다** | 스크립트 본문 |
+| **F43** | `healSettingsEnabledPlugins`(`heal-installed-plugins.mjs:163-168`)는 `current === false`일 때만 `explicit-opt-out`으로 건너뛴다. `undefined`/`null`/`""`는 전부 `true`로 되살린다. `start.mjs:253`이 리터럴 옛 키를 넘기므로, **개명 후에도 `settings.json`의 `enabledPlugins["context-mode@context-mode"]`가 매 부팅 `true`로 재기입된다** | 스크립트 본문 |
+| **F44** | **`postinstall.mjs`의 치유 블록(110~205)은 `if (isGlobalInstall())`로 감싸여 있고, `isGlobalInstall()`은 `npm_config_global !== "true"`면 `false`를 반환한다(`:89-90`).** `/plugin install`은 캐시 디렉토리로의 비-global `npm install`이므로 **그 6개 리터럴은 전부 스킵된다.** 옛 키를 되살리는 유일한 실행 경로는 `start.mjs:253`이다 | 스크립트 본문 |
+| **F45** | `start.mjs`의 forward-heal(`:190`)과 reverse-heal(`:206`)은 `if (key !== "context-mode@context-mode") continue`로 게이트된다. `healInstalledPlugins`는 `entries.length === 0`이면 `skipped: "no-entry"`를 반환하며 **항목을 생성하지 않는다**(`:62-65`) | 스크립트 본문 |
+| **F46** | **캐시의 `<마켓플레이스>/<플러그인>/<버전>` 2단 중첩은 1차 문서에 없다.** docs.claude.com은 캐시 루트와 "버전별 디렉토리, 고아는 7일 후 자동 삭제"까지만 규정한다. 중첩은 로컬 7/7 마켓플레이스와 `start.mjs:141`의 정규식으로만 확인된다 — **미문서 CC 내부 구현이며 D11의 유일한 1차-미검증 고리다** | docs + 로컬 |
+| **F47** | 1차 출처 확인: ① `/plugin marketplace add`는 **`marketplace.json`의 `name`으로 등록**한다("the name from marketplace.json, not the source you passed to add") ② `extraKnownMarketplaces`의 키 = 마켓플레이스명 ③ `enabledPlugins` 포맷은 `plugin@marketplace: bool` ④ Claude의 자동 키 재작성은 마켓플레이스의 `renames` 맵(**플러그인** 개명)뿐이라 **마켓플레이스 개명엔 발동하지 않는다** ⑤ 명시적 `false`는 보존된다(로컬: `pyright-lsp` 등 3건 잔존) ⑥ 플러그인명은 kebab-case 유일 식별자 → `context-mode-js` 유효 | docs.claude.com |
+| **F48** | **`/plugin marketplace remove`는 마지막 scope에서 제거될 때 그 마켓플레이스로 설치한 플러그인을 함께 uninstall한다**(1차). 따라서 계획의 `uninstall` → `remove` 순서는 중복이나 무해하다. **고아 캐시 디렉토리는 7일 후 자동 삭제된다**(1차) → 수동 삭제 불필요가 강화되지만 **롤백 창이 약 7일**이다 | docs.claude.com |
+| **F49** | **실행 중인 MCP 서버 프로세스의 CommandLine은 포워드슬래시다.** 실측(PID 40832): `"C:/Program Files/nodejs/node.exe" C:/Users/js/.claude/plugins/cache/context-mode/context-mode/1.0.169/start.mjs`. 백슬래시 전용 정규식은 `NO-MATCH`를 내 **모든 프로세스를 "캐시 밖"으로 오판하고 거짓 PASS를 만든다** | `Get-CimInstance` 실행 |
+| **F50** | `~/.claude/hooks/`의 힐 훅은 4개가 아니라 **5개**다: `cache-heal`(키 하드코딩) · `deps-heal`(키+캐시경로) · `lock-heal`(캐시경로) · `orphan-reaper` · **`prune-versions`**(키+캐시경로+`rmSync`, `settings.json`에 미등록). `prune-versions`는 옛 키 항목이 0이면 fail-safe로 `exit(0)`하므로 **개명 후 옛 트리를 삭제하지 않는다** — 롤백 전제와 충돌하지 않는다 | 파일 판독 |
+| **F51** | `PlatformId` 19개 중 유지 3개(`claude-code`·`codex`·`unknown`) → **제거 식별자는 16개**다. `kilo`는 `src/adapters/kilo/` 디렉토리가 없지만 `PlatformId`·`configs/kilo`에 존재하고 `getAdapter`에 `case "kilo": case "opencode":` 폴백이 있다 | 판독 |
 | **F39** | `version-sync.mjs`의 `TARGETS`는 11개가 아니라 **10개**다 | 판독 |
 | **F40** | D9가 놓친 상류 접점: `.github/FUNDING.yml`(`github: [mksglu]`), `package.json:27 repository.url`·`:29 homepage`·`:50 bugs`, `web/{index,insight,context-saving}.html`·`web/og/render-og.mjs`(상류 `stats.json` fetch) | grep |
 | **F41** | `~/.claude/plugins/installed_plugins.json.bak.*`을 읽는 코드는 **0건**(죽은 백업). `uninstall` 후 남는 훅 4개는 캐시 부재 시 전부 `exit(0)`. `heal-installed-plugins.mjs:105-110`은 `enabledPlugins[key]`를 매 부팅 재기입한다 | grep |
@@ -132,7 +140,11 @@ Codex(교차 모델) · 보안 감사 · 코드 정확성 · 레드팀 · 시퀀
 
 `plugin.json`의 `version`이 재설치 키다(F5). 그러나 `v1.0.0`의 진짜 위험은 버전 게이트가 아니라 **F34의 forward-heal**이었다 — `start.mjs:164`가 매 MCP 부팅마다 `cacheParent`의 최고 semver 디렉토리로 `installed_plugins.json`을 다시 쓴다. `1.0.0 < 1.0.169`이므로 옛 dir이 하나라도 남으면 상류 코드로 조용히 되돌아간다. `installPath`가 멀쩡해도 발동한다.
 
-**D11이 이 문제를 뿌리에서 없앤다.** 캐시 경로는 `cache/<마켓플레이스명>/<플러그인명>/<버전>/`이고 `cacheParent`는 `<플러그인명>` 디렉토리다(F35). Claude 마켓플레이스 이름을 `context-mode-js`로 바꾸면 캐시 부모가 `cache/context-mode-js/context-mode/`라는 **빈 디렉토리**로 새로 생기고, `1.0.0`이 그 안의 유일한 버전이 된다. `dirs.length > 1`이 거짓이라 forward-heal은 no-op이고, `installPath`가 존재하므로 junction heal도 no-op이다.
+**D11이 이 문제를 뿌리에서 없앤다.** 캐시 경로는 `cache/<마켓플레이스명>/<플러그인명>/<버전>/`이고 `cacheParent`는 `<플러그인명>` 디렉토리다(F35). Claude 마켓플레이스 이름을 `context-mode-js`로 바꾸면 캐시 부모가 `cache/context-mode-js/context-mode/`라는 **빈 디렉토리**로 새로 생기고, `1.0.0`이 그 안의 유일한 버전이 된다.
+
+방어는 **삼중**이다(F45): ① 새 부모에 dir이 하나뿐이라 `dirs.length > 1`이 거짓 ② 캐시 부모가 분리됨 ③ forward-heal·reverse-heal이 `key !== "context-mode@context-mode"`로 게이트되므로 새 키는 애초에 제외된다.
+
+> **⚠ D11의 유일한 미검증 고리(F46).** 캐시의 2단 중첩(`<마켓플레이스>/<플러그인>/<버전>`)은 **1차 문서에 규정돼 있지 않다.** 로컬 7/7 마켓플레이스와 `start.mjs:141`의 정규식으로만 확인된 미문서 내부 구현이다. Claude Code가 캐시 레이아웃을 바꾸면 격리가 무너진다. 확률은 낮으나 이 설계는 그 가정 위에 서 있다. 나머지 고리(마켓플레이스명의 출처, `enabledPlugins` 포맷, `false` 보존)는 전부 1차 출처로 확인됐다(F47).
 
 | 이전 설계의 문제 | D11 적용 후 |
 |---|---|
@@ -142,18 +154,24 @@ Codex(교차 모델) · 보안 감사 · 코드 정확성 · 레드팀 · 시퀀
 | 롤백이 옛 트리를 재생성해 함정을 되살림 | **소멸** — 옛 플러그인이 그대로 있어 되돌리기가 재설치 한 번 |
 | `v1.0.0` 사용 | **안전** |
 
-**대가(F42·F43) — 1판이 과소평가했다.** `postinstall.mjs`(설치 시)와 `start.mjs`(매 부팅)가 `pluginKey: "context-mode@context-mode"` 리터럴을 `heal-installed-plugins.mjs`에 넘긴다. 개명 후 이들이 하는 일:
+**대가(F42~F45).** 저장소가 `pluginKey: "context-mode@context-mode"` 리터럴을 하드코딩한다. 개명 후 각 호출부가 실제로 하는 일을 전수 추적했다:
 
-| 호출 | 개명 후 결과 | 위험 |
+| 호출부 | 개명 후 결과 | 위험 |
 |---|---|---|
-| `healInstalledPlugins(옛 키)` | `ip.plugins[옛 키]`가 비어 `syncedVersion=null` → HEAL 4 스킵 | 없음 |
-| `healSettingsEnabledPlugins(옛 키)` | `current !== true` → **`settings.json`에 옛 키를 `true`로 재기입** | **옛 플러그인이 유령으로 활성화된다** |
-| `sweepStaleMcpJson(옛 키)` | 옛 캐시 서브트리를 훑는다 | 낮음 (옛 트리는 비활성) |
-| 새 키(`…@context-mode-js`)의 치유 | **아무도 하지 않는다** | 상류 안전망 상실 |
+| `postinstall.mjs` 6곳 | **`if (isGlobalInstall())` 게이트 → `/plugin install`에선 통째로 스킵**(F44) | **없음** |
+| `start.mjs` forward/reverse heal | `key !== 옛 키` → `continue`(F45) | 없음 |
+| `start.mjs:249 healInstalledPlugins(옛 키)` | `entries.length === 0` → `skipped: "no-entry"`. **항목을 생성하지 않는다** | 없음 (단, 새 키의 HEAL 3/4가 안 돈다 = **자가치유 상실**) |
+| `start.mjs:253 healSettingsEnabledPlugins(옛 키)` | `current !== true` → `settings.json`에 옛 키를 `true`로 재기입 | **유일한 유해 쓰기** |
+| `start.mjs:263 healPluginJsonMcpServers` | `ip.plugins[옛 키]`만 순회한다 → uninstall 후 `[]` → **호출조차 되지 않는다** | 없음 (새 트리 미보호) |
+| `start.mjs:287 sweepStaleMcpJson(옛 키)` | 옛 트리의 `<ver>/.mcp.json`만 `unlink`하는데 6개 dir 전부 그 파일이 없다 → **완전 no-op** | 없음 |
 
-**단계 2의 대응 (코드 수정 없이):** `healSettingsEnabledPlugins`는 `current === false`를 `explicit-opt-out`으로 존중한다(F43). 커토버에서 `~/.claude/settings.json`의 `enabledPlugins`에 **`"context-mode@context-mode": false`를 명시**하면 재기입이 봉쇄된다. 삭제하거나 비워두면 다시 `true`가 된다.
+**즉 유해한 쓰기를 하는 곳은 여섯 개가 아니라 하나다.** "리터럴이 N개이므로 위험이 N배"라는 추론은 틀렸다 — 각 호출부의 가드를 읽어야 한다.
 
-**단계 3의 대응:** `postinstall.mjs`·`start.mjs`·`src/cli.ts`·`src/server.ts`의 `pluginKey`를 `__dirname`에서 파생시킨다(`.../cache/<마켓플레이스>/<플러그인>/<버전>` → `<플러그인>@<마켓플레이스>`). 이건 상류 결함이기도 하다 — 하드코딩된 키는 `context-mode` 이외의 마켓플레이스명을 전부 깨뜨린다.
+**단계 2의 대응 (코드 수정 불필요):** `healSettingsEnabledPlugins`는 `current === false`를 `explicit-opt-out`으로 존중한다(F43). 커토버에서 `~/.claude/settings.json`의 `enabledPlugins`에 **`"context-mode@context-mode": false`를 명시**하면 그 하나가 봉쇄된다. 삭제하거나 비워두면 다시 `true`가 된다. Claude는 이 `false`를 덮어쓰지 않는다(F47⑤).
+
+**남는 손실(수용):** 새 키에 대한 `healInstalledPlugins`의 HEAL 3/4가 돌지 않는다. 위험이 아니라 안전망 상실이며, 고장 시 **조용히가 아니라 드러나게** 실패한다.
+
+**단계 3의 대응:** `postinstall.mjs`·`start.mjs`·`src/cli.ts`·`src/server.ts`의 `pluginKey`를 `__dirname`에서 파생시킨다(`.../cache/<마켓플레이스>/<플러그인>/<버전>` → `<플러그인>@<마켓플레이스>`). 상류 결함이기도 하다 — 하드코딩된 키는 `context-mode` 이외의 마켓플레이스명을 전부 깨뜨린다.
 
 Codex 어댑터의 같은 리터럴은 Codex 카탈로그 이름을 유지하므로 영향받지 않는다(F36).
 
@@ -207,7 +225,7 @@ git commit                     # 태그 없음
 | 0 | `git remote add upstream …` **+ `git fetch upstream --no-tags`**. merge 금지 규칙을 `CLAUDE.md`에 기록 | `upstream/main` 존재 |
 | 1 | **CI 무해화 + 봇 정지 + 상류 접점 제거** (§7). 파일 9개 삭제 | 워크플로·`.github/`·`package.json`에서 상류 호출 grep 0건, 자동 커밋 봇 0건 |
 | **2** | **마켓플레이스 개명(`context-mode-js`) + 버전 `1.0.0` → 커토버 — 정지 게이트** | §5.3의 판정 6개. **사용자 보고 후에만 다음으로 진행** |
-| 3 | **삭제** — 204파일 삭제 + 코드/스크립트 편집 + 마켓플레이스명 하드코딩 수정(F38) + `web/` 상류 fetch 제거(F40) + 번들 재생성 (§8) | `tsc --noEmit` · `vitest run` · 잔재 grep 0건 · 런타임 하드페일 동작 |
+| 3 | **삭제** — 204파일 삭제 + 코드/스크립트 편집 + `pluginKey` 파생 수정(F42) + `web/` 상류 fetch 제거(F40) + 번들 재생성 (§8) | `tsc --noEmit` · `vitest run` · 잔재 grep 0건 · 런타임 하드페일 동작 |
 | 4 | **로컬 훅 2개 흡수 + 보안 하드닝** (§9) | §10 |
 | 5 | **태그 198개 삭제 → `git tag v1.0.0 <단계2 커밋>`** (F20에 의해 가역) | `git ls-remote --tags`가 `v1.0.0` 하나 |
 | 6 | `1.0.1`로 상향 + 태그 `v1.0.1` + push → **경량** 커토버 | `/plugin marketplace update` + `/plugin update`만으로 재설치가 일어나는지 확인 = **I1의 실제 검증**. Codex·Claude 실세션 각 1회 |
@@ -308,7 +326,7 @@ git commit                     # 태그 없음
 2. **그물 1 — `tsc`.** `npm run typecheck`. 잡히는 것: `getAdapter` switch(TS2678), `validPlatforms: PlatformId[]`, `client-map`의 Record 값, 동적 import 지정자.
 3. `git rm` 204개.
 4. `tsc`가 가리킨 곳 수정: `detect.ts`(`getAdapter` switch, `PLATFORM_ENV_VARS`), `client-map.ts`, `cli.ts`, `server.ts`, `session/analytics.ts`, `session/extract.ts`.
-5. **그물 2 — 문자열 grep.** 삭제된 15개 플랫폼 이름을 저장소 전체에서 검색해 잔재 0건 확인. `tsc`가 놓치는 자리: `getSessionDirSegments(platform: string)`(`detect.ts:337`, 삭제 case 14개), `platformOverride as PlatformId`(`detect.ts:395`), `HOOK_MAP`·`hookDispatch(platform: string)`(`cli.ts:77,158`), `analytics.ts:628`·`:1761`의 두 라벨표, `extract.ts`.
+5. **그물 2 — 문자열 grep.** 삭제되는 **16개** 플랫폼 식별자를 저장소 전체에서 검색해 잔재 0건 확인. `PlatformId` 19개 중 3개(`claude-code`, `codex`, `unknown`)만 남으므로 16개다 — **`kilo`를 빠뜨리기 쉽다.** `src/adapters/kilo/` 디렉토리는 없지만 `PlatformId`와 `configs/kilo`에는 존재하고 `getAdapter`의 `case "kilo":`가 `opencode`로 폴백한다. `tsc`가 놓치는 자리: `getSessionDirSegments(platform: string)`(`detect.ts:337`, 삭제 case 14개), `platformOverride as PlatformId`(`detect.ts:395`), `HOOK_MAP`·`hookDispatch(platform: string)`(`cli.ts:77,158`), `analytics.ts:628`·`:1761`의 두 라벨표, `extract.ts`.
    - **주의:** `kimi-k2`는 모델 이름이고 `executor.ts`/`lifecycle.ts`/`db.ts`의 매칭은 주석이다. 편집 대상이 아니다.
    - `assert-bundle`은 이 잔재를 못 막는다(F16). 번들에 `qwen`·`kimi` 문자열이 남아도 통과한다.
 6. **그물 3 — `.mjs` 수동 검토.** `hooks/core/{tool-naming,formatters,platform-detect,routing}.mjs`, `hooks/session-helpers.mjs`(`ANTIGRAVITY_CLI_OPTS`). `tsc` 밖이다.
@@ -337,7 +355,27 @@ git commit                     # 태그 없음
 
 ---
 
-## 9. 로컬 훅 2개 흡수 + 보안 하드닝 (단계 4)
+## 9. 로컬 훅 흡수 + 보안 하드닝
+
+### 9.0 사용자 레벨 힐 훅 5개 — D11이 만든 공백 (**단계 2**에서 처리)
+
+`~/.claude/hooks/`에는 4개가 아니라 **5개**의 힐 훅이 있다(F50). 전부 옛 마켓플레이스에 고정돼 있어 개명 후 **새 트리를 서비스하지 않는다.**
+
+| 훅 | 하드코딩 | 개명 후 |
+|---|---|---|
+| 훅 | 소유 | 개명 후 |
+|---|---|---|
+| `deps-heal` | **사용자 작성** (저장소 참조 0) | `activeInstallPath()`가 옛 키를 못 찾아 `cache/context-mode/context-mode`로 폴백 → **옛 트리의 `node_modules`를 치유한다.** 새 트리의 `@mixmark-io/domino` 부분 설치는 무점검 → `ctx_fetch_and_index` 크래시가 복구되지 않는다 ← **기능 상실** |
+| `lock-heal` | **사용자 작성** | 캐시 경로 하드코딩(+`CLAUDE_CONFIG_DIR` 무시). 새 트리의 `.in_use` 좀비 PID 락이 청소되지 않아 **#576 재발**(재연결 실패 누적) ← **기능 상실** |
+| `cache-heal` | **상류 배포** (`start.mjs:314,378`이 매 부팅 재배포) | `k !== "context-mode@context-mode"`로 새 키 스킵 → junction 위험은 사라지지만 **#46915(자동업데이트 심링크 치유)·#727(stale 경로 정규화) 보호도 함께 잃는다.** **온디스크 수정은 매 부팅 덮어써지므로 fork의 `start.mjs` 템플릿을 고쳐야 한다** |
+| `orphan-reaper` | 사용자 작성 | 키를 안 쓴다. 새 경로도 매칭. §9.2의 오탐 문제는 그대로 |
+| `prune-versions` | 사용자 작성 (미등록) | 옛 키 항목이 0이면 fail-safe `exit(0)` → **옛 트리를 지우지 않는다. 롤백 전제와 무충돌** |
+
+**단계 2에서 `deps-heal`과 `lock-heal`을 고친다.** 사용자 작성 파일이라 온디스크 수정이 유지된다. 새 이름을 하드코딩하지 말고 **`installed_plugins.json`의 활성 `installPath`에서 캐시 부모를 유도**한다 — 그래야 다음 개명에도 안 깨진다.
+
+**`cache-heal`은 단계 3으로 미룬다.** `start.mjs`의 `healScript` 템플릿을 고쳐야 하고, 그건 저장소 코드다. 그때까지 새 트리는 #46915·#727 보호를 받지 못한다. **위험이 아니라 안전망 상실이며, 고장 나면 드러나게 실패한다.** 수용한다.
+
+### 9.05 흡수 (단계 4)
 
 두 훅은 성격이 달라 **다른 곳에** 들어간다. 그리고 **둘 다 현재 상태로는 흡수할 수 없다.**
 
@@ -410,7 +448,7 @@ git commit                     # 태그 없음
 ### 롤백
 
 - 단계 1 실패 → 워크플로 되돌리기. 무해.
-- 단계 2 실패 → **옛 트리가 그대로 있으므로 싸다.** `/plugin uninstall context-mode@context-mode-js` → `/plugin marketplace add mksglu/context-mode` → `/plugin install context-mode@context-mode` → 재시작. Codex는 `~/.codex/config.toml`의 source를 `mksglu`로 되돌리고 `codex plugin marketplace upgrade context-mode`. **`~/.claude`의 `37a64ea` revert만으로는 부족하다** — 그 커밋은 `settings.json` 한 줄(마켓플레이스 source)만 바꿨고 Codex 설정은 건드리지 않았다.
+- 단계 2 실패 → **옛 트리가 그대로 있으므로 싸다.** 다만 **첫 줄이 `enabledPlugins["context-mode@context-mode"]`를 `true`로 되돌리는 것**이어야 한다 — 커토버에서 넣은 `false`를 그대로 두면 `healSettingsEnabledPlugins`가 `explicit-opt-out`으로 존중해 아무도 되살리지 않는다(F43). 완화책이 만든 함정이다. 그다음 `/plugin uninstall context-mode@context-mode-js` → `/plugin marketplace add mksglu/context-mode` → `/plugin install context-mode@context-mode` → 재시작. **롤백 창은 약 7일이다**(F48 — 고아 캐시 자동 삭제). Codex는 `~/.codex/config.toml`의 source를 `mksglu`로 되돌리고 `codex plugin marketplace upgrade context-mode`. **`~/.claude`의 `37a64ea` revert만으로는 부족하다** — 그 커밋은 `settings.json` 한 줄(마켓플레이스 source)만 바꿨고 Codex 설정은 건드리지 않았다.
 - 단계 3 실패 → squash 전이므로 브랜치 폐기. 이때 Claude에는 1.0.0(삭제 전 코드)이 설치돼 있고 동작한다 — 안전한 중간 상태다.
 - 단계 5 실패 → 삭제 직전에 뜬 `tags.snapshot`에서 개별 복원. **`git push origin --tags` 금지** — 상류 태그를 다시 밀어 넣는다.
 - 훅 흡수 실패 → best-effort 계약 유지. 세션 진행을 막지 않는다.
