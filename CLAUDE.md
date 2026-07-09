@@ -89,3 +89,16 @@ If search returns 0 results, proceed as a fresh session.
 | `ctx purge` | Call `ctx_purge` MCP tool with confirm: true. Warns before wiping knowledge base. |
 
 After /clear or /compact: knowledge base and session stats preserved. Use `ctx purge` to start fresh.
+
+## Fork rules — hard fork, do NOT merge upstream
+
+This repository is a hard fork of `mksglu/context-mode`. Supported clients: **Claude Code and Codex only**.
+
+- NEVER `git merge upstream/main` into `main`. Upstream changes are read, judged, and ported selectively on a branch.
+- `upstream/main` is a read-only reference. To send a PR upstream: `git checkout -b <fix> upstream/main`.
+- NEVER `git fetch upstream --tags` or `git push origin --tags`. Upstream's 198 tags would flood this fork's tag namespace.
+- No automation in this fork may call upstream infrastructure — no jsDelivr purge of `mksglu/context-mode`, no shields.io badges pointing at it, no links funnelling issues or sponsorship to it.
+- NEVER run `npm version`. Tags `v1.0.0` and `v1.0.1` already exist and the command would fail after committing. Edit `package.json` by hand, then run `npm run version-sync`.
+- The Claude marketplace for this fork is named `context-mode-js`, so its plugin cache lives at `~/.claude/plugins/cache/context-mode-js/context-mode/`. NEVER install this fork under the `context-mode` marketplace name: `start.mjs`'s forward heal rewrites the registry to the highest-semver dir in the cache parent on every boot, and upstream's `1.0.169` outranks our `1.0.x`.
+- NEVER hand-edit `~/.claude/hooks/context-mode-cache-heal.mjs`. `start.mjs` overwrites it on every boot.
+- `assert-bundle` does NOT compare committed bundles against a rebuild — it only scans for the esbuild `__require("node:...")` shim. Stale bundles pass CI and ship broken code. Always run `npm run build` before committing a change under `src/`.
