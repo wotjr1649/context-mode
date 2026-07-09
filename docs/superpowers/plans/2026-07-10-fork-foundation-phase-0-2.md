@@ -449,42 +449,127 @@ grep -n 'cache", *"context-mode", *"context-mode"' /c/Users/js/.claude/hooks/con
 ```
 Expected: `deps-heal`에 키 1건 + 경로 1건, `lock-heal`에 경로 1건.
 
-- [ ] **Step 2: `deps-heal`의 키와 캐시 폴백 경로를 바꾼다**
+- [ ] **Step 2: `deps-heal`의 활성 경로 탐색을 키 접두사 유도로 바꾼다**
 
-새 이름을 다시 하드코딩하지 않는다 — **레지스트리의 활성 `installPath`에서 캐시 부모를 유도**한다. 그래야 다음 개명에도 안 깨진다.
+**마켓플레이스명을 어디에도 적지 않는다.** `installed_plugins.json`에서 `context-mode@`로 시작하고 `installPath`가 실제로 존재하는 키를 찾는다. 그러면 커토버 전(옛 키)에도 후(새 키)에도 자동으로 맞는 트리를 가리키고, 다음 개명에도 안 깨진다.
 
-`deps-heal.mjs:53` 부근:
+`activeInstallPath()` 전체(현재 49–68행)를 다음으로 교체한다:
+
 ```js
-const es = ip.plugins && ip.plugins["context-mode@context-mode-js"];
+// 활성 설치 경로: installed_plugins.json 에서 `context-mode@<마켓플레이스>` 키를 찾는다.
+// 마켓플레이스명을 하드코딩하지 않으므로 개명에 안 깨진다. 레지스트리를 못 읽으면
+// 치유하지 않는다 — 엉뚱한 트리를 고치는 것보다 아무것도 안 하는 편이 낫다.
+function activeInstallPath() {
+  try {
+    const f = resolve(cfgDir(), "plugins", "installed_plugins.json");
+    const ip = JSON.parse(readFileSync(f, "utf8"));
+    const plugins = (ip && ip.plugins) || {};
+    const key = Object.keys(plugins).find((k) => {
+      if (!k.startsWith("context-mode@")) return false;
+      const p = plugins[k] && plugins[k][0] && plugins[k][0].installPath;
+      return typeof p === "string" && existsSync(p);
+    });
+    if (!key) return null;
+    const p = plugins[key][0].installPath;
+    try { return realpathSync(p); } catch { return p; }
+  } catch {}
+  return null;
+}
 ```
-`:57` 부근 — 폴백을 활성 installPath의 부모로 바꾼다:
+
+이 교체로 `readdirSync`·`statSync`가 쓰이지 않게 된다. **import 문에서 함께 제거한다** (`node:fs`에서 `readdirSync, statSync`).
+
+- [ ] **Step 3: `deps-heal`의 `npm install`에 `--ignore-scripts`를 추가한다**
+
+97행 부근의 명령 문자열에 플래그 하나를 넣는다. 대상은 순수-JS 패키지(`turndown`, `@mixmark-io/domino`)라 빌드 스크립트가 필요 없고, 침해되거나 타이포스쿼트된 버전의 `postinstall`이 자동 실행되는 것을 막는다.
+
 ```js
-// installPath 를 못 읽었을 때만 쓰는 폴백. 마켓플레이스명을 하드코딩하지 않는다.
-const base = resolve(cfgDir(), "plugins", "cache", "context-mode-js", "context-mode");
+      execSync(
+        `${npm} install ${spec} --prefix "${root}" --ignore-scripts --no-save --no-package-lock --no-audit --no-fund --loglevel=error`,
+        { stdio: "ignore", timeout: 180000 }
+      );
 ```
 
-- [ ] **Step 3: `lock-heal`의 캐시 경로를 바꾼다**
+> 나머지 하드닝(`execFileSync` 전환, `name`/`range` charset 검증, `rmSync` 경로 봉쇄, stderr → 로그파일)은 **단계 4**로 미룬다. 이 스텝은 플래그 하나만 넣는다.
 
-`lock-heal.mjs:12` 부근의 `cache/context-mode/context-mode` → `cache/context-mode-js/context-mode`. 이 훅은 `CLAUDE_CONFIG_DIR`도 무시하므로 함께 존중하도록 고친다.
+- [ ] **Step 4: `lock-heal`의 `cacheBase`를 같은 방식으로 유도한다**
+
+12행의 하드코딩을 제거하고, `CLAUDE_CONFIG_DIR`도 존중한다.
+
+import 문을 바꾼다:
+```js
+import { existsSync, readdirSync, statSync, unlinkSync, readFileSync } from "node:fs";
+import { resolve, join, dirname } from "node:path";
+```
+
+그리고 `try {` 바로 위에 헬퍼 두 개를 넣는다:
+```js
+function cfgDir() {
+  const e = process.env.CLAUDE_CONFIG_DIR;
+  if (e && e.trim() !== "") {
+    return e.startsWith("~") ? resolve(homedir(), e.replace(/^~[/\\]?/, "")) : resolve(e);
+  }
+  return resolve(homedir(), ".claude");
+}
+
+// deps-heal 과 같은 규칙: 마켓플레이스명을 하드코딩하지 않고 레지스트리에서 유도한다.
+function activeCacheBase() {
+  try {
+    const f = resolve(cfgDir(), "plugins", "installed_plugins.json");
+    const ip = JSON.parse(readFileSync(f, "utf8"));
+    const plugins = (ip && ip.plugins) || {};
+    const key = Object.keys(plugins).find((k) => {
+      if (!k.startsWith("context-mode@")) return false;
+      const p = plugins[k] && plugins[k][0] && plugins[k][0].installPath;
+      return typeof p === "string" && existsSync(p);
+    });
+    if (!key) return null;
+    return dirname(plugins[key][0].installPath); // …/cache/<마켓플레이스>/context-mode
+  } catch {}
+  return null;
+}
+```
+
+12–13행을 교체한다:
+```js
+  const cacheBase = activeCacheBase();
+  if (!cacheBase || !existsSync(cacheBase)) process.exit(0);
+```
+
+나머지(버전 dir 순회, `tasklist` 일괄 조회, 좀비 PID 언링크)는 그대로 둔다.
 
 > `cache-heal`은 여기서 고치지 않는다. `start.mjs:314,378`이 매 부팅 재배포하므로 온디스크 수정이 사라진다. 단계 3에서 fork의 `start.mjs` 템플릿을 고친다. 그때까지 새 트리는 #46915·#727 보호를 받지 못한다 — 수용된 손실이다.
 
-- [ ] **Step 4: 확인 (GREEN)**
+- [ ] **Step 5: 확인 (GREEN)**
 
 ```bash
-grep -c 'context-mode-js' /c/Users/js/.claude/hooks/context-mode-deps-heal.mjs /c/Users/js/.claude/hooks/context-mode-lock-heal.mjs
-grep -c 'context-mode@context-mode"' /c/Users/js/.claude/hooks/context-mode-deps-heal.mjs
+D=/c/Users/js/.claude/hooks/context-mode-deps-heal.mjs
+L=/c/Users/js/.claude/hooks/context-mode-lock-heal.mjs
+# 마켓플레이스명이 어느 훅에도 남아 있지 않아야 한다
+grep -nE '"context-mode@context-mode"|"cache", *"context-mode"|context-mode-js' "$D" "$L" ; test $? -eq 1 && echo "PASS: 마켓플레이스명 하드코딩 0건"
+# 접두사 유도가 들어갔는가
+grep -c 'startsWith("context-mode@")' "$D" "$L"
+# --ignore-scripts
+grep -c -- '--ignore-scripts' "$D"
+# 구문 검사 (둘 다 ESM)
+node --check "$D" && node --check "$L" && echo "PASS: 구문 OK"
 ```
-Expected: 각각 `≥1`, 그리고 옛 키 `0`.
+Expected: `PASS: 마켓플레이스명 하드코딩 0건` · 각 파일 `1` · `1` · `PASS: 구문 OK`
 
-- [ ] **Step 5: `~/.claude` 저장소에 커밋**
+- [ ] **Step 6: `~/.claude` 저장소에 커밋**
 
 ```bash
 git -C /c/Users/js/.claude add hooks/context-mode-deps-heal.mjs hooks/context-mode-lock-heal.mjs
-git -C /c/Users/js/.claude commit -m "hooks: point deps-heal and lock-heal at the context-mode-js marketplace"
-```
+git -C /c/Users/js/.claude commit -m "hooks: derive the plugin cache parent from the registry instead of hardcoding the marketplace
 
-> **주의:** 이 두 훅은 커토버 **전에** 고쳐야 한다. 재시작 직후 SessionStart에서 바로 돌기 때문이다.
+deps-heal and lock-heal hardcoded 'context-mode@context-mode' and
+cache/context-mode/context-mode. Renaming the Claude marketplace to
+context-mode-js would have left both healing the old, unused tree while
+the live one rotted. Derive the entry by 'context-mode@' key prefix so
+this survives the rename and any future one.
+
+Also add --ignore-scripts to deps-heal's npm install: the targets are
+pure-JS and a compromised version's postinstall must not run."
 
 ---
 
