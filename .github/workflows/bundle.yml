@@ -2,12 +2,6 @@ name: Bundle MCP Server & CLI
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'tsconfig.json'
 
 permissions:
   contents: write
