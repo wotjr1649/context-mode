@@ -67,6 +67,7 @@ Codex(교차 모델) · 보안 감사 · 코드 정확성 · 레드팀 · 시퀀
 | **F42** | `context-mode@context-mode` **리터럴 전수**: `src/adapters/codex/index.ts`(9, Codex — 이름 유지하므로 무관) · `scripts/postinstall.mjs`(6) · `src/cli.ts`(5) · `start.mjs`(4) · `src/server.ts`(1). `scripts/heal-installed-plugins.mjs`는 `pluginKey`를 **인자로 받으므로 하드코딩이 아니다** | grep |
 | **F52** | **F42의 캐시 경로 목록이 틀렸다.** `hooks/cache-heal-utils.mjs`를 "주석"으로 분류했으나, **`:291`의 `versionSegmentRe = /(context-mode[/\\]context-mode[/\\])([^/\\]+)([/\\]bin)/g`는 살아 있는 코드다.** `:309`에서 쓰이고 `hooks/sessionstart.mjs:132,158`이 `selfHealShellSnapshots`로 매 세션 시작마다 호출한다. 개명 후 경로는 `context-mode-js/context-mode/<v>/bin`이라 매칭에 실패해 **셸 스냅샷 자가치유가 조용히 no-op**이 된다(손상은 없다). 원래 grep이 `cache/` 접두사를 붙여 놓쳤다. **단계 3의 소비자 목록에 반드시 포함한다.** 나머지 캐시 경로 리터럴: `src/cli.ts:1642`, `src/util/sibling-mcp.ts:68`, `hooks/sessionstart.mjs:137`(주석) | 최종 브랜치 리뷰 + 실물 확인 |
 | **F53** | `start.mjs`의 네 지점(`:190` forward-heal 게이트, `:206` reverse-heal 게이트, `:243` `pluginKey` 리터럴, `:253` 소비자)이 옛 키로 게이트되며, **`symlinkSync`는 `:206`의 게이트 안쪽에 있다** — 게이트 밖 폴백이 없다. `start.mjs`는 esbuild 번들 대상이 아니므로(`package.json`의 `files`에 raw로 실림) 수정에 번들 재생성이 필요 없고 `tests/scripts/start-mjs-*.test.ts` 3개가 커버한다 | 최종 브랜치 리뷰 + 실물 확인 |
+| **F55** | **이 fork는 GitHub Actions run이 총 0건이다.** `actions/permissions → enabled: true`, 워크플로 `state: active`인데도 `actions/runs.total_count = 0`이고 `main` push 직후 `commits/<sha>/check-runs = 0`이다. 포크 저장소는 Actions 탭에서 한 번 명시적으로 활성화하기 전까지 워크플로가 실행되지 않는다(GitHub 기본 동작; API는 이를 노출하지 않는다). 결과: ① `bundle.yml` 자동 커밋 봇은 **애초에 발화한 적이 없다** — 단계 1의 "봇을 먼저 재운다"는 방어적 조치였지 필수 전제는 아니었다(Actions를 켜는 순간 되살아나므로 제거는 여전히 옳다) ② `update-stats.yml`의 상류 CDN purge도 실행된 적 없는 **잠재 지뢰**였다 ③ **§8.3의 번들 신선도 가드를 `ci.yml`에 넣어도 Actions를 켜지 않으면 무효다** ④ 이 fork에는 자동 검증이 전혀 없다. 모든 확신은 로컬 테스트와 리뷰에 있다 | `gh api` |
 | **F54** | **`sweepStaleMcpJson`은 키 파생을 고쳐도 여전히 죽는다.** `heal-installed-plugins.mjs:547-557`이 `pluginKey`를 `<owner>@<plugin>` → `cache/<owner>/<plugin>`으로 매핑하는데(docstring `:531`), **실제 키는 `<플러그인>@<마켓플레이스>`이고 실제 경로는 `cache/<마켓플레이스>/<플러그인>`이다 — 세그먼트 순서가 반대다.** 개명 전에는 두 세그먼트가 모두 `context-mode`라 우연히 일치했다. 개명 후에는 존재하지 않는 `cache/context-mode/context-mode-js`를 만들어 `:563`의 `existsSync` 가드에 걸려 `skipped: "no-plugin-dir"`를 낸다. **파일을 지우지 않으므로 안전하지만 죽어 있다.** 상류 선재 결함이며 단계 3에서 고친다. 따라서 단계 2 이후 살아나는 자가치유는 **넷 중 셋**이다(`healInstalledPlugins`, `healSettingsEnabledPlugins`, `healPluginJsonMcpServers`) | Task 4c 리뷰 |
 | **F43** | `healSettingsEnabledPlugins`(`heal-installed-plugins.mjs:163-168`)는 `current === false`일 때만 `explicit-opt-out`으로 건너뛴다. `undefined`/`null`/`""`는 전부 `true`로 되살린다. `start.mjs:253`이 리터럴 옛 키를 넘기므로, **개명 후에도 `settings.json`의 `enabledPlugins["context-mode@context-mode"]`가 매 부팅 `true`로 재기입된다** | 스크립트 본문 |
 | **F44** | **`postinstall.mjs`의 치유 블록(110~205)은 `if (isGlobalInstall())`로 감싸여 있고, `isGlobalInstall()`은 `npm_config_global !== "true"`면 `false`를 반환한다(`:89-90`).** `/plugin install`은 캐시 디렉토리로의 비-global `npm install`이므로 **그 6개 리터럴은 전부 스킵된다.** 옛 키를 되살리는 유일한 실행 경로는 `start.mjs:253`이다 | 스크립트 본문 |
@@ -239,7 +240,8 @@ git commit                     # 태그 없음
 
 ### 6.1 순서의 근거
 
-- **단계 1이 맨 앞인 이유:** `bundle.yml`이 `package.json` push에 반응한다(F22). 단계 2가 바로 그 파일을 고친다. 봇을 먼저 재우지 않으면 단계 2의 push가 `main`에 봇 커밋을 낳고, D3의 "동결된 main"과 단계 3의 원자성이 함께 무너진다. `.github/**` 수정은 `bundle.yml`의 트리거 경로가 아니므로 단계 1의 push 자체는 안전하다. `update-stats.yml`의 6시간 cron도 작업 중 발화해 push를 거부시킨다(F23).
+- **단계 1이 맨 앞인 이유:** `bundle.yml`이 `package.json` push에 반응하고(F22) `update-stats.yml`은 6시간 cron으로 `main`에 커밋한다(F23). 봇을 먼저 재우지 않으면 단계 2의 push가 봇 커밋을 낳는다.
+  > **사후 정정(F55).** 실제로는 이 fork에서 Actions run이 한 번도 없었다 — 두 봇 모두 발화한 적이 없다. 순서는 **방어적이었지 필수 전제는 아니었다.** 다만 Actions를 켜는 순간 둘 다 되살아나므로 제거는 여전히 옳고, 순서를 이렇게 둔 것도 무해했다.
 - **단계 2가 삭제보다 앞인 이유:** 계획 전체가 "fork 코드가 실제로 실행된다"는 미검증 가정 위에 있다. fork는 **이미** 상류와 `flushAndExit`로 다르므로(F2), 삭제 전에 마켓플레이스 개명 + 버전 변경만으로 의식을 돌리면 그 가정이 최소 diff로 검증된다. 또한 이 시점엔 `version-sync.mjs`가 원본이라 TARGETS 10개(F39)가 전부 존재한다(F21의 fail-loud를 피한다).
 - **단계 2는 "공짜"가 아니다.** 저장소 diff는 작지만 `~/.claude`의 설치 상태(레지스트리·`settings.json`·마켓플레이스 등록)를 바꾼다. 다만 D11 덕분에 **되돌리기가 싸다** — 옛 캐시 트리와 옛 마켓플레이스 클론이 그대로 있으므로 `/plugin marketplace add mksglu/context-mode` + `/plugin install context-mode@context-mode` 한 번으로 복귀한다.
 - **단계 5(태그)가 뒤인 이유:** 삭제·검증이 끝난 뒤여야 한다. 최대 리스크 구간 앞에서 파괴적 작업을 하지 않는다.
@@ -363,7 +365,9 @@ git commit                     # 태그 없음
   run: npm run bundle && git diff --exit-code -- server.bundle.mjs cli.bundle.mjs hooks/*.bundle.mjs
 ```
 
-**전제:** esbuild 출력이 결정적이어야 한다. 현재 `package.json`은 `"esbuild": "^0.27.3"`이고 락파일은 `bun.lock`뿐이며 `ci.yml`은 `npm install`을 쓴다 → 러너마다 esbuild 버전이 달라져 오탐이 난다. **가드를 넣으려면 `esbuild`를 정확 버전으로 핀하거나 `package-lock.json`을 커밋하고 `npm ci`로 바꿔야 한다.** 이 전제를 먼저 처리한다.
+**전제 1 — Actions가 실제로 돌아야 한다(F55).** 이 fork는 워크플로 run이 총 0건이다. Actions 탭에서 한 번 활성화하지 않으면 `ci.yml`에 무엇을 넣든 실행되지 않는다. **가드를 넣기 전에 Actions를 켤지부터 정한다.** 켜지 않기로 한다면 신선도 검사는 로컬 pre-commit이나 배포 절차의 수동 스텝이어야 한다.
+
+**전제 2 — esbuild 출력이 결정적이어야 한다.** 현재 `package.json`은 `"esbuild": "^0.27.3"`이고 락파일은 `bun.lock`뿐이며 `ci.yml`은 `npm install`을 쓴다 → 러너마다 esbuild 버전이 달라져 오탐이 난다. **`esbuild`를 정확 버전으로 핀하거나 `package-lock.json`을 커밋하고 `npm ci`로 바꿔야 한다.**
 
 ---
 
