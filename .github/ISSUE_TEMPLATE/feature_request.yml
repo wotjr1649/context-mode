@@ -12,22 +12,10 @@ body:
     id: platform
     attributes:
       label: Platform
-      description: Which AI agent platform is this feature for?
+      description: Which client is this feature for?
       options:
         - Claude Code
-        - Cursor
-        - VS Code Copilot (GitHub Copilot)
-        - JetBrains Copilot
-        - Gemini CLI
-        - Qwen Code
-        - OpenCode
-        - KiloCode
         - Codex CLI
-        - OpenClaw (Pi Agent)
-        - Pi
-        - Kiro
-        - Antigravity
-        - Zed
         - Other (please specify)
     validations:
       required: true

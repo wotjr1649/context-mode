@@ -4,23 +4,11 @@
 
 ## Affected platforms
 
-<!-- Check all platforms affected by this change -->
+<!-- Check all clients affected by this change -->
 
 - [ ] Claude Code
-- [ ] Cursor
-- [ ] VS Code Copilot (GitHub Copilot)
-- [ ] JetBrains Copilot
-- [ ] Gemini CLI
-- [ ] Qwen Code
-- [ ] OpenCode
-- [ ] KiloCode
 - [ ] Codex CLI
-- [ ] OpenClaw (Pi Agent)
-- [ ] Pi
-- [ ] Kiro
-- [ ] Antigravity
-- [ ] Zed
-- [ ] All platforms
+- [ ] Both clients
 
 ## Test plan
 
