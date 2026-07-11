@@ -38,7 +38,7 @@ const cliSrc = readFileSync(resolve(ROOT, "src", "cli.ts"), "utf-8");
 const startSrc = readFileSync(resolve(ROOT, "start.mjs"), "utf-8");
 const upgradeIdx = cliSrc.indexOf("async function upgrade");
 // upgradeBody cap was 14000 at v1.0.114; the function has grown by ~10k chars
-// through #523/#531/#542 (Layer 5b heal, Layer 6 mcp.json heal, Pi/OMP detect).
+// through #523/#531/#542 (Layer 5b heal, Layer 6 mcp.json heal, platform threading).
 // CI run 25739349791 showed the cap truncating the `Run manually: git -C ...
 // fetch ... reset` one-liner at offset 14073 — 73 chars past the cap. The
 // "marketplace assertion provides a manual-fix one-liner" test then sliced
@@ -86,7 +86,12 @@ describe("start.mjs HEAL 3 + HEAL 4 wiring (v1.0.114 hotfix)", () => {
     const block = startSrc.slice(heal34Idx, layer4Idx);
     expect(block).toContain("installed_plugins.json");
     expect(block).toContain('"cache"');
-    expect(block).toContain('"context-mode@context-mode"');
+    // The registry key is derived (PLUGIN_KEY, computed from our own cache
+    // path — see start.mjs:149-152), not the hardcoded upstream literal.
+    // Hardcoding it here would silently disable every heal below under any
+    // marketplace name other than "context-mode".
+    expect(block).toContain("pluginKey");
+    expect(block).not.toContain('"context-mode@context-mode"');
   });
 });
 
@@ -118,25 +123,6 @@ describe("cli.ts upgrade() pre-bump verification (v1.0.114 hotfix)", () => {
     expect(throwIdx).toBeLessThan(updateIdx);
   });
 
-  test("upgrade() gates 'npm install -g' behind the opencode/kilo exclusion (PR #650)", () => {
-    const upgradeIdx = cliSrc.indexOf("async function upgrade");
-    const upgradeBody = cliSrc.slice(upgradeIdx, upgradeIdx + 30000);
-
-    const gateIdx = upgradeBody.indexOf("!isInProcessPluginPlatform(detection.platform)");
-    const npmGIdx = upgradeBody.indexOf('"install", "-g"');
-
-    // Gate must exist, and the '-g' call must sit AFTER it (i.e. inside the block).
-    expect(gateIdx).toBeGreaterThan(0);
-    expect(npmGIdx).toBeGreaterThan(gateIdx);
-
-    // The closing brace of the gate must come AFTER the '-g' call,
-    // not between the ABI verifier and the global install (the pre-PR shape).
-    const closeBefore = upgradeBody.lastIndexOf(
-      "      }",
-      upgradeBody.indexOf("// Cleanup"),
-    );
-    expect(closeBefore).toBeGreaterThan(npmGIdx);
-  });
 });
 
 describe("cli.ts upgrade() post-write registry consistency check (v1.0.114 hotfix)", () => {

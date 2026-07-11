@@ -9,8 +9,8 @@
  * Idle-timeout semantics (override via env `CONTEXT_MODE_HOOK_STDIN_IDLE_MS`,
  * default 1500 ms):
  * - EOF before any data → resolve("")  — the original well-behaved path.
- * - EOF after data       → resolve(buffer) with BOM strip (#139 — Cursor on
- *                          Windows can emit a leading U+FEFF that crashes
+ * - EOF after data       → resolve(buffer) with BOM strip (#139 — some hosts
+ *                          on Windows emit a leading U+FEFF that crashes
  *                          downstream JSON.parse).
  * - Idle with 0 bytes    → resolve("")  — covers hosts that hold the pipe open
  *                          without ever closing it (issue #639 — Bun re-exec

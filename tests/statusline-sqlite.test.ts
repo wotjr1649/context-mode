@@ -51,7 +51,7 @@ const STATUSLINE_SQLITE_TIMEOUT_MS =
   process.platform === "win32" ? 300_000 : 30_000;
 
 // Isolate the spawned statusline's env so getMultiAdapterLifetimeStats()
-// (and OpenCode's APPDATA/XDG_CONFIG_HOME paths on Windows) cannot leak data
+// (and APPDATA/XDG_CONFIG_HOME-rooted paths on Windows) cannot leak data
 // from concurrently-running tests or the developer's real adapter dirs into
 // render decisions. Multi-adapter tests below explicitly pass their own
 // HOME/USERPROFILE in `env` to override this isolation (last spread wins).
@@ -305,11 +305,17 @@ describe("statusline.mjs — multi-adapter aggregation", () => {
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "ctx-statusline-multi-"));
     // Mirror real adapter layout: ~/.claude/context-mode/sessions for
-    // claude-code, ~/.gemini/context-mode/sessions for gemini-cli, etc.
+    // claude-code, plus a legacy upstream-era dir left on disk.
     claudeRoot = join(home, ".claude", "context-mode");
     claudeSessionsDir = join(claudeRoot, "sessions");
     mkdirSync(claudeSessionsDir, { recursive: true });
     mkdirSync(join(home, ".gemini", "context-mode", "sessions"), {
+      recursive: true,
+    });
+    // The other KEPT adapter (codex) — seeded by the 2+ adapter test below.
+    // Left empty in the single-adapter test: an empty kept-platform dir must
+    // not count as "real" either.
+    mkdirSync(join(home, ".codex", "context-mode", "sessions"), {
       recursive: true,
     });
   });
@@ -380,7 +386,10 @@ describe("statusline.mjs — multi-adapter aggregation", () => {
   // tripped on Windows runner load (CI #401 observed 186s with retry x2).
   test("renders 'across N tools' when 2+ real adapters detected", { timeout: STATUSLINE_SQLITE_TIMEOUT_MS }, () => {
     seedRealAdapter(join(home, ".claude", "context-mode", "sessions"), "claude");
-    seedRealAdapter(join(home, ".gemini", "context-mode", "sessions"), "gemini");
+    // Hard fork: codex is the only other enumerated adapter (analytics.ts
+    // enumerateAdapterDirs walks exactly .claude + .codex). Seeding a removed
+    // platform's dir (.gemini) can never count as a real adapter again.
+    seedRealAdapter(join(home, ".codex", "context-mode", "sessions"), "codex");
 
     const { stdout } = runStatusline({
       // statusline must use HOME for multi-adapter walk

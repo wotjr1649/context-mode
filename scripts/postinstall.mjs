@@ -2,8 +2,7 @@
 /**
  * postinstall — cross-platform post-install tasks
  *
- * 1. OpenClaw detection (print helper message)
- * 2. Windows global install: fix broken bin→node_modules path
+ * 1. Windows global install: fix broken bin→node_modules path
  *    when nvm4w places the shim and node_modules in different directories.
  *    Creates a directory junction so npm's %~dp0\node_modules\... resolves.
  */
@@ -14,10 +13,15 @@ import { dirname, resolve, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { healBetterSqlite3Binding } from "./heal-better-sqlite3.mjs";
-import { healInstalledPlugins, healSettingsEnabledPlugins, healPluginJsonMcpServers, sweepStaleMcpJson } from "./heal-installed-plugins.mjs";
+import { derivePluginKey } from "./heal-installed-plugins.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(__dirname, "..");
+// Registry key derived from where THIS install physically lives — null
+// outside the plugin cache (npm-global install, dev checkout). Every
+// self-heal block below skips entirely when null; never falls back to the
+// upstream literal key. Refusing to heal beats healing the wrong tree.
+const PLUGIN_KEY = derivePluginKey(pkgRoot);
 
 // ── -2. Issue #564 — Linux SIGSEGV class hard-fail (v1.0.132) ────────
 // On Linux + Node < 22.5 + no Bun, better-sqlite3's native addon is
@@ -107,113 +111,18 @@ function isSafeWindowsPath(p) {
   return !/[&|<>"^%\r\n]/.test(p);
 }
 
-// ── -1. v1.0.114 hotfix — installed_plugins.json registry repair ─────
-// /ctx-upgrade in v1.0.113 poisoned the registry (entry.version drifted
-// + enabledPlugins emptied), making Claude Code's plugin loader skip
-// context-mode entirely. start.mjs HEAL 3+4 fix this on every MCP boot,
-// but already-broken users have no MCP to boot — they need the heal to
-// run from npm postinstall. Shared module so both call sites stay in
-// sync. Only runs in real `npm install -g` to avoid surprising
-// contributors. Best effort, never blocks install. (#46915 follow-up.)
-if (isGlobalInstall()) {
-  try {
-    const registryPath = resolve(homedir(), ".claude", "plugins", "installed_plugins.json");
-    const pluginCacheRoot = resolve(homedir(), ".claude", "plugins", "cache");
-    const result = healInstalledPlugins({
-      registryPath,
-      pluginCacheRoot,
-      pluginKey: "context-mode@context-mode",
-    });
-    if (result.skipped === "no-registry") {
-      // Standalone npm user (no Claude Code) — silent success.
-      process.stderr.write("context-mode: install OK, no Claude Code registry found\n");
-    } else if (result.error) {
-      process.stderr.write(`context-mode: install OK, registry heal skipped (${result.error})\n`);
-    } else if (result.healed && result.healed.length > 0) {
-      process.stderr.write(`context-mode: healed installed_plugins.json (${result.healed.join(", ")})\n`);
-    } else {
-      process.stderr.write("context-mode: install OK, no heal needed\n");
-    }
-  } catch (err) {
-    // Never block install on a heal failure.
-    try {
-      process.stderr.write(`context-mode: install OK, heal aborted (${(err && err.message) || err})\n`);
-    } catch { /* truly best effort */ }
-  }
-
-  // v1.0.116: also heal settings.json.enabledPlugins (the file Claude Code's
-  // plugin loader actually reads). v1.0.114 only touched installed_plugins.json.
-  try {
-    const settingsPath = resolve(homedir(), ".claude", "settings.json");
-    const r = healSettingsEnabledPlugins({
-      settingsPath,
-      pluginKey: "context-mode@context-mode",
-    });
-    if (r.healed && r.healed.length > 0) {
-      process.stderr.write(`context-mode: healed settings.json (${r.healed.join(", ")})\n`);
-    }
-    // skipped/error: silent — already covered by the prior heal's stderr line.
-  } catch { /* never block install */ }
-
-  // v1.0.119: Layer 5b (Issue #523). Heal .claude-plugin/plugin.json's
-  // mcpServers["context-mode"].args[0] when /ctx-upgrade left a tmpdir-prefixed
-  // path baked in. Iterates EVERY installed cache entry's installPath so
-  // already-broken users self-recover the next time `npm install -g context-mode`
-  // runs. Best effort, never blocks install.
-  try {
-    const ipPath = resolve(homedir(), ".claude", "plugins", "installed_plugins.json");
-    const cacheRoot = resolve(homedir(), ".claude", "plugins", "cache");
-    if (existsSync(ipPath)) {
-      const ip = JSON.parse(readFileSync(ipPath, "utf-8"));
-      const entries = (ip && ip.plugins && ip.plugins["context-mode@context-mode"]) || [];
-      let healedAny = false;
-      if (Array.isArray(entries)) {
-        for (const entry of entries) {
-          const installPath = entry && entry.installPath;
-          if (typeof installPath !== "string" || !installPath) continue;
-          try {
-            const r = healPluginJsonMcpServers({
-              pluginRoot: installPath,
-              pluginCacheRoot: cacheRoot,
-              pluginKey: "context-mode@context-mode",
-            });
-            if (r && Array.isArray(r.healed) && r.healed.length > 0) {
-              healedAny = true;
-            }
-          } catch { /* per-entry best effort */ }
-        }
-      }
-      // Issue #609 — Layer 6: sweep stale `.mcp.json` files from every
-      // per-version cache dir. Replaces the previous per-entry healMcpJsonArgs
-      // loop (v1.0.122) — `.mcp.json` is no longer written from cli.ts so
-      // remaining files in the cache are stale carry-forwards that block
-      // future auto-updates from working cleanly. Single sweep per install.
-      try {
-        const sweepResult = sweepStaleMcpJson({
-          pluginCacheRoot: cacheRoot,
-          pluginKey: "context-mode@context-mode",
-        });
-        if (sweepResult && Array.isArray(sweepResult.removed) && sweepResult.removed.length > 0) {
-          process.stderr.write(`context-mode: swept ${sweepResult.removed.length} stale .mcp.json file(s) (Issue #609)\n`);
-        }
-      } catch { /* never block install */ }
-      if (healedAny) {
-        process.stderr.write("context-mode: healed mcpServers args (Issue #523)\n");
-      }
-    }
-  } catch { /* never block install */ }
-}
-
 // ── 0. Self-heal Layer 3: Backward symlink for stale registry (anthropics/claude-code#46915) ──
 // When this install completes, installed_plugins.json may still point to an old
 // non-existent path. Create a symlink from that old path → our new directory.
 try {
   const ipPath = resolve(homedir(), ".claude", "plugins", "installed_plugins.json");
-  if (existsSync(ipPath)) {
+  // PLUGIN_KEY null (outside the plugin cache) skips this heal entirely —
+  // refusing to heal beats healing the wrong tree.
+  if (PLUGIN_KEY && existsSync(ipPath)) {
     const ip = JSON.parse(readFileSync(ipPath, "utf-8"));
     const cacheRoot = resolve(homedir(), ".claude", "plugins", "cache");
     for (const [key, entries] of Object.entries(ip.plugins || {})) {
-      if (key !== "context-mode@context-mode") continue;
+      if (key !== PLUGIN_KEY) continue;
       for (const entry of entries) {
         const rp = entry.installPath;
         if (!rp || existsSync(rp)) continue;
@@ -230,11 +139,6 @@ try {
     }
   }
 } catch { /* best effort — don't block install */ }
-
-// ── 1. OpenClaw detection ────────────────────────────────────────────
-if (process.env.OPENCLAW_STATE_DIR) {
-  console.log("\n  OpenClaw detected. Run: npm run install:openclaw\n");
-}
 
 // ── 2. Windows global install — nvm4w junction fix ───────────────────
 // npm's .cmd shim resolves modules via %~dp0\node_modules\<pkg>\...
@@ -349,8 +253,8 @@ try { healBetterSqlite3Binding(pkgRoot); } catch { /* best effort — don't bloc
 // source-tracked `.claude-plugin/plugin.json` — doing so substitutes the
 // literal `${CLAUDE_PLUGIN_ROOT}` with an absolute path and trips
 // `scripts/assert-asymmetric-drift.mjs` (Issue #531) in the build chain.
-// Reuses `isGlobalInstall()` (section -1 already gates that way); the
-// `.git` walk inside it is what keeps contributor / CI installs untouched.
+// Reuses `isGlobalInstall()`; the `.git` walk inside it is what keeps
+// contributor / CI installs untouched.
 //
 // Guard 2: /ctx-upgrade clones the repo to `<tmpdir>/context-mode-upgrade-<epoch>/`
 // and runs `npm install` there before `cpSync`-ing files into the real pluginRoot

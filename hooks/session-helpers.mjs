@@ -45,7 +45,6 @@ const _sessionDb = await loadSessionDbModule();
 const {
   ensureWritableStorageDir,
   hashProjectDirCanonical,
-  hashProjectDirLegacy,
   normalizeWorktreePath,
   resolveDefaultSessionDir,
   resolveSessionStorageDir,
@@ -135,51 +134,6 @@ const CLAUDE_OPTS = {
   sessionIdEnv: "CLAUDE_SESSION_ID",
 };
 
-/** Gemini CLI platform options. */
-export const GEMINI_OPTS = {
-  configDir: ".gemini",
-  configDirEnv: "GEMINI_CLI_HOME",
-  projectDirEnv: "GEMINI_PROJECT_DIR",
-  sessionIdEnv: undefined,
-};
-
-/**
- * Antigravity CLI (`agy`) platform options. Shares the Gemini-family session
- * root (~/.gemini/context-mode/sessions). agy supplies the conversation id and
- * workspace path inside the hook payload (mapped to session_id/cwd before these
- * opts are consulted), so no env-var fallbacks are needed.
- */
-export const ANTIGRAVITY_CLI_OPTS = {
-  configDir: ".gemini",
-  configDirEnv: undefined,
-  projectDirEnv: undefined,
-  sessionIdEnv: undefined,
-};
-
-/** VS Code Copilot platform options. */
-export const VSCODE_OPTS = {
-  configDir: ".vscode",
-  configDirEnv: undefined,
-  projectDirEnv: "VSCODE_CWD",
-  sessionIdEnv: undefined,
-};
-
-/** GitHub Copilot CLI platform options. */
-export const COPILOT_OPTS = {
-  configDir: ".copilot",
-  configDirEnv: "COPILOT_HOME",
-  projectDirEnv: undefined,
-  sessionIdEnv: undefined,
-};
-
-/** Cursor platform options. */
-export const CURSOR_OPTS = {
-  configDir: ".cursor",
-  configDirEnv: undefined,
-  projectDirEnv: "CURSOR_CWD",
-  sessionIdEnv: "CURSOR_SESSION_ID",
-};
-
 /** Codex CLI platform options. */
 export const CODEX_OPTS = {
   configDir: ".codex",
@@ -188,45 +142,10 @@ export const CODEX_OPTS = {
   sessionIdEnv: undefined,    // Uses session_id from hook stdin or ppid fallback
 };
 
-/** Kiro CLI platform options. */
-export const KIRO_OPTS = {
-  configDir: ".kiro",
-  configDirEnv: undefined,
-  projectDirEnv: undefined,   // Kiro CLI provides cwd in hook stdin, no env var
-  sessionIdEnv: undefined,    // No session ID env var — uses ppid fallback
-};
-
-/** Kimi Code CLI platform options.
- *
- * `KIMI_CODE_HOME` is documented at
- *   refs/platforms/kimi-code/docs/zh/configuration/env-vars.md:11-21
- *   refs/platforms/kimi-code/docs/en/configuration/env-vars.md:9-21
- * and is read by MoonshotAI's own first-party plugins
- *   refs/platforms/kimi-code/plugins/official/kimi-datasource/bin/
- *     kimi-datasource.mjs:207-210
- * so context-mode must honour it too — otherwise relocated Kimi installs
- * keep the user's data root at `$KIMI_CODE_HOME` while context-mode keeps
- * its session DB stranded at `~/.kimi-code/context-mode/sessions/`.
- */
-export const KIMI_OPTS = {
-  configDir: ".kimi-code",
-  configDirEnv: "KIMI_CODE_HOME",
-  projectDirEnv: undefined,   // Kimi Code passes cwd in hook stdin, no env var
-  sessionIdEnv: undefined,    // Uses session_id from hook stdin or ppid fallback
-};
-
-/** JetBrains Copilot platform options. */
-export const JETBRAINS_OPTS = {
-  configDir: ".config/JetBrains",
-  configDirEnv: undefined,
-  projectDirEnv: "IDEA_INITIAL_DIRECTORY",
-  sessionIdEnv: undefined,
-};
-
 /**
  * Resolve the platform config directory, respecting env var overrides.
- * Platforms like Claude Code (CLAUDE_CONFIG_DIR), Gemini CLI (GEMINI_CLI_HOME),
- * and Codex CLI (CODEX_HOME) allow users to customize the config location.
+ * Platforms like Claude Code (CLAUDE_CONFIG_DIR) and Codex CLI (CODEX_HOME)
+ * allow users to customize the config location.
  * Falls back to ~/<configDir> when no env var is set.
  */
 export function resolveConfigDir(opts = CLAUDE_OPTS) {
@@ -256,8 +175,8 @@ export function parseStdin(raw) {
  * Idle-timeout semantics (override via env `CONTEXT_MODE_HOOK_STDIN_IDLE_MS`,
  * default 1500 ms):
  * - EOF before any data \u2192 resolve("")  \u2014 the original well-behaved path.
- * - EOF after data       \u2192 resolve(buffer) with BOM strip (#139 \u2014 Cursor on
- *                          Windows can emit a leading U+FEFF that crashes
+ * - EOF after data       \u2192 resolve(buffer) with BOM strip (#139 \u2014 a Windows
+ *                          host can emit a leading U+FEFF that crashes
  *                          downstream JSON.parse).
  * - Idle with 0 bytes    \u2192 resolve("")  \u2014 covers hosts that hold the pipe open
  *                          without ever closing it (issue #639 \u2014 Bun re-exec

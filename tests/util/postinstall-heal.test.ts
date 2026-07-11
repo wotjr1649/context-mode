@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -42,8 +43,21 @@ const KEY = "context-mode@context-mode";
  * `.git` and skips heal if found — exactly what we want during contributor
  * `npm install` runs but exactly what we have to *bypass* in vitest, since
  * the test always lives inside a git checkout.
+ *
+ * The staged root MUST also shape as `plugins/cache/<marketplace>/<plugin>/
+ * <version>` — postinstall.mjs now derives its registry key from pkgRoot via
+ * derivePluginKey() (Task 3b) instead of a hardcoded literal, and refuses to
+ * heal (by design) when pkgRoot isn't inside a plugin cache. A real `npm
+ * install -g` from the npm registry can't happen for this "private": true
+ * fork; the realistic case this fixture stands in for is "deps-heal" — npm
+ * reinstalling INSIDE an already-installed plugin cache directory. Using the
+ * literal marketplace/plugin segment "context-mode" (upstream layout) keeps
+ * the derived key equal to the `KEY` constant below — no other change needed.
+ *
+ * Pass layout "npm-global" to stage the true `npm install -g` shape instead
+ * (outside any plugins/cache) — used by the Task 3b null→skip contract pin.
  */
-function stagePostinstallPackage(): {
+function stagePostinstallPackage(layout: "cache" | "npm-global" = "cache"): {
   scriptPath: string;
   packageDir: string;
 } {
@@ -52,7 +66,9 @@ function stagePostinstallPackage(): {
   // Keep the fake package several levels below tmpdir. isGlobalInstall() only
   // scans four ancestors; this prevents ambient markers like /tmp/.git from
   // making the staged global-install fixture look like a contributor checkout.
-  const root = join(base, "npm", "lib", "node_modules", "context-mode");
+  const root = layout === "npm-global"
+    ? join(base, "npm", "lib", "node_modules", "context-mode")
+    : join(base, "plugins", "cache", "context-mode", "context-mode", "1.0.0");
   const scriptsDir = join(root, "scripts");
   const hooksDir = join(root, "hooks");
   mkdirSync(scriptsDir, { recursive: true });
@@ -138,8 +154,9 @@ function buildFakeHome(opts: {
 function runPostinstall(opts: {
   home: string;
   global: boolean;
+  layout?: "cache" | "npm-global";
 }): { stdout: string; stderr: string; status: number | null } {
-  const staged = stagePostinstallPackage();
+  const staged = stagePostinstallPackage(opts.layout);
   const env: Record<string, string> = {
     PATH: process.env.PATH ?? "",
     HOME: opts.home,
@@ -153,10 +170,6 @@ function runPostinstall(opts: {
     timeout: 30_000,
   });
   return { stdout: r.stdout ?? "", stderr: r.stderr ?? "", status: r.status };
-}
-
-function readRegistry(p: string): Record<string, unknown> {
-  return JSON.parse(readFileSync(p, "utf-8"));
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -182,64 +195,73 @@ describe("postinstall — non-global install (contributor `npm install`)", () =>
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Slice 6 — global install with poisoned registry: heal happens
+// Slice 6b — Task 3b null→skip contract pin (re-armed in Task 9's fix round).
+//
+// A TRUE npm-global layout (`…/npm/lib/node_modules/context-mode`, outside
+// any plugins/cache tree) makes derivePluginKey(pkgRoot) return null, and
+// postinstall MUST then skip every PLUGIN_KEY-gated action — never fall back
+// to the hardcoded upstream key.
+//
+// Observable: Task 9 deleted the dead registry/settings heal block, so the
+// ONLY live PLUGIN_KEY consumer left in postinstall.mjs is the
+// "Self-heal Layer 3: Backward symlink" block ("── 0."): for a registry entry whose installPath
+// is dangling (non-existent, under the cache root) it creates a
+// symlink/junction at that path. The fixture below plants exactly such an
+// entry under the upstream-literal key. If someone reintroduces
+// `derivePluginKey(pkgRoot) ?? "context-mode@context-mode"`, the block
+// enters, symlinks the dangling installPath, and the existsSync tripwire
+// below fails. (Mutation-verified — see the Task 9 fix-round report.)
+//
+// The byte-identity checks are a secondary invariant: no postinstall code
+// path may write installed_plugins.json or settings.json at all.
 // ─────────────────────────────────────────────────────────────────────────
 
-describe("postinstall — global install with poisoned registry", () => {
-  // 90s budget — see L163/L246/L465 for the same precedent. Section 3 of
-  // postinstall.mjs (heal-better-sqlite3) routinely takes 20-30s on cold
-  // macOS GHA runners, blowing past vitest's default 30s. CI run
-  // 25804274156 caught this gap.
-  it("repairs entry.version + enabledPlugins and emits one stderr line", { timeout: 90_000 }, () => {
+describe("postinstall — Task 3b: npm-global layout (outside plugin cache) skips all heals", () => {
+  // 90s budget — same rationale as siblings: section 3 (heal-better-sqlite3)
+  // runs live in this subprocess and can take 20-30s on cold CI runners.
+  it("does not symlink a dangling installPath; registry and settings.json stay byte-identical", { timeout: 90_000 }, () => {
     const fake = buildFakeHome({
-      entryVersion: "1.0.99",         // poisoned
-      cacheVersion: "1.0.113",        // truth
-      enabledPlugins: {},             // /ctx-upgrade emptied this
+      entryVersion: "1.0.99",
+      cacheVersion: "1.0.113",
+      enabledPlugins: {},
     });
-
-    const r = runPostinstall({ home: fake.home, global: true });
-    expect(r.status === 0 || r.status === null).toBe(true);
-
-    const after = readRegistry(fake.registryPath) as {
-      plugins: Record<string, Array<{ version: string }>>;
-      enabledPlugins: Record<string, unknown>;
+    // Dangling installPath under the cache root: satisfies every backward-
+    // symlink (Layer 3) precondition except the PLUGIN_KEY gate itself — the key matches the
+    // upstream literal, the path does not exist, and it sits inside
+    // <home>/.claude/plugins/cache so the traversal guard
+    // (`resolve(rp).startsWith(cacheRoot + sep)`) would not skip it.
+    const danglingPath = resolve(
+      fake.home, ".claude", "plugins", "cache", "context-mode", "context-mode", "9.9.9-dangling",
+    );
+    const registry = JSON.parse(readFileSync(fake.registryPath, "utf-8")) as {
+      plugins: Record<string, Array<Record<string, unknown>>>;
     };
-    expect(after.plugins[KEY][0].version).toBe("1.0.113");
-    expect(after.enabledPlugins[KEY]).toBeDefined();
+    registry.plugins[KEY].push({
+      scope: "user",
+      installPath: danglingPath,
+      version: "9.9.9-dangling",
+      installedAt: "2025-01-01T00:00:00.000Z",
+      lastUpdated: "2025-01-01T00:00:00.000Z",
+    });
+    writeFileSync(fake.registryPath, JSON.stringify(registry, null, 2) + "\n");
 
-    // Concise stderr summary: a single human-readable line mentioning
-    // context-mode + heal verb. NOT a wall of text.
-    const healLines = r.stderr
-      .split(/\r?\n/)
-      .filter((l) => /context-mode/i.test(l) && /heal|sync|repair/i.test(l));
-    expect(healLines.length).toBe(1);
-    // No emoji / ANSI noise — line should be plain ASCII summary.
-    expect(healLines[0]).toMatch(/^context-mode:/);
-  });
-});
+    const settingsPath = resolve(fake.home, ".claude", "settings.json");
+    writeFileSync(settingsPath, JSON.stringify({ enabledPlugins: {} }, null, 2) + "\n");
 
-// ─────────────────────────────────────────────────────────────────────────
-// Slice 7 — global install but no Claude Code registry: silent OK
-// ─────────────────────────────────────────────────────────────────────────
+    const registryBefore = readFileSync(fake.registryPath, "utf-8");
+    const settingsBefore = readFileSync(settingsPath, "utf-8");
 
-describe("postinstall — global install, user not on Claude Code", () => {
-  // 90s budget for the same reason as siblings (L163/L185/L246/L465) —
-  // heal-better-sqlite3 in section 3 of postinstall.mjs is the slow path
-  // and shares this whole-process budget on every spawn.
-  it("emits a single benign one-liner and never crashes", { timeout: 90_000 }, () => {
-    const home = makeTmp("ctx-postinstall-home-bare-");
-    const r = runPostinstall({ home, global: true });
+    const r = runPostinstall({ home: fake.home, global: true, layout: "npm-global" });
     expect(r.status === 0 || r.status === null).toBe(true);
 
-    // No "scary" stderr noise — no stack traces, no ENOENT, no JSON parse.
-    expect(r.stderr).not.toMatch(/stack/i);
-    expect(r.stderr).not.toMatch(/throw/i);
-    expect(r.stderr).not.toMatch(/ENOENT/);
-    expect(r.stderr).not.toMatch(/SyntaxError/);
+    // Armed tripwire: a non-null (fallback) PLUGIN_KEY would have entered
+    // the backward-symlink block (Self-heal Layer 3) and created a
+    // symlink/junction at the dangling installPath.
+    expect(existsSync(danglingPath)).toBe(false);
 
-    // Exactly one summary line that mentions context-mode.
-    const ctxLines = r.stderr.split(/\r?\n/).filter((l) => /context-mode:/.test(l));
-    expect(ctxLines.length).toBe(1);
+    // Secondary invariant: nothing in postinstall writes these files.
+    expect(readFileSync(fake.registryPath, "utf-8")).toBe(registryBefore);
+    expect(readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
   });
 });
 
@@ -457,37 +479,6 @@ describe("normalize-hooks — /ctx-upgrade post-cpSync sequence (issue #528)", (
     // the generic tmpdir-upgrade shape.
     expect(after).not.toContain(poisonedFwd);
     expect(after).not.toMatch(/[/\\]context-mode-upgrade-1700000000000[/\\]/);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────
-// Slice 8 — registry already healthy: "no heal needed" line
-// ─────────────────────────────────────────────────────────────────────────
-
-describe("postinstall — global install, registry already healthy", () => {
-  // The vitest default test timeout is 30s; this test path runs the real
-  // `heal-better-sqlite3.mjs` (section 3 of postinstall.mjs) which alone
-  // can take 20-30s on cold CI runners. Sibling tests in this file
-  // (L163, L246) already use 90_000 for the same reason. CI run
-  // 25803559016 caught this gap — Ubuntu ran the whole file in 126s but
-  // macOS hit the default 30s budget for this `it()` and killed the test
-  // before spawn could return. 90s matches the precedent the rest of the
-  // file established; widening just this `it()` is the minimum diff.
-  it("emits 'no heal needed' and leaves registry bytes unchanged", { timeout: 90_000 }, () => {
-    const fake = buildFakeHome({
-      entryVersion: "1.0.114",
-      cacheVersion: "1.0.114",
-      enabledPlugins: { [KEY]: true },
-    });
-    const before = readFileSync(fake.registryPath, "utf-8");
-
-    const r = runPostinstall({ home: fake.home, global: true });
-    expect(r.status === 0 || r.status === null).toBe(true);
-    expect(readFileSync(fake.registryPath, "utf-8")).toBe(before);
-
-    const ctxLines = r.stderr.split(/\r?\n/).filter((l) => /context-mode:/.test(l));
-    expect(ctxLines.length).toBe(1);
-    expect(ctxLines[0]).toMatch(/no heal needed/i);
   });
 });
 

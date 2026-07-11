@@ -2,8 +2,8 @@
  * Issue #542 — ctx_upgrade MCP handler MUST thread MCP clientInfo into
  * the spawned `upgrade` process so the upgrade flow honors the
  * highest-confidence detection tier instead of falling through to the
- * config-dir heuristic (which misdetects Pi/OMP installs as Cursor when
- * ~/.cursor/ also exists).
+ * config-dir heuristic (which historically misdetected hosts on machines
+ * carrying several agent dotdirs at once).
  *
  * Defense-in-depth checked here:
  *   1. server.ts ctx_upgrade handler captures clientInfo via
@@ -56,7 +56,7 @@ describe("ctx_upgrade MCP handler threads clientInfo (issue #542)", () => {
   test("handler emits --platform <id> in the returned shell command", () => {
     // --platform flag is cross-shell safe (POSIX bash, zsh, Windows Git
     // Bash, PowerShell, cmd.exe all forward CLI args identically). Env-var
-    // prefixes like CONTEXT_MODE_PLATFORM=pi cmd would break on cmd.exe.
+    // prefixes like CONTEXT_MODE_PLATFORM=codex cmd would break on cmd.exe.
     expect(ctxUpgradeHandler).toMatch(/--platform/);
   });
 });
@@ -81,8 +81,8 @@ describe("cli.ts upgrade() honors --platform flag (issue #542)", () => {
 
   test("upgrade() passes CONTEXT_MODE_PLATFORM into the nested doctor check", () => {
     // The final verification step must not rediscover Claude Code via ~/.claude
-    // after upgrade() has already resolved OpenCode. Thread the chosen platform
-    // into the spawned doctor process so the child stays on the same path.
+    // after upgrade() has already resolved another host. Thread the chosen
+    // platform into the spawned doctor process so the child stays on the same path.
     const upgradeIdx = cliSrc.indexOf("async function upgrade");
     const upgradeBody = cliSrc.slice(upgradeIdx);
     expect(upgradeBody).toContain('execFileSync("node", [cliPath, "doctor"], {');

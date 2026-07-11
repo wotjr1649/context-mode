@@ -35,8 +35,9 @@ describe("hook dispatch fails OPEN on a missing hook (version-skew brick fix)", 
   });
 
   it("exits 0 for a known platform with an unmapped event", () => {
-    // antigravity-cli maps PreToolUse/PostToolUse/Stop, but not PreCompact.
-    const r = spawnSync("node", [CLI, "hook", "antigravity-cli", "precompact"], {
+    // claude-code maps the six standard events, but not `notification` —
+    // the fail-open contract must hold for event-level skew too.
+    const r = spawnSync("node", [CLI, "hook", "claude-code", "notification"], {
       input: "{}",
       encoding: "utf-8",
     });
@@ -986,11 +987,6 @@ describe("Cross-OS compatibility", () => {
     expect(pkg.files).toContain("scripts/postinstall.mjs");
   });
 
-  it("install:openclaw gracefully handles missing bash on Windows", () => {
-    // Direct 'bash' invocation fails on Windows without Git Bash
-    expect(pkg.scripts["install:openclaw"]).not.toMatch(/^bash /);
-  });
-
   it("cli.ts chmodSync in setup/upgrade is guarded by platform check", () => {
     // chmodSync must only run on non-Windows
     const chmodIdx = src.indexOf('chmodSync(binPath');
@@ -1117,19 +1113,6 @@ describe("Bin entry uses cli.bundle.mjs", () => {
     expect(src).toContain("resources: []");
   });
 
-  it("openclaw-plugin.ts doctor/upgrade use cli.bundle.mjs with fallback", () => {
-    const src = readFileSync(resolve(ROOT, "src", "adapters", "openclaw", "plugin.ts"), "utf-8");
-    expect(src).toContain("cli.bundle.mjs");
-    // Find the registerCommand blocks, not comments
-    const doctorIdx = src.indexOf('name: "ctx-doctor"');
-    const upgradeIdx = src.indexOf('name: "ctx-upgrade"');
-    expect(doctorIdx).toBeGreaterThan(-1);
-    expect(upgradeIdx).toBeGreaterThan(-1);
-    const doctorSection = src.slice(doctorIdx, doctorIdx + 500);
-    const upgradeSection = src.slice(upgradeIdx, upgradeIdx + 500);
-    expect(doctorSection).toContain("cli.bundle.mjs");
-    expect(upgradeSection).toContain("cli.bundle.mjs");
-  });
 });
 
 // ── start.mjs CLI self-heal ───────────────────────────────────────────
@@ -2018,7 +2001,7 @@ describe("start.mjs CLI self-heal", () => {
     it("healPartialInstallFromMarketplace short-circuits with not-claude-code for non-CC pluginRoots", async () => {
       // The heal is scoped to Claude Code's per-version cache layout
       // (~/.claude/plugins/cache/<owner>/<plugin>/<version>/). Other
-      // clients (Codex, Cursor, OpenCode, Kiro, gemini-cli, ...) ship
+      // clients (Codex) ship
       // their own SessionStart wrappers under hooks/<client>/ and
       // never call this module. The module also guards its scope at
       // runtime: any pluginRoot that doesn't match the CC cache layout
@@ -2580,29 +2563,6 @@ describe("SKILL.md prefers MCP tool over Bash", () => {
   });
 });
 
-// ── Package exports ───────────────────────────────────────────────────
-
-describe("Package exports", () => {
-  test("named export exposes ContextModePlugin factory", async () => {
-    const mod = await import("../../src/adapters/opencode/plugin.js");
-    expect(mod.ContextModePlugin).toBeDefined();
-    expect(typeof mod.ContextModePlugin).toBe("function");
-  });
-
-  test("default export has KiloCode PluginModule shape { server }", async () => {
-    const mod = (await import("../../src/adapters/opencode/plugin.js")) as any;
-    expect(mod.default).toBeDefined();
-    expect(typeof mod.default.server).toBe("function");
-  });
-
-  test("default export does not leak CLI internals", async () => {
-    const mod = (await import("../../src/adapters/opencode/plugin.js")) as any;
-    expect(mod.toUnixPath).toBeUndefined();
-    expect(mod.doctor).toBeUndefined();
-    expect(mod.upgrade).toBeUndefined();
-  });
-});
-
 // ── Issue #181: upgrade must not delete sibling version dirs mid-session ──
 
 describe("Cache dir safety (#181)", () => {
@@ -3013,24 +2973,6 @@ describe("Self-heal hook-path rewriting (#187 + #415 follow-up)", () => {
   });
 });
 
-// ── PR #183 fix: path traversal prevention in OpenClaw sessionKey ──
-
-describe("OpenClaw sessionKey safety (#183)", () => {
-  const WR_SOURCE = readFileSync(resolve(ROOT, "src/adapters/openclaw/workspace-router.ts"), "utf-8");
-
-  test("workspace regex only allows safe characters (no path traversal)", () => {
-    // Must use [a-zA-Z0-9_-]+ not [^:]+ to prevent ../../ in agent name
-    expect(WR_SOURCE).toContain('[a-zA-Z0-9_-]+');
-  });
-
-  test("workspace path is scoped to /openclaw/workspace- prefix", () => {
-    // extractWorkspace must only match recognised /openclaw/workspace-<name> paths
-    expect(WR_SOURCE).toContain('/openclaw/workspace-');
-    // workspaceFromKey derives workspace from sessionKey agent:<name>:<channel>
-    expect(WR_SOURCE).toContain('`/openclaw/workspace-');
-  });
-});
-
 // ── PR #190 fix: getRuntimeSummary handles full bun path ──
 
 describe("Runtime summary bun detection (#190)", () => {
@@ -3041,33 +2983,6 @@ describe("Runtime summary bun detection (#190)", () => {
     const summaryStart = RT_SOURCE.indexOf("getRuntimeSummary");
     const summaryBody = RT_SOURCE.slice(summaryStart, RT_SOURCE.indexOf("\nexport", summaryStart + 10));
     expect(summaryBody).not.toContain('=== "bun"');
-  });
-});
-
-// ── Plugin root detection for Opencode/Kilocode platforms ────────────────
-
-describe("Plugin root detection (#PR refactor/opencode-improvements)", () => {
-  const CLI_SOURCE = readFileSync(resolve(ROOT, "src", "cli.ts"), "utf-8");
-
-  test("cachePluginRoot uses LOCALAPPDATA on Windows", () => {
-    const cacheRootStart = CLI_SOURCE.indexOf("function cachePluginRoot");
-    const cacheRootBody = CLI_SOURCE.slice(cacheRootStart, cacheRootStart + 500);
-    expect(cacheRootBody).toContain("process.env.LOCALAPPDATA");
-    expect(cacheRootBody).toContain('process.platform === "win32"');
-  });
-
-  test("cachePluginRoot uses ~/.cache as default on non-Windows", () => {
-    const cacheRootStart = CLI_SOURCE.indexOf("function cachePluginRoot");
-    const cacheRootBody = CLI_SOURCE.slice(cacheRootStart, cacheRootStart + 500);
-    expect(cacheRootBody).toContain('".cache"');
-    expect(cacheRootBody).toContain("homedir");
-  });
-
-  test("getPluginRoot uses cache path for opencode/kilo platform", () => {
-    const getPluginRootStart = CLI_SOURCE.indexOf("function getPluginRoot");
-    const getPluginRootBody = CLI_SOURCE.slice(getPluginRootStart, getPluginRootStart + 300);
-    expect(getPluginRootBody).toContain("isInProcessPluginPlatform(platform)");
-    expect(getPluginRootBody).toContain("cachePluginRoot");
   });
 });
 
@@ -3181,104 +3096,6 @@ describe("Codex CLI hook dispatch (#225)", () => {
   });
 });
 
-// ── Kimi Code CLI hook dispatch (#729) ───────────────────────────────────
-
-describe("Kimi Code CLI hook dispatch (#729)", () => {
-  const CLI_SOURCE = readFileSync(resolve(ROOT, "src", "cli.ts"), "utf-8");
-
-  test("HOOK_MAP includes kimi platform", () => {
-    const mapStart = CLI_SOURCE.indexOf("const HOOK_MAP");
-    const mapEnd = CLI_SOURCE.indexOf("};", mapStart) + 2;
-    const hookMap = CLI_SOURCE.slice(mapStart, mapEnd);
-    expect(hookMap).toContain('"kimi"');
-  });
-
-  test("kimi HOOK_MAP has all Kimi hook dispatches including sessionend", () => {
-    const mapStart = CLI_SOURCE.indexOf("const HOOK_MAP");
-    const mapEnd = CLI_SOURCE.indexOf("};", mapStart) + 2;
-    const hookMap = CLI_SOURCE.slice(mapStart, mapEnd);
-    const kimiStart = hookMap.indexOf('"kimi"');
-    const kimiEnd = hookMap.indexOf("}", kimiStart + 10) + 1;
-    const kimiBlock = hookMap.slice(kimiStart, kimiEnd);
-    expect(kimiBlock).toContain("pretooluse");
-    expect(kimiBlock).toContain("posttooluse");
-    expect(kimiBlock).toContain("precompact");
-    expect(kimiBlock).toContain("sessionstart");
-    expect(kimiBlock).toContain("sessionend");
-    expect(kimiBlock).toContain("userpromptsubmit");
-    expect(kimiBlock).toContain("stop");
-  });
-
-  test("kimi hooks point to dedicated hooks/kimi/ directory", () => {
-    const mapStart = CLI_SOURCE.indexOf("const HOOK_MAP");
-    const mapEnd = CLI_SOURCE.indexOf("};", mapStart) + 2;
-    const hookMap = CLI_SOURCE.slice(mapStart, mapEnd);
-    const kimiStart = hookMap.indexOf('"kimi"');
-    const kimiEnd = hookMap.indexOf("}", kimiStart + 10) + 1;
-    const kimiBlock = hookMap.slice(kimiStart, kimiEnd);
-    expect(kimiBlock).toContain("hooks/kimi/pretooluse.mjs");
-    expect(kimiBlock).toContain("hooks/kimi/posttooluse.mjs");
-    expect(kimiBlock).toContain("hooks/kimi/precompact.mjs");
-    expect(kimiBlock).toContain("hooks/kimi/sessionstart.mjs");
-    expect(kimiBlock).toContain("hooks/kimi/sessionend.mjs");
-    expect(kimiBlock).toContain("hooks/kimi/userpromptsubmit.mjs");
-    expect(kimiBlock).toContain("hooks/kimi/stop.mjs");
-  });
-
-  test("configs/kimi/hooks.json commands match HOOK_MAP platform name", () => {
-    const hooksJson = JSON.parse(readFileSync(resolve(ROOT, "configs/kimi/hooks.json"), "utf-8"));
-    for (const [eventType, entries] of Object.entries(hooksJson.hooks)) {
-      for (const entry of entries as any[]) {
-        for (const hook of entry.hooks) {
-          expect(hook.command).toMatch(/context-mode hook kimi \w+/);
-        }
-      }
-    }
-  });
-
-  test("session-helpers.mjs exports KIMI_OPTS", () => {
-    const helpers = readFileSync(resolve(ROOT, "hooks/session-helpers.mjs"), "utf-8");
-    expect(helpers).toContain("export const KIMI_OPTS");
-  });
-
-  test("KIMI_OPTS uses .kimi-code config dir", () => {
-    const helpers = readFileSync(resolve(ROOT, "hooks/session-helpers.mjs"), "utf-8");
-    const optsStart = helpers.indexOf("KIMI_OPTS");
-    const optsEnd = helpers.indexOf("};", optsStart) + 2;
-    const optsBlock = helpers.slice(optsStart, optsEnd);
-    expect(optsBlock).toContain('".kimi-code"');
-  });
-
-  test("KIMI_OPTS honours KIMI_CODE_HOME env var", () => {
-    const helpers = readFileSync(resolve(ROOT, "hooks/session-helpers.mjs"), "utf-8");
-    const optsStart = helpers.indexOf("KIMI_OPTS");
-    const optsEnd = helpers.indexOf("};", optsStart) + 2;
-    const optsBlock = helpers.slice(optsStart, optsEnd);
-    expect(optsBlock).toContain('configDirEnv: "KIMI_CODE_HOME"');
-  });
-
-  test("kimi pretooluse formatter includes hookEventName in deny response", () => {
-    const formatters = readFileSync(resolve(ROOT, "hooks/core/formatters.mjs"), "utf-8");
-    const kimiStart = formatters.indexOf('"kimi"');
-    const kimiEnd = formatters.indexOf("},", kimiStart + 50);
-    const kimiBlock = formatters.slice(kimiStart, kimiEnd);
-    expect(kimiBlock).toContain('hookEventName: "PreToolUse"');
-  });
-});
-
-// ── Cursor stop hook (#HOOK_MAP cursor stop) ─────────────────────────────
-
-describe("Cursor CLI hook dispatch — stop event", () => {
-  const CLI_SOURCE = readFileSync(resolve(ROOT, "src", "cli.ts"), "utf-8");
-
-  test("HOOK_MAP cursor entry includes stop event", () => {
-    const cursorEntry = CLI_SOURCE.match(/"cursor"\s*:\s*\{[\s\S]*?\}/);
-    expect(cursorEntry).not.toBeNull();
-    expect(cursorEntry![0]).toContain("stop");
-    expect(cursorEntry![0]).toContain("hooks/cursor/stop.mjs");
-  });
-});
-
 // ── Upgrade skill sync to marketplace/cache directories ───────────────────
 
 describe("Upgrade syncs skills to active install path (#228)", () => {
@@ -3292,7 +3109,10 @@ describe("Upgrade syncs skills to active install path (#228)", () => {
 
   test("upgrade reads installed_plugins.json to find active install path", () => {
     expect(upgradeBody).toContain("installed_plugins.json");
-    expect(upgradeBody).toContain("context-mode@context-mode");
+    // Registry key is derived (pluginKey), not the hardcoded upstream
+    // literal — see derivePluginKey in scripts/heal-installed-plugins.mjs.
+    expect(upgradeBody).toContain("pluginKey");
+    expect(upgradeBody).not.toContain('"context-mode@context-mode"');
     expect(upgradeBody).toContain("installPath");
   });
 
@@ -3839,38 +3659,21 @@ describe("Upgrade native ABI bootstrap", () => {
   });
 });
 
-// ── Issue #613/#609 — doctor() surfaces persistence-tier bug class ─────
-// PR #620 (Family A) shipped the architectural fixes:
+// ── Issue #609 — doctor() surfaces persistence-tier bug class ─────
+// PR #620 (Family A) shipped the architectural fix:
 //   - #609: stop writing per-version cache `.mcp.json` + post-bump sweep
-//   - #613: vscode/jetbrains-copilot hook commands ship CLI-dispatcher form
-//           (no absolute `process.execPath` + script path baked into
-//           workspace-committed `.github/hooks/context-mode.json`)
 //
-// These two slices are the *prevention* surface — root-cause fixes that
-// stop the bug from being written. But users on the field can still be
-// holding pre-PR-620 poisoned state:
-//   - already-committed `.github/hooks/context-mode.json` in their repo
-//     with absolute Windows fnm shim paths from v1.0.136 or earlier
+// That slice is the *prevention* surface — a root-cause fix that stops the
+// bug from being written. But users on the field can still be holding
+// pre-PR-620 poisoned state:
 //   - leftover `.mcp.json` in `~/.claude/plugins/cache/.../<version>/`
 //     from /ctx-upgrade flows that ran before PR #620
 //
 // Doctor's job per the verdict family ("silent-green doctor while hooks
 // are dead is itself a P0 trust bug" — ISSUE-604-VERDICT §11) is to
 // SURFACE that pre-PR state BEFORE the user hits a runtime failure.
-//
-// Architect contract for PR #620 + slice 4:
-//   CHECK A: doctor scans workspace Tier C files (`.github/hooks/context-mode.json`,
-//            `.cursor/hooks.json`, `.jetbrains/copilot/hooks.json` under
-//            process.cwd()) — for each that exists, parse JSON, recurse
-//            into all string values, FAIL if any matches absolute path
-//            patterns (unix `/`, Windows `[A-Z]:[/\\]`, `\\`, fnm_multishells).
-//            Remediation: "run `ctx_upgrade` to rewrite to portable form".
-//            Missing config → SKIP (no false fail).
-//
-//   CHECK B: doctor scans `~/.claude/plugins/cache/context-mode/context-mode/*/`
-//            for `.mcp.json` files (post-PR-620 these should not exist).
-//            Found → WARN (not fail) with remediation:
-//            "ctx_upgrade will sweep on next run".
+// (The former CHECK A — the workspace Tier-C scan for removed adapters'
+// committed hook files — left with those adapters in the hard fork.)
 //
 // Same static-analysis assertion pattern as Issue #564 doctor test (above)
 // and lines 962, 997, 1010 — runtime spawning would need fixture
@@ -3886,33 +3689,6 @@ describe("PR #620 slice 4 — doctor() surfaces persistence-tier bug class", () 
     expect(end).toBeGreaterThan(start);
     return CLI_SRC.slice(start, end);
   }
-
-  it("doctor scans workspace Tier C config files for absolute paths (#613 proactive)", () => {
-    const body = doctorBody();
-    // Must reference all three Tier C path shapes that PR #620 covers
-    // (vscode-copilot writes `.github/hooks/context-mode.json`,
-    //  cursor writes `.cursor/hooks.json`,
-    //  jetbrains-copilot writes `.jetbrains/copilot/hooks.json`
-    //  — workspace-committed per ISSUE-613-VERDICT §6.1 Tier C table).
-    expect(body).toContain(".github/hooks/context-mode.json");
-    expect(body).toContain(".cursor/hooks.json");
-    expect(body).toContain(".jetbrains/copilot/hooks.json");
-    // Must detect the fnm-shim pattern (reporter's stderr literally shows
-    // `fnm_multishells/<pid>_<ts>/node.exe` per ISSUE-613-VERDICT §2 H2).
-    expect(body).toMatch(/fnm_multishells/);
-    // Must surface the failure with remediation pointing at ctx_upgrade.
-    // The Tier C section is identifiable by the issue anchor `#613`.
-    const anchorIdx = body.indexOf("#613");
-    expect(anchorIdx).toBeGreaterThan(-1);
-    const window_ = body.slice(
-      Math.max(0, anchorIdx - 500),
-      anchorIdx + 3000,
-    );
-    // The check must use p.log.error or p.log.warn (not info) AND
-    // mention ctx_upgrade so the user knows the remediation.
-    expect(window_).toMatch(/p\.log\.(error|warn)/);
-    expect(window_).toMatch(/ctx[_-]?upgrade/i);
-  });
 
   it("doctor warns on stale `.mcp.json` files in cache version dirs (#609 proactive)", () => {
     const body = doctorBody();

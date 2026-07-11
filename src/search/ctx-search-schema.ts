@@ -31,8 +31,8 @@ import { z } from "zod";
  *      "non-empty" error rather than masquerading as `[""]`.
  *   2. Valid JSON array string → parsed and returned.
  *   3. Any other plain string (a bare single query) → lifted to a
- *      single-element array. Fixes #627 for the native OpenCode plugin
- *      path where some providers deliver `queries: "search term"`.
+ *      single-element array. Fixes #627 for MCP plugin-bridge paths
+ *      where some providers deliver `queries: "search term"`.
  */
 function coerceJsonArray(val: unknown): unknown {
   if (typeof val === "string") {
@@ -79,8 +79,8 @@ export function buildCtxSearchInputSchema(isSharedMode: boolean) {
       .array(z.string())
       .optional()
       .describe("Array of search queries. Batch ALL questions in one call.")),
-    // limit: z.coerce.number() (not z.number()) — OpenCode's native
-    // plugin path delivers tool args straight from the LLM provider's
+    // limit: z.coerce.number() (not z.number()) — MCP plugin-bridge
+    // paths deliver tool args straight from the LLM provider's
     // tool-call JSON, where several providers stringify primitives
     // (limit:"4" instead of limit:4). Since v1.0.139 / #621 we run
     // inputSchema.parse() on that path, so a plain z.number() rejects

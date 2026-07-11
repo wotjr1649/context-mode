@@ -10,7 +10,7 @@
  *   - bun ≥ 1.0 required (older versions had ESM bugs that broke hooks).
  *   - Silent fallback on any failure — never block hook execution.
  *   - Module-load probe with cached result; not per-call.
- *   - `buildNodeCommand` semantics UNCHANGED (kept for openclaw doctor /
+ *   - `buildNodeCommand` semantics UNCHANGED (kept for doctor /
  *     upgrade hints which must stay on node — better-sqlite3 ABI, #543).
  *   - New `buildHookRuntimeCommand` wraps `buildNodeCommand` shape but
  *     swaps in the resolved JS runtime when bun is available.
@@ -464,7 +464,7 @@ describe("buildHookRuntimeCommand — emits bun when available, node otherwise (
   });
 
   itPosix("buildNodeCommand semantics UNCHANGED — always returns process.execPath", async () => {
-    // Regression guard: openclaw doctor/upgrade hints embed buildNodeCommand
+    // Regression guard: doctor/upgrade hints embed buildNodeCommand
     // output as user-facing copy-paste suggestions. They MUST stay on node
     // because the CLI needs better-sqlite3 (#543 bun ABI mismatch).
     const fakeHome = "/fake/home/for-738-test";

@@ -230,7 +230,7 @@ describe("Lifecycle Guard", () => {
 
   test("stdin 'end' triggers immediate isParentAlive re-check; shuts down only if dead (#388)", async () => {
     // Skip on TTY — the guard intentionally does not register the 'end'
-    // listener when stdin is a TTY (e.g. OpenCode ts-plugin), so this
+    // listener when stdin is a TTY (in-process plugin hosts), so this
     // assertion would not apply to that environment.
     if (process.stdin.isTTY) return;
 
@@ -415,8 +415,8 @@ describe.skipIf(isWindows)("Lifecycle Guard — Integration (real process)", () 
   }, 10_000);
 });
 
-// #854 — bridge-child request-idle reaper. Pi/omp loads the extension per
-// sub-context and spawns one bridge child each, reaping them only at
+// #854 — bridge-child request-idle reaper. The upstream-era bridge loaded per
+// sub-context and spawned one bridge child each, reaping them only at
 // session_shutdown (which never fires for sub-contexts), so idle children
 // accumulate under one long-lived parent. A depth>0 child with no MCP activity
 // self-exits; depth-0 (the #602 keep-alive class) is never touched, and the

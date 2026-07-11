@@ -120,7 +120,7 @@ export function lookupPrice(modelId: string): Price | null {
   const byNorm = CATALOG.get(norm);
   if (byNorm) return byNorm;
 
-  // 3. Provider-stripped (pi / openclaw / opencode report `provider/model`).
+  // 3. Provider-stripped (some hosts report `provider/model`).
   const bare = stripProviderPrefix(norm);
   if (bare) {
     const byBare = CATALOG.get(bare);

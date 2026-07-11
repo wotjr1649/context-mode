@@ -73,16 +73,11 @@ describe("start.mjs — Issue #523 Layer 5b plugin.json mcpServers heal", () => 
     expect(block).toContain("never block MCP boot");
   });
 
-  test("postinstall.mjs also wires Layer 5b — escape hatch for already-broken users", () => {
-    // Mirrors how postinstall.mjs runs healInstalledPlugins + healSettingsEnabledPlugins
-    // (v1.0.114 + v1.0.116 escape hatches). When MCP is dead, the only way to recover is
-    // `npm install -g context-mode@1.0.119` whose postinstall MUST run Layer 5b too.
-    const postinstallSrc = readFileSync(
-      resolve(ROOT, "scripts", "postinstall.mjs"),
-      "utf-8",
-    );
-    expect(postinstallSrc).toContain("healPluginJsonMcpServers");
-  });
+  // NOTE: postinstall.mjs used to carry a redundant copy of this Layer 5b heal,
+  // but it sat behind the inert `isGlobalInstall() && PLUGIN_KEY` guard (a real
+  // `npm install -g` derives a null plugin key; in-cache runs never set
+  // npm_config_global). Task 9 deleted that dead block. The live escape hatch is
+  // this start.mjs wiring, asserted above and run on every MCP boot.
 });
 
 // ─────────────────────────────────────────────────────────────────────────

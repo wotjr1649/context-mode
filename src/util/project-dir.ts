@@ -6,7 +6,7 @@ import type { PlatformId } from "../adapters/types.js";
 import { workspaceEnvVarsFor } from "../adapters/detect.js";
 
 /**
- * Universal escape hatch. NEVER appears in any platform's foreignWorkspaceEnv()
+ * Universal escape hatch. NEVER appears in any platform's workspace-var set
  * (because it isn't registered in PLATFORM_ENV_VARS), so it survives strict
  * mode and bridge env scrubs. Documented as the cross-strict user override
  * for every adapter (set in `~/.<host>/mcp.json` env when nothing else works).
@@ -14,9 +14,13 @@ import { workspaceEnvVarsFor } from "../adapters/detect.js";
 const UNIVERSAL_WORKSPACE_ENV = ["CONTEXT_MODE_PROJECT_DIR"] as const;
 
 /**
- * Frozen legacy candidate list — preserves bit-for-bit behavior of every
+ * Frozen legacy candidate list — preserves the relative order seen by every
  * non-strict caller (`start.mjs` and any caller that doesn't pass
  * `strictPlatform`). Order is locked for semver compatibility.
+ *
+ * Hard fork note: entries owned by removed platforms were pruned — a leaked
+ * foreign workspace var must not steer kept-platform (claude-code/codex)
+ * session attribution. The surviving entries keep their original order.
  *
  * If a new adapter is added, DO NOT add its workspace var here — register it
  * in `PLATFORM_ENV_VARS` and let strict callers pick it up via
@@ -26,10 +30,7 @@ const LEGACY_NON_STRICT_CANDIDATES: readonly string[] = [
   "CLAUDE_PROJECT_DIR",
   "GEMINI_PROJECT_DIR",
   "VSCODE_CWD",
-  "OPENCODE_PROJECT_DIR",
-  "PI_PROJECT_DIR",
   "IDEA_INITIAL_DIRECTORY",
-  "CURSOR_CWD",
   "CONTEXT_MODE_PROJECT_DIR",
 ];
 
@@ -165,7 +166,7 @@ export function resolveProjectDirFromTranscript(opts: {
  * The cwd appears on `meta.cwd` for the CLI shape and on
  * `payload.cwd` in `type: "session_meta"` records for Codex Desktop. Codex
  * publishes NO workspace env var to its child MCP processes — so unlike
- * Claude/Pi/Cursor, we have no env signal at all. The session log is the
+ * Claude Code, we have no env signal at all. The session log is the
  * strongest available signal.
  *
  * Mirror of `resolveProjectDirFromTranscript` for Claude Code; differences:
@@ -268,8 +269,8 @@ export function resolveCodexSessionCwd(opts?: {
  * resolver can be exercised under test without process-level mutation.
  *
  * Resolution order:
- *   1. Adapter-priority env vars (CLAUDE / GEMINI / VSCODE / OPENCODE / PI /
- *      IDEA / CONTEXT_MODE) — first non-empty AND non-plugin-path wins.
+ *   1. Adapter-priority env vars (CLAUDE / GEMINI / VSCODE / IDEA /
+ *      CONTEXT_MODE) — first non-empty AND non-plugin-path wins.
  *   2. Claude Code transcript heuristic — read `cwd` from the most-recently-
  *      modified `~/.claude/projects/<encoded>/<session>.jsonl`. This is the
  *      most reliable signal when Claude Code launched MCP from a non-project
@@ -296,7 +297,8 @@ export function resolveProjectDir(opts: {
    * Issue #545 — opt-in tightening. When set, the candidate list is built
    * algorithmically from `workspaceEnvVarsFor(strictPlatform)` plus the
    * universal escape hatch. Foreign workspace vars (e.g. CLAUDE_PROJECT_DIR
-   * leaked into Pi's MCP child env) cannot win, regardless of cascade order.
+   * leaked into another host's MCP child env) cannot win, regardless of
+   * cascade order.
    *
    * When `undefined`, the legacy literal candidate order is used (semver lock
    * for `start.mjs` and any non-strict consumer).

@@ -48,7 +48,7 @@
  *   CC-only. The failure mode is specific to Claude Code's
  *   per-version cache layout at
  *   ~/.claude/plugins/cache/<owner>/<plugin>/<version>/. Other
- *   clients (Codex, Cursor, OpenCode, Kiro, ...) ship their own
+ *   clients (Codex) ship their own
  *   SessionStart wrappers under hooks/<client>/, none of which call
  *   this module. The two call sites that exist
  *   (hooks/sessionstart.mjs and start.mjs) are themselves CC-only
@@ -165,7 +165,7 @@ export function isPartialInstall(pluginRoot) {
  *   <configDir>/plugins/marketplaces/<owner>/
  *
  * Returns null when pluginRoot doesn't match the cache layout (npm-global
- * install, dev checkout, opencode cache, ...). Those don't have a
+ * install, dev checkout, ...). Those don't have a
  * marketplace clone to heal from, and we'd rather skip than guess.
  */
 export function deriveMarketplaceClonePath(pluginRoot) {
@@ -486,7 +486,7 @@ export function healPartialInstallFromMarketplace(opts = {}) {
   // CC-only scope check. The partial-install failure mode this module
   // addresses is specific to Claude Code's per-version cache layout at
   // ~/.claude/plugins/cache/<owner>/<plugin>/<version>/. Other clients
-  // (Codex, Cursor, OpenCode, Kiro, ...) ship their own SessionStart
+  // (Codex) ship their own SessionStart
   // hooks under hooks/<client>/ and don't go through this module at
   // all; npm-global, npx, and dev-checkout installs don't have the
   // cache layout either. deriveMarketplaceClonePath returns null for

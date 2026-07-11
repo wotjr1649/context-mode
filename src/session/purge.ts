@@ -19,9 +19,8 @@
  * SQLite sidecar handling:
  *   Each `.db` file may be accompanied by `-wal` (write-ahead log) and `-shm`
  *   (shared memory index) sidecars. We unlink the triple unconditionally —
- *   missing sidecars are not an error. This matches the canonical SQLite
- *   sidecar naming used elsewhere (see refs/platforms/zed/crates/sqlez:
- *   `[main, "{main}-wal", "{main}-shm"]`).
+ *   missing sidecars are not an error. This matches SQLite's canonical
+ *   sidecar naming: `[main, "{main}-wal", "{main}-shm"]`.
  *
  * Cross-platform notes:
  *   - All paths are joined via `node:path.join` so Windows backslash

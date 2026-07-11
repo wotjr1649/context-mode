@@ -20,6 +20,12 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { rewriteShellSnapshots } from "../../hooks/cache-heal-utils.mjs";
 
+// Trust anchor for the derived-prefix heal. Every fixture here uses the
+// upstream `context-mode/context-mode/` layout, so the installed-tree
+// pluginRoot names that same anchor.
+const PLUGIN_ROOT =
+  "/Users/mksglu/.claude/plugins/cache/context-mode/context-mode/1.0.151";
+
 const cleanups: string[] = [];
 
 afterEach(() => {
@@ -59,6 +65,7 @@ describe("ctx-upgrade Layer 1 — shell-snapshot heal", () => {
     const result = rewriteShellSnapshots({
       snapshotsDir,
       currentVersion: "1.0.151",
+      pluginRoot: PLUGIN_ROOT,
     });
 
     expect(result.rewritten).toEqual([file]);
@@ -92,6 +99,7 @@ describe("ctx-upgrade Layer 1 — shell-snapshot heal", () => {
     const result = rewriteShellSnapshots({
       snapshotsDir,
       currentVersion: "1.0.151",
+      pluginRoot: PLUGIN_ROOT,
     });
 
     expect(result.rewritten.length).toBe(stalePins.length);
@@ -119,12 +127,14 @@ describe("ctx-upgrade Layer 1 — shell-snapshot heal", () => {
     const r1 = rewriteShellSnapshots({
       snapshotsDir,
       currentVersion: "1.0.151",
+      pluginRoot: PLUGIN_ROOT,
     });
     expect(r1.rewritten).toEqual([file]);
 
     const r2 = rewriteShellSnapshots({
       snapshotsDir,
       currentVersion: "1.0.151",
+      pluginRoot: PLUGIN_ROOT,
     });
     expect(r2.rewritten).toEqual([]);
   });

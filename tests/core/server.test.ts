@@ -12,7 +12,7 @@
  */
 
 import { strict as assert } from "node:assert";
-import { spawn, spawnSync, execSync, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import {
   chmodSync,
   writeFileSync,
@@ -44,7 +44,7 @@ import {
   StorageDirectoryError,
 } from "../../src/session/db.js";
 import { ROUTING_BLOCK } from "../../hooks/routing-block.mjs";
-import { sanitizeSchemaForStrictClients, resolveExecTimeout, AGY_DEFAULT_EXEC_TIMEOUT_MS, REGISTERED_CTX_TOOLS } from "../../src/server.js";
+import { sanitizeSchemaForStrictClients, resolveExecTimeout, AGY_DEFAULT_EXEC_TIMEOUT_MS, REGISTERED_CTX_TOOLS, resolveDetectedAdapter, server } from "../../src/server.js";
 import { stripJsonComments, parseJsonc } from "../../src/util/jsonc.js";
 
 // ─── Shared setup ───────────────────────────────────────────────────────────
@@ -1221,94 +1221,6 @@ describe("ctx_index: projectRoot path resolution (#365)", () => {
     }
   }, 30_000);
 
-  // ── JetBrains regression: IDEA_INITIAL_DIRECTORY must enter the cascade ──
-  //
-  // JetBrains adapter sets only IDEA_INITIAL_DIRECTORY (no CLAUDE_PROJECT_DIR,
-  // no CONTEXT_MODE_PROJECT_DIR). Before the fix, getProjectDir() ignored that
-  // var and fell through to process.cwd(), which is the IDE bin dir on
-  // JetBrains — making `ctx_index({ path: "rel/foo.md" })` resolve to a path
-  // under the IDE installation and ENOENT.
-  //
-  // Spawn the compiled server directly (build/server.js) instead of start.mjs
-  // so we never enter the start.mjs path that auto-populates CLAUDE_PROJECT_DIR
-  // and CONTEXT_MODE_PROJECT_DIR from cwd. This lets us isolate the cascade
-  // and prove that IDEA_INITIAL_DIRECTORY alone is enough to resolve relative
-  // paths under the JetBrains project root.
-  test("relative path resolves against IDEA_INITIAL_DIRECTORY (JetBrains)", async () => {
-    const buildEntry = resolve(__dirname, "..", "..", "build", "server.js");
-    if (!existsSync(buildEntry)) {
-      // Compile src → build/ on demand. Bundle is untouched (CI rebuilds it).
-      execSync("npx tsc --pretty false", {
-        cwd: resolve(__dirname, "..", ".."),
-        stdio: "pipe",
-        timeout: 60_000,
-      });
-    }
-
-    // Simulate JetBrains: cwd is an IDE-bin-like dir (NOT the project),
-    // env carries only IDEA_INITIAL_DIRECTORY pointing at the real project.
-    const fakeIdeBin = mkdtempSync(join(tmpdir(), "ctx-jetbrains-bin-"));
-
-    // Strip inherited platform workspace/identification vars so the cascade is
-    // forced to consult IDEA_INITIAL_DIRECTORY. Issue #545 (v1.0.124): when a
-    // host env var (Claude Code, Codex, etc.) leaks into this child,
-    // detectPlatform() can pick that host, enter strict mode, and ban
-    // IDEA_INITIAL_DIRECTORY as a foreign var.
-    const cleanEnv = { ...process.env };
-    for (const key of Object.keys(cleanEnv)) {
-      if (
-        /^(CLAUDE|CODEX|GEMINI|VSCODE|CURSOR|OPENCODE|KILO|KIRO|PI|OMP|ZED|QWEN|KIMI|ANTIGRAVITY|OPENCLAW|COPILOT)_/.test(key) ||
-        key === "CONTEXT_MODE_PLATFORM" ||
-        key === "CONTEXT_MODE_PROJECT_DIR"
-      ) {
-        delete cleanEnv[key];
-      }
-    }
-
-    const proc = spawn("node", [buildEntry], {
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: fakeIdeBin,
-      env: {
-        ...cleanEnv,
-        CONTEXT_MODE_DISABLE_VERSION_CHECK: "1",
-        IDEA_INITIAL_DIRECTORY: ctxProjectDir,
-      },
-    });
-
-    try {
-      await awaitRpc(proc, 1, {
-        jsonrpc: "2.0", id: 1, method: "initialize",
-        params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "ctx-index-jetbrains", version: "1.0" } },
-      });
-      sendRpc(proc, { jsonrpc: "2.0", method: "notifications/initialized" });
-
-      const indexResp = await awaitRpc(proc, 100, {
-        jsonrpc: "2.0", id: 100, method: "tools/call",
-        params: { name: "ctx_index", arguments: { path: ctxFileName } },
-      });
-
-      expect(indexResp?.error).toBeUndefined();
-      const indexText = indexResp?.result?.content?.[0]?.text ?? "";
-      // Must succeed — proves the relative path resolved under
-      // IDEA_INITIAL_DIRECTORY (not the fake IDE-bin cwd).
-      expect(indexText).toMatch(/Indexed \d+ section/);
-      expect(indexText).not.toMatch(/Index error/);
-
-      // Round-trip via search using the unique marker only present in the
-      // file under IDEA_INITIAL_DIRECTORY — proves the right file was read.
-      const searchResp = await awaitRpc(proc, 101, {
-        jsonrpc: "2.0", id: 101, method: "tools/call",
-        params: { name: "ctx_search", arguments: { queries: [uniqueMarker] } },
-      });
-      expect(searchResp?.error).toBeUndefined();
-      const searchText = searchResp?.result?.content?.[0]?.text ?? "";
-      expect(searchText).toContain(uniqueMarker);
-    } finally {
-      try { proc.kill("SIGTERM"); } catch { /* best effort */ }
-      try { rmSync(fakeIdeBin, { recursive: true, force: true }); } catch { /* best effort */ }
-    }
-  }, 60_000);
-
   // Source-label dedup regression: when no explicit `source` is supplied,
   // ctx_index must default the FTS5 label to the *resolved* absolute path so
   // that the same file indexed via './foo.md', 'foo.md', or 'subdir/../foo.md'
@@ -1746,7 +1658,7 @@ describe("ctx_insight: execFile migration source guard (#441)", () => {
 // → cwd) but the PolyglotExecutor still captured CLAUDE_PROJECT_DIR ?? cwd
 // at construction time. ctx_execute_file therefore resolved the same
 // relative path differently from ctx_index whenever only
-// CONTEXT_MODE_PROJECT_DIR was set (e.g. Cursor / OpenClaw / Codex spawns).
+// CONTEXT_MODE_PROJECT_DIR was set (e.g. Codex spawns).
 // Fix: executor now resolves projectRoot lazily via the server's getProjectDir.
 
 describe("ctx_execute_file: CONTEXT_MODE_PROJECT_DIR env cascade", () => {
@@ -1781,8 +1693,6 @@ describe("ctx_execute_file: CONTEXT_MODE_PROJECT_DIR env cascade", () => {
     delete env.CLAUDE_PROJECT_DIR;
     delete env.GEMINI_PROJECT_DIR;
     delete env.VSCODE_CWD;
-    delete env.OPENCODE_PROJECT_DIR;
-    delete env.PI_PROJECT_DIR;
     delete env.IDEA_INITIAL_DIRECTORY;
     env.CONTEXT_MODE_PROJECT_DIR = projectDirEnv;
     return spawn("node", [buildServerEntry], {
@@ -2398,8 +2308,9 @@ describe("Platform-aware session paths via adapter", () => {
   // ── Adapter is stored at startup ──
   test("server stores detected adapter at startup", () => {
     expect(serverSrc).toContain("let _detectedAdapter");
-    // main() must assign the adapter after detection
-    expect(serverSrc).toMatch(/_detectedAdapter\s*=\s*await\s+getAdapter/);
+    // main() must assign the adapter after detection. Detection is now
+    // extracted into resolveDetectedAdapter (net 4) so the swallow is testable.
+    expect(serverSrc).toMatch(/_detectedAdapter\s*=\s*await\s+resolveDetectedAdapter/);
   });
 
   // ── No hardcoded .claude in tool handlers ──
@@ -2448,25 +2359,27 @@ describe("Platform-aware session paths via adapter", () => {
       "CLAUDE_PROJECT_DIR",
       "GEMINI_PROJECT_DIR",
       "VSCODE_CWD",
-      "OPENCODE_PROJECT_DIR",
-      "PI_PROJECT_DIR",
       "IDEA_INITIAL_DIRECTORY",
-      "CURSOR_CWD",
       "CONTEXT_MODE_PROJECT_DIR",
     ]) {
       expect(utilSrc).toContain(v);
     }
     expect(utilSrc).toContain("isPluginInstallPath");
-    // Must NOT contain semantically wrong env vars
+    // Must NOT contain semantically wrong env vars, nor cascade entries
+    // owned by removed platforms (pruned in the hard fork — a leaked foreign
+    // workspace var must not steer kept-platform session attribution).
     expect(utilSrc).not.toContain("OPENCLAW_HOME");
+    expect(utilSrc).not.toContain("OPENCODE_PROJECT_DIR");
+    expect(utilSrc).not.toContain("PI_PROJECT_DIR");
+    expect(utilSrc).not.toContain("CURSOR_CWD");
   });
 
   // Issue #521 Slice 2: transcriptsRoot is the Claude Code transcript dir
-  // (`~/.claude/projects`). Passing it on non-Claude-Code platforms (Cursor,
-  // OpenCode, Codex, ...) is wrong — the most-recently-modified jsonl could
+  // (`~/.claude/projects`). Passing it on non-Claude-Code platforms
+  // (Codex, ...) is wrong — the most-recently-modified jsonl could
   // belong to an unrelated Claude Code window, returning that project's cwd
-  // to a Cursor MCP. getProjectDir() MUST gate transcriptsRoot on the active
-  // platform via detectPlatform(); only "claude-code" gets the path.
+  // to another host's MCP. getProjectDir() MUST gate transcriptsRoot on the
+  // active platform via detectPlatform(); only "claude-code" gets the path.
   test("getProjectDir gates transcriptsRoot on detected platform (Claude Code only)", () => {
     const fn = serverSrc.match(/function getProjectDir[\s\S]*?^}/m);
     expect(fn).not.toBeNull();
@@ -2554,8 +2467,8 @@ describe("Project dir hash consistency", () => {
   // ── B3b Slice 3.1: ctx_stats must scope getLifetimeStats to the active
   //    adapter via getSessionDir(), not the hardcoded ~/.claude/ default.
   //    Bug evidence: src/server.ts:2602/2612/2620 currently call
-  //    `getLifetimeStats()` with no args, so non-Claude platforms (Cursor,
-  //    OpenCode, JetBrains, ...) silently aggregate from the wrong dir.
+  //    `getLifetimeStats()` with no args, so non-Claude platforms
+  //    (Codex, ...) silently aggregate from the wrong dir.
   //    Statusline at src/server.ts:540 already passes
   //    `{ sessionsDir: getSessionDir() }` — the three ctx_stats sites must
   //    mirror that contract exactly. Note: `getMultiAdapterLifetimeStats`
@@ -2927,8 +2840,6 @@ describe("Version outdated warning in trackResponse", () => {
     expect(serverSrc).toMatch(/claude.code.*ctx.upgrade|ctx.upgrade.*claude.code/i);
     // npm platforms get npm update
     expect(serverSrc).toContain("npm update -g context-mode");
-    // OpenClaw gets its own command
-    expect(serverSrc).toContain("npm run install:openclaw");
   });
 });
 
@@ -3701,8 +3612,8 @@ describe("ctx_fetch_and_index batch refactor", () => {
     expect(block).toContain("store.index");
   });
 
-  test("force and requests parameters coerce string types from in-process native plugins", () => {
-    // OpenCode/Kilo in-process plugin bridge stringifies primitive types
+  test("force and requests parameters coerce string types from plugin bridges", () => {
+    // Some MCP plugin bridges stringify primitive types
     // (boolean → "false", array → "[]"). z.preprocess(coerceBoolean/coerceJsonArray)
     // defends against this in the Zod parse step. This test verifies those
     // preprocess wrappers are present (issue #627 follow-up).
@@ -4247,18 +4158,6 @@ describe("getSessionDirSegments — sync platform → segments map", () => {
     const { getSessionDirSegments } = await import("../../src/adapters/detect.js");
     expect(getSessionDirSegments("claude-code")).toEqual([".claude"]);
     expect(getSessionDirSegments("codex")).toEqual([".codex"]);
-    expect(getSessionDirSegments("qwen-code")).toEqual([".qwen"]);
-    expect(getSessionDirSegments("gemini-cli")).toEqual([".gemini"]);
-    expect(getSessionDirSegments("kiro")).toEqual([".kiro"]);
-    expect(getSessionDirSegments("cursor")).toEqual([".cursor"]);
-    expect(getSessionDirSegments("openclaw")).toEqual([".openclaw"]);
-    expect(getSessionDirSegments("vscode-copilot")).toEqual([".vscode"]);
-    expect(getSessionDirSegments("antigravity")).toEqual([".gemini"]);
-    expect(getSessionDirSegments("pi")).toEqual([".pi"]);
-    expect(getSessionDirSegments("kilo")).toEqual([".config", "kilo"]);
-    expect(getSessionDirSegments("opencode")).toEqual([".config", "opencode"]);
-    expect(getSessionDirSegments("zed")).toEqual([".config", "zed"]);
-    expect(getSessionDirSegments("jetbrains-copilot")).toEqual([".config", "JetBrains"]);
   });
 
   test("returns null for unknown platform", async () => {
@@ -4937,7 +4836,7 @@ describe("analytics homedir() import is alive (#43c63cb regression guard)", () =
 // ─────────────────────────────────────────────────────────
 // Startup banner suppression in stdio transport mode.
 // When the server runs as a child process (stdin is not a TTY), the banner
-// must not appear on stderr — Pi and other hosts render stderr in their UI.
+// must not appear on stderr — some hosts render stderr in their UI.
 // ─────────────────────────────────────────────────────────
 describe("startup banner suppressed in stdio transport mode", () => {
   test("no banner on stderr when stdin is not a TTY (child process)", async () => {
@@ -4964,7 +4863,7 @@ describe("startup banner suppressed in stdio transport mode", () => {
 // CLAUDE_SESSION_ID env var is NOT propagated to MCP servers (only hooks).
 // `resolveSessionIdFromSessionDB` must read the most-recent session_id from
 // THIS project's session DB so chunk attribution works on every adapter
-// (cursor, codex, gemini, kiro, opencode, etc.) without relying on env.
+// (claude-code, codex) without relying on env.
 // ═══════════════════════════════════════════════════════════════════════════
 describe("v1.0.134 SLICE A — cross-adapter currentAttribution session DB fallback", () => {
   test("currentAttribution falls back to session DB when CLAUDE_SESSION_ID env not set (cross-adapter)", async () => {
@@ -5058,85 +4957,9 @@ test("withProjectDirOverride carries native plugin session id into currentAttrib
   }
 });
 
-test("OpenCode/Kilo legacy MCP child suppresses ctx_* tool registration while embedded plugin import keeps it", async () => {
-  const { shouldSuppressMcpToolsForNativePluginHost } = await import("../../src/server.js");
-  const legacySettings = {
-    plugin: ["context-mode"],
-    mcp: { "context-mode": { type: "local", command: ["context-mode"] } },
-  };
-  expect(shouldSuppressMcpToolsForNativePluginHost({ platform: "opencode", settings: legacySettings })).toBe(true);
-  expect(shouldSuppressMcpToolsForNativePluginHost({ platform: "kilo", settings: legacySettings })).toBe(true);
-  expect(shouldSuppressMcpToolsForNativePluginHost({ platform: "opencode", settings: { plugin: ["context-mode"] } })).toBe(false);
-  expect(shouldSuppressMcpToolsForNativePluginHost({ platform: "opencode", embedded: "1", settings: legacySettings })).toBe(false);
-  expect(shouldSuppressMcpToolsForNativePluginHost({ platform: "claude-code", embedded: undefined })).toBe(false);
-});
-
-test("OpenCode legacy MCP suppression parses JSONC URLs without stripping // inside strings", async () => {
-  const { shouldSuppressMcpToolsForNativePluginHost } = await import("../../src/server.js");
-  const dir = mkdtempSync(join(tmpdir(), "opencode-jsonc-url-"));
-  const cwd = process.cwd();
-  try {
-    writeFileSync(join(dir, "opencode.jsonc"), `{
-      // Keep this URL intact; a naive /\\/\\/.*/ stripper corrupts it.
-      "endpoint": "https://example.com/api",
-      "plugin": ["context-mode"],
-      "mcp": {
-        "context-mode": { "type": "local", "command": ["context-mode"] },
-        "other": { "type": "local", "command": ["other"] }
-      }
-    }\n`);
-    process.chdir(dir);
-    expect(shouldSuppressMcpToolsForNativePluginHost({ platform: "opencode" })).toBe(true);
-  } finally {
-    process.chdir(cwd);
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-// #787 review regression, applied to server.ts: its local stripJsonComments
-// ended with a whole-string trailing-comma regex that deleted commas INSIDE
-// string values ("[1, ]" -> "[1 ]"). That corruption always leaves the JSON
-// valid (only the comma char is deleted; the anchoring bracket stays), and
-// shouldSuppressMcpToolsForNativePluginHost() — the only public surface over
-// readNativePluginHostSettings() — checks just the plugin array for a
-// "context-mode" substring and the mcp object for a "context-mode" key, so a
-// deleted in-string comma can never flip the boolean ("context-mode" contains
-// no comma to delete and no bracket to leave behind). Pin the fix
-// structurally instead: server.ts must delegate to the shared string-aware
-// src/util/jsonc.ts — whose in-string-comma behavior IS pinned by the
-// "parseJsonc / stripJsonComments" suite below — and must not reintroduce a
-// local whole-string trailing-comma regex.
-test("server.ts delegates JSONC stripping to string-aware src/util/jsonc (#787 in-string trailing-comma regression)", async () => {
-  const serverSrc = readFileSync(resolve(__dirname, "../../src/server.ts"), "utf8");
-  expect(serverSrc).toContain('from "./util/jsonc.js"');
-  expect(serverSrc).not.toContain('.replace(/,(\\s*[}\\]])/g');
-  // End-to-end sanity through the public boolean: a JSONC config that needs
-  // the strip path (comment + real trailing comma) and embeds a
-  // trailing-comma-like pattern inside a string value still parses and
-  // suppresses.
-  const { shouldSuppressMcpToolsForNativePluginHost } = await import("../../src/server.js");
-  const dir = mkdtempSync(join(tmpdir(), "opencode-jsonc-comma-"));
-  const cwd = process.cwd();
-  try {
-    writeFileSync(join(dir, "opencode.jsonc"), `{
-      // forces the comment/trailing-comma strip path
-      "note": "array literal: [1, ]",
-      "plugin": ["context-mode"],
-      "mcp": {
-        "context-mode": { "type": "local", "command": ["context-mode"] }
-      },
-    }\n`);
-    process.chdir(dir);
-    expect(shouldSuppressMcpToolsForNativePluginHost({ platform: "opencode" })).toBe(true);
-  } finally {
-    process.chdir(cwd);
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
 // ─── src/util/jsonc — shared string-aware JSONC strip/parse (#787/#806) ─────
-// The naive regex strippers that lived in src/server.ts and the OpenCode
-// adapter corrupted string VALUES: `//` inside URLs was cut as a "comment"
+// The naive regex strippers that lived in upstream-era config readers
+// corrupted string VALUES: `//` inside URLs was cut as a "comment"
 // (#806), and a whole-string trailing-comma regex ate commas inside string
 // literals ("[1, ]" -> "[1 ]", the 386a196 regression). These tests pin the
 // shared util that replaced both.
@@ -5182,87 +5005,6 @@ describe("parseJsonc / stripJsonComments (src/util/jsonc)", () => {
     expect(parseJsonc("not json at all {{")).toBeUndefined();
   });
 });
-
-// Issue #623: when ctx_* tool registration is suppressed for the legacy MCP
-// child on OpenCode/Kilo, an MCP client inspecting tools/list sees an empty
-// list with NO explanation. The plugin-native tools work, but a user who only
-// observes the MCP child (or another MCP host that doesn't load the plugin)
-// has no signal that ctx_* tools were intentionally hidden. Surface a stderr
-// diagnostic frame at first suppressed registerTool() call so operators can
-// tell "tools/list is empty BECAUSE the legacy mcp.context-mode block coexists
-// with plugin: ['context-mode']" — not "the server is broken".
-test("OpenCode/Kilo legacy MCP child emits stderr diagnostic when ctx_* suppression fires (#623)", async () => {
-  const { emitSuppressionDiagnostic, __resetSuppressionDiagnosticForTests } = await import("../../src/server.js");
-  __resetSuppressionDiagnosticForTests();
-  const lines: string[] = [];
-  emitSuppressionDiagnostic({ platform: "opencode", write: (c) => lines.push(c) });
-  // Second call must NOT re-emit — diagnostic is one-shot per process.
-  emitSuppressionDiagnostic({ platform: "opencode", write: (c) => lines.push(c) });
-  const joined = lines.join("");
-  expect(joined).toMatch(/context-mode/);
-  expect(joined).toMatch(/#623|plugin-native|legacy.*mcp\.context-mode|mcp\.context-mode.*legacy/i);
-  // One-shot: exactly one line containing the marker.
-  const matches = joined.match(/\[context-mode\]/g) ?? [];
-  expect(matches.length).toBe(1);
-  __resetSuppressionDiagnosticForTests();
-});
-
-// Issue #637: an operator who inspects the suppressed legacy MCP child via
-// `tools/list` (or whose MCP host probes it on connect) currently receives a
-// JSON-RPC -32601 "Method not found" error — because no `registerTool()` call
-// survives the suppression shim, the SDK's `setToolRequestHandlers()` never
-// runs and `tools/list` is therefore unregistered. To an outside observer that
-// looks identical to a broken server and they reasonably conclude "the plugin
-// never registers any ctx_* tools" (#637's headline framing). The real story
-// is "the MCP child was intentionally muted; the plugin path is serving the
-// tools natively" — already conveyed via the #623 stderr diagnostic, but
-// JSON-RPC consumers don't read stderr.
-//
-// Fix: register an explicit empty `tools/list` handler whenever suppression
-// is active, so the wire response becomes `{tools: []}` (spec-compliant,
-// matches what operators expect) paired with the existing stderr diagnostic.
-// This eliminates the misleading -32601 that started #637.
-test("registerEmptyToolsListHandler responds with {tools:[]} so operators don't see -32601 on suppressed MCP child (#637)", async () => {
-  // The user-facing failure mode that drove issue #637: an operator inspecting
-  // the suppressed legacy MCP child via `tools/list` (or whose MCP host probes
-  // it during connect) receives JSON-RPC -32601 "Method not found" because the
-  // SDK only registers tools/list when `registerTool()` actually goes through —
-  // and the #623 suppression shim returns undefined for every registration.
-  // The reporter reads -32601 as "the plugin never registers any ctx_* tools",
-  // which is the headline framing of #637.
-  //
-  // Fix: an exported helper that installs an explicit empty tools/list handler
-  // when suppression is active. The bundle entry point calls it at module-init
-  // time (alongside the prompts/resources handlers at server.ts:259-261).
-  //
-  // We test the helper in isolation against a fresh McpServer wired through an
-  // in-memory transport to a Client. This avoids the module-load-time pinning
-  // of `suppressMcpToolsForNativePluginHost` and gives a deterministic loop
-  // that does not depend on the build bundle being present.
-  const { McpServer } = await import("@modelcontextprotocol/sdk/server/mcp.js");
-  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
-  const { InMemoryTransport } = await import("@modelcontextprotocol/sdk/inMemory.js");
-  const { registerEmptyToolsListHandler } = await import("../../src/server.js");
-
-  const mcp = new McpServer({ name: "issue-637-isolated", version: "0.0.0" });
-  registerEmptyToolsListHandler(mcp);
-
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await Promise.all([
-    mcp.server.connect(serverTransport),
-    (async () => {
-      const client = new Client({ name: "issue-637-probe", version: "0.0.0" }, { capabilities: {} });
-      await client.connect(clientTransport);
-      const listed = await client.listTools();
-      // Pre-fix: client.listTools() throws -32601 Method not found.
-      // Post-fix: returns { tools: [] }.
-      expect(listed).toBeDefined();
-      expect(Array.isArray(listed.tools)).toBe(true);
-      expect(listed.tools.length).toBe(0);
-      await client.close();
-    })(),
-  ]);
-}, 15_000);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tool description style contract (#683 ADR-0002)
@@ -6522,8 +6264,8 @@ describe("ctx_stats cache observability + index_state (issue #697)", () => {
   });
 });
 
-// Gemini's function-calling API (Antigravity CLI `agy`, Gemini CLI) rejects
-// JSON Schema `const` and `additionalProperties` and then silently drops the
+// Some strict function-calling APIs reject
+// JSON Schema `const` and `additionalProperties` and then silently drop the
 // tool from the model's function list. The sanitizer rewrites the EMITTED
 // tools/list schema in a behavior-preserving way so those tools become callable.
 describe("sanitizeSchemaForStrictClients", () => {
@@ -6625,38 +6367,23 @@ describe("parseJsonc / stripJsonComments (src/util/jsonc)", () => {
   });
 });
 
-describe("resolveExecTimeout (agy default execution timeout)", () => {
+describe("resolveExecTimeout", () => {
   const savedPlatform = process.env.CONTEXT_MODE_PLATFORM;
-  const savedOverride = process.env.CONTEXT_MODE_AGY_EXEC_TIMEOUT_MS;
   afterEach(() => {
     if (savedPlatform === undefined) delete process.env.CONTEXT_MODE_PLATFORM;
     else process.env.CONTEXT_MODE_PLATFORM = savedPlatform;
-    if (savedOverride === undefined) delete process.env.CONTEXT_MODE_AGY_EXEC_TIMEOUT_MS;
-    else process.env.CONTEXT_MODE_AGY_EXEC_TIMEOUT_MS = savedOverride;
   });
 
   test("passes an explicit timeout through on any platform", () => {
-    process.env.CONTEXT_MODE_PLATFORM = "antigravity-cli";
+    process.env.CONTEXT_MODE_PLATFORM = "codex";
     expect(resolveExecTimeout(5000)).toBe(5000);
     process.env.CONTEXT_MODE_PLATFORM = "claude-code";
     expect(resolveExecTimeout(5000)).toBe(5000);
   });
 
-  test("applies the agy default ONLY under antigravity-cli when no timeout is given", () => {
-    process.env.CONTEXT_MODE_PLATFORM = "antigravity-cli";
-    delete process.env.CONTEXT_MODE_AGY_EXEC_TIMEOUT_MS;
-    expect(resolveExecTimeout(undefined)).toBe(AGY_DEFAULT_EXEC_TIMEOUT_MS);
-  });
-
-  test("leaves the timeout unbounded (undefined) on non-agy hosts", () => {
+  test("leaves the timeout unbounded (undefined) when none is given", () => {
     process.env.CONTEXT_MODE_PLATFORM = "claude-code";
     expect(resolveExecTimeout(undefined)).toBeUndefined();
-  });
-
-  test("honors CONTEXT_MODE_AGY_EXEC_TIMEOUT_MS override under agy", () => {
-    process.env.CONTEXT_MODE_PLATFORM = "antigravity-cli";
-    process.env.CONTEXT_MODE_AGY_EXEC_TIMEOUT_MS = "1500";
-    expect(resolveExecTimeout(undefined)).toBe(1500);
   });
 });
 
@@ -6713,6 +6440,46 @@ describe("ctx_* MCP tool annotations (#846)", () => {
       "ctx_fetch_and_index", "ctx_purge", "ctx_upgrade", "ctx_insight",
     ]) {
       expect(find(name)!.config.annotations!.readOnlyHint).toBe(false);
+    }
+  });
+});
+
+// ─── resolveDetectedAdapter (net 4 — MCP init hard-fail) ──────────────────────
+// The core judgment of this task: whether server.ts actually stops swallowing
+// UnsupportedClientError. The catch must rethrow ONLY that error (matched by
+// name) and keep swallowing every other best-effort failure.
+describe("resolveDetectedAdapter (net 4 — MCP init hard-fail)", () => {
+  test("propagates UnsupportedClientError instead of degrading to .claude", async () => {
+    await expect(resolveDetectedAdapter({ name: "cursor-vscode" })).rejects.toThrow(/unsupported client/i);
+  });
+
+  test("still swallows unrelated errors (adapter construction failure)", async () => {
+    const boom = async () => { throw new Error("dynamic import blew up"); };
+    await expect(
+      resolveDetectedAdapter({ name: "claude-code" }, { loadDetect: boom }),
+    ).resolves.toBeNull();
+  });
+});
+
+// ─── ctx_doctor removed-client hard-fail (net 4 — defense in depth) ───────────
+// The ctx_doctor handler resolves the current platform from the MCP client
+// version (server.server.getClientVersion()). Its catch must rethrow
+// UnsupportedClientError (matched by name) exactly like the MCP-init and
+// ctx_upgrade paths — NOT swallow it into the benign env fallback. Before the
+// fix the bare `catch {}` degraded a removed client to the env-detected
+// platform and produced a normal doctor report (RED); after the fix the error
+// propagates.
+describe("ctx_doctor (net 4 — removed-client hard-fail)", () => {
+  test("propagates UnsupportedClientError from the client-detection path", async () => {
+    const doctor = REGISTERED_CTX_TOOLS.find((t) => t.name === "ctx_doctor");
+    expect(doctor, "ctx_doctor must be registered").toBeDefined();
+    const spy = vi
+      .spyOn(server.server, "getClientVersion")
+      .mockReturnValue({ name: "cursor-vscode", version: "1.0" });
+    try {
+      await expect(doctor!.handler({})).rejects.toThrow(/unsupported client/i);
+    } finally {
+      spy.mockRestore();
     }
   });
 });

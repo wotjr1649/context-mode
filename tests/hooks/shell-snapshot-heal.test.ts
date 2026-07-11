@@ -44,6 +44,13 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { rewriteShellSnapshots } from "../../hooks/cache-heal-utils.mjs";
 
+// The trust anchor: rewriteShellSnapshots derives the
+// `cache/<marketplace>/<plugin>/` prefix from pluginRoot. Every snapshot
+// fixture in this file uses the upstream `context-mode/context-mode/`
+// layout, so the real installed-tree pluginRoot names that same anchor.
+const PLUGIN_ROOT =
+  "/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.151";
+
 const cleanups: string[] = [];
 
 afterEach(() => {
@@ -84,6 +91,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const result = rewriteShellSnapshots({
       snapshotsDir,
       currentVersion: "1.0.151",
+      pluginRoot: PLUGIN_ROOT,
     });
 
     expect(result.rewritten).toEqual([file]);
@@ -100,7 +108,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       `export PATH='/Users/x/.claude/plugins/cache/pm-skills/pm-toolkit/1.0.1/bin:/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin:/Users/x/.claude/plugins/cache/claude-adhd/claude-adhd/1.0.0/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
-    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151" });
+    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     const after = readFileSync(file, "utf-8");
     // context-mode bumped, siblings untouched
@@ -123,6 +131,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const result = rewriteShellSnapshots({
       snapshotsDir,
       currentVersion: "1.0.151",
+      pluginRoot: PLUGIN_ROOT,
     });
 
     expect(result.rewritten).toEqual([]);
@@ -142,6 +151,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const result = rewriteShellSnapshots({
       snapshotsDir,
       currentVersion: "1.0.151",
+      pluginRoot: PLUGIN_ROOT,
     });
 
     expect(result.rewritten).toEqual([]);
@@ -157,7 +167,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       `export PATH='/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.140/bin:/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
-    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151" });
+    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     const after = readFileSync(file, "utf-8");
     expect(after).toBe(
@@ -172,7 +182,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       `export PATH="C:\\Users\\me\\.claude\\plugins\\cache\\context-mode\\context-mode\\1.0.146\\bin;C:\\WINDOWS\\system32"\n`;
     writeFileSync(file, original, "utf-8");
 
-    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151" });
+    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     const after = readFileSync(file, "utf-8");
     expect(after).toContain(
@@ -189,7 +199,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       `export PATH='/c/Users/me/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin:/usr/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
-    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151" });
+    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     const after = readFileSync(file, "utf-8");
     expect(after).toBe(
@@ -205,6 +215,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       result = rewriteShellSnapshots({
         snapshotsDir: missingDir,
         currentVersion: "1.0.151",
+        pluginRoot: PLUGIN_ROOT,
       });
     }).not.toThrow();
     expect(result?.rewritten).toEqual([]);
@@ -220,6 +231,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       rewriteShellSnapshots({
         snapshotsDir,
         currentVersion: "1.0.151",
+        pluginRoot: PLUGIN_ROOT,
       }),
     ).not.toThrow();
   });
@@ -239,7 +251,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       "utf-8",
     );
 
-    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151" });
+    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     expect(readFileSync(other, "utf-8")).toBe(
       "context-mode/context-mode/1.0.146 — do not touch",
@@ -258,7 +270,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       "utf-8",
     );
 
-    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151" });
+    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     const remaining = readdirSync(snapshotsDir);
     // Only the original snapshot — no `.tmp-*` artefact.
@@ -269,16 +281,19 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
 
   test("never touches paths that look like context-mode but are scoped under another owner", () => {
     // Defensive: a malicious plugin manifest could create
-    // `.../cache/evil-owner/context-mode/1.0.146/bin`. Our regex must
-    // require the doubled `context-mode/context-mode/` segment so that
-    // an `evil-owner/context-mode/...` entry is not rewritten.
+    // `.../cache/evil-owner/context-mode/1.0.146/bin`. Even with the
+    // legit anchor explicitly supplied (PLUGIN_ROOT names
+    // `cache/context-mode/context-mode/`), the derived prefix must not
+    // match `evil-owner/context-mode/...` — the entry stays byte-identical.
+    // `evil-owner` and the fork's `context-mode-js` are the same shape; the
+    // heal only rewrites the tree pluginRoot actually names.
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-spoof.sh");
     const original =
       `export PATH='/Users/x/.claude/plugins/cache/evil-owner/context-mode/1.0.146/bin:/usr/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
-    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151" });
+    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     expect(readFileSync(file, "utf-8")).toBe(original);
   });
@@ -288,6 +303,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const result = rewriteShellSnapshots({
       snapshotsDir,
       currentVersion: "1.0.151",
+      pluginRoot: PLUGIN_ROOT,
     });
     expect(result.rewritten).toEqual([]);
   });
@@ -301,7 +317,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
 
     let result: { rewritten: string[] } | undefined;
     expect(() => {
-      result = rewriteShellSnapshots({ snapshotsDir, currentVersion: "" });
+      result = rewriteShellSnapshots({ snapshotsDir, currentVersion: "", pluginRoot: PLUGIN_ROOT });
     }).not.toThrow();
     expect(result?.rewritten).toEqual([]);
     expect(readFileSync(file, "utf-8")).toBe(original);
@@ -318,6 +334,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       rewriteShellSnapshots({
         snapshotsDir,
         currentVersion: "1.0.151",
+        pluginRoot: PLUGIN_ROOT,
       }),
     ).not.toThrow();
   });
@@ -336,7 +353,7 @@ describe("rewriteShellSnapshots — concurrent-read safety", () => {
       `export PATH='/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.140/bin:/usr/bin'\n`;
     writeFileSync(file, before, "utf-8");
 
-    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151" });
+    rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     // Target file exists, has new content, sibling tmp does not exist.
     expect(existsSync(file)).toBe(true);

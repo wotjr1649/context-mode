@@ -97,30 +97,10 @@ function seed(
 // ─────────────────────────────────────────────────────────
 
 describe("Slice 2.1 — enumerateAdapterDirs()", () => {
-  test("returns one entry for each of the 17 known adapters", () => {
+  test("returns one entry for each supported adapter (claude-code, codex)", () => {
     const dirs = enumerateAdapterDirs({ home: "/HOME" });
     const names = dirs.map((d) => d.name).sort();
-    expect(names).toEqual(
-      [
-        "antigravity",
-        "antigravity-cli",
-        "claude-code",
-        "codex",
-        "copilot-cli",
-        "cursor",
-        "gemini-cli",
-        "jetbrains-copilot",
-        "kilo",
-        "kiro",
-        "omp",
-        "opencode",
-        "openclaw",
-        "pi",
-        "qwen-code",
-        "vscode-copilot",
-        "zed",
-      ].sort(),
-    );
+    expect(names).toEqual(["claude-code", "codex"].sort());
   });
 
   test("each entry exposes sessionsDir and contentDir under <home>/<segments>/context-mode/", () => {
@@ -143,21 +123,18 @@ describe("Slice 2.1 — enumerateAdapterDirs()", () => {
     }
   });
 
-  test("uses the same segment map as src/adapters/detect.ts:92-111 (claude-code under .claude, kilo under .config/kilo, pi under .pi)", () => {
+  test("uses the same segment map as src/adapters/detect.ts (claude-code under .claude, codex under .codex)", () => {
     const home = "/HOME";
     const dirs = enumerateAdapterDirs({ home });
     const byName = Object.fromEntries(dirs.map((d) => [d.name, d]));
     // Build expectations through path.join so backslashes on Windows match.
     expect(byName["claude-code"].sessionsDir).toBe(join(home, ".claude", "context-mode", "sessions"));
-    expect(byName["kilo"].sessionsDir).toBe(join(home, ".config", "kilo", "context-mode", "sessions"));
-    expect(byName["pi"].sessionsDir).toBe(join(home, ".pi", "context-mode", "sessions"));
-    expect(byName["antigravity"].sessionsDir).toBe(join(home, ".gemini", "context-mode", "sessions"));
-    expect(byName["jetbrains-copilot"].sessionsDir).toBe(join(home, ".config", "JetBrains", "context-mode", "sessions"));
+    expect(byName["codex"].sessionsDir).toBe(join(home, ".codex", "context-mode", "sessions"));
   });
 
   test("defaults to os.homedir() when no override passed", () => {
     const dirs = enumerateAdapterDirs();
-    expect(dirs.length).toBe(17);
+    expect(dirs.length).toBe(2);
     const expectedSuffix = sep + join("context-mode", "sessions");
     expect(dirs.every((d) => d.sessionsDir.includes(expectedSuffix))).toBe(true);
   });

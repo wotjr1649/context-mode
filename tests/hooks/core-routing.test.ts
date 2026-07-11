@@ -111,12 +111,12 @@ describe("routePreToolUse", () => {
       );
     });
 
-    it("denies agy run_command CommandLine payloads like Bash command payloads", () => {
+    it("denies legacy run_command CommandLine payloads like Bash command payloads", () => {
       const result = routePreToolUse(
         "run_command",
         { CommandLine: "curl https://example.com" },
         undefined,
-        "antigravity-cli",
+        "someplat",
         "agy-commandline-curl",
       );
       expect(result).not.toBeNull();
@@ -340,13 +340,13 @@ describe("routePreToolUse", () => {
       expect(result!.additionalContext).toBe(READ_GUIDANCE);
     });
 
-    it("treats agy view_file AbsolutePath payloads as Read", () => {
+    it("treats legacy view_file AbsolutePath payloads as Read", () => {
       resetGuidanceThrottle("agy-view-file");
       const result = routePreToolUse(
         "view_file",
         { AbsolutePath: "/some/file.ts" },
         undefined,
-        "antigravity-cli",
+        "someplat",
         "agy-view-file",
       );
       expect(result).not.toBeNull();
@@ -393,23 +393,6 @@ describe("routePreToolUse", () => {
       const result = routePreToolUse("WebFetch", { url });
       expect(result).not.toBeNull();
       expect(result!.reason).toContain(url);
-    });
-
-    it("treats agy read_url_content URL payloads as WebFetch", () => {
-      const url = "https://example.com/docs";
-      const result = routePreToolUse(
-        "read_url_content",
-        { URL: url },
-        undefined,
-        "antigravity-cli",
-        "agy-read-url",
-      );
-      expect(result).not.toBeNull();
-      expect(result!.action).toBe("deny");
-      expect(result!.reason).toContain(url);
-      // agy's call surface is context-mode/<tool> (see hooks/core/tool-naming.mjs),
-      // not Claude's mcp__context-mode__<tool> form.
-      expect(result!.reason).toContain("context-mode/ctx_fetch_and_index");
     });
 
     it("treats mcp_web_fetch as WebFetch and blocks it", () => {

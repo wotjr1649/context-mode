@@ -13,9 +13,9 @@
  *
  *     Tool          Captures   Indexed     Total kept out
  *     Claude Code     17.413   276.7 MB        291.1 MB
- *     JetBrains            —     8.6 MB          8.6 MB
+ *     Codex CLI            —     8.6 MB          8.6 MB
  *
- *     Skipped (7): Cursor, Codex CLI, Pi, Kiro, Gemini CLI, Openclaw
+ *     Skipped (1): Codex CLI
  *     These adapters have DBs on disk but only test fixtures, dev skeletons,
  *     or detection probes — no real chat activity.
  *
@@ -124,13 +124,13 @@ describe("Slice 3.2 — formatReport renders 'Where it came from' sub-block", ()
       lifetime: lifetime(),
       multiAdapter: multi([
         adapter("claude-code", { events: 17_413, data: 276_700_000, rescue: 14_400_000, projects: new Array(12).fill(0).map((_, i) => `/p/${i}`), isReal: true }),
-        adapter("jetbrains-copilot", { events: 1_200, data: 8_600_000, projects: new Array(6).fill(0).map((_, i) => `/jb/${i}`), isReal: true }),
+        adapter("codex", { events: 1_200, data: 8_600_000, projects: new Array(6).fill(0).map((_, i) => `/cdx/${i}`), isReal: true }),
       ]),
     });
     expect(text).toMatch(/Where it came from/);
     // Real adapters render with marketing-grade labels (not raw IDs).
     expect(text).toMatch(/Claude Code/);
-    expect(text).toMatch(/JetBrains/);
+    expect(text).toMatch(/Codex/);
   });
 
   test("each rendered adapter row shows captures count and a byte total", () => {
@@ -138,7 +138,7 @@ describe("Slice 3.2 — formatReport renders 'Where it came from' sub-block", ()
       lifetime: lifetime(),
       multiAdapter: multi([
         adapter("claude-code", { events: 17_413, data: 276_700_000, rescue: 14_400_000, projects: new Array(12).fill(0).map((_, i) => `/p/${i}`), isReal: true }),
-        adapter("jetbrains-copilot", { events: 1_200, data: 8_600_000, projects: new Array(6).fill(0).map((_, i) => `/jb/${i}`), isReal: true }),
+        adapter("codex", { events: 1_200, data: 8_600_000, projects: new Array(6).fill(0).map((_, i) => `/cdx/${i}`), isReal: true }),
       ]),
     });
     // Captures count formatted with K/M suffixes from fmtNum().
@@ -164,16 +164,12 @@ describe("Slice 3.3 — Skipped adapters disclosure", () => {
       lifetime: lifetime(),
       multiAdapter: multi([
         adapter("claude-code", { events: 17_413, data: 276_700_000, projects: new Array(12).fill(0).map((_, i) => `/p/${i}`), isReal: true }),
-        adapter("cursor",      { events: 5, data: 100, projects: ["/p/c"], isReal: false }),
         adapter("codex",       { events: 2, data: 50,  projects: ["/p/cdx"], isReal: false }),
-        adapter("pi",          { events: 1, data: 20,  projects: ["/p/pi"], isReal: false }),
       ]),
     });
-    expect(text).toMatch(/Skipped \(3\):/);
+    expect(text).toMatch(/Skipped \(1\):/);
     // Marketing names appear in the skipped list, not raw IDs.
-    expect(text).toMatch(/Cursor/);
     expect(text).toMatch(/Codex/);
-    expect(text).toMatch(/Pi/);
     // Disclosure rationale.
     expect(text).toMatch(/no real chat activity/i);
   });
@@ -183,7 +179,7 @@ describe("Slice 3.3 — Skipped adapters disclosure", () => {
       lifetime: lifetime(),
       multiAdapter: multi([
         adapter("claude-code", { events: 17_413, data: 276_700_000, projects: new Array(12).fill(0).map((_, i) => `/p/${i}`), isReal: true }),
-        adapter("jetbrains-copilot", { events: 1_200, data: 8_600_000, projects: new Array(6).fill(0).map((_, i) => `/jb/${i}`), isReal: true }),
+        adapter("codex", { events: 1_200, data: 8_600_000, projects: new Array(6).fill(0).map((_, i) => `/cdx/${i}`), isReal: true }),
       ]),
     });
     expect(text).not.toMatch(/Skipped \(/);
@@ -196,7 +192,7 @@ describe("Slice 3.4 — Headline updates", () => {
       lifetime: lifetime(),
       multiAdapter: multi([
         adapter("claude-code",       { events: 17_413, data: 276_700_000, projects: new Array(12).fill(0).map((_, i) => `/p/${i}`), isReal: true }),
-        adapter("jetbrains-copilot", { events: 1_200, data: 8_600_000,    projects: new Array(6).fill(0).map((_, i) => `/jb/${i}`), isReal: true }),
+        adapter("codex", { events: 1_200, data: 8_600_000,    projects: new Array(6).fill(0).map((_, i) => `/cdx/${i}`), isReal: true }),
       ]),
     });
     // Phrase: "across N AI tools" — N is the real-adapter count.
@@ -208,7 +204,7 @@ describe("Slice 3.4 — Headline updates", () => {
       lifetime: lifetime(),
       multiAdapter: multi([
         adapter("claude-code", { events: 17_413, data: 276_700_000, projects: new Array(12).fill(0).map((_, i) => `/p/${i}`), isReal: true }),
-        adapter("cursor",      { events: 5, data: 100, projects: ["/p/c"], isReal: false }),
+        adapter("codex",       { events: 5, data: 100, projects: ["/p/c"], isReal: false }),
       ]),
     });
     expect(text).toMatch(/in\s+Claude\s+Code/);
@@ -222,7 +218,7 @@ describe("Slice 3.6 — Cross-adapter scope ladder ('the receipt — getting wid
       lifetime: lifetime(),
       multiAdapter: multi([
         adapter("claude-code",       { events: 17_413, data: 276_700_000, projects: new Array(12).fill(0).map((_, i) => `/p/${i}`), isReal: true }),
-        adapter("jetbrains-copilot", { events: 1_200, data: 8_600_000,    projects: new Array(6).fill(0).map((_, i) => `/jb/${i}`), isReal: true }),
+        adapter("codex", { events: 1_200, data: 8_600_000,    projects: new Array(6).fill(0).map((_, i) => `/cdx/${i}`), isReal: true }),
       ]),
     });
     expect(text).toMatch(/All your work everywhere/i);

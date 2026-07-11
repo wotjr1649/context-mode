@@ -818,45 +818,8 @@ footer{padding:64px 0 40px;text-align:center;background:var(--bg-alt);border-top
 const o=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('v');o.unobserve(x.target);}});},{threshold:.06,rootMargin:'0px 0px -20px 0px'});
 document.querySelectorAll('.rev').forEach(e=>o.observe(e));
 
-// Dynamic stats from context-mode/main/stats.json — single source of truth
-function toLongForm(short){
-  if(!short) return null;
-  const m = String(short).match(/^([\d.]+)\s*([kKmM])?\+?$/);
-  if(!m) return short;
-  let num = parseFloat(m[1]);
-  if(m[2] && /k/i.test(m[2])) num *= 1000;
-  else if(m[2] && /m/i.test(m[2])) num *= 1000000;
-  return Math.round(num).toLocaleString('en-US') + '+';
-}
-
-fetch('https://raw.githubusercontent.com/mksglu/context-mode/main/stats.json')
-  .then(r=>r.json())
-  .then(d=>{
-    if(!d) return;
-    if(d.message){
-      const heroStat=document.getElementById('stat-users');
-      if(heroStat) heroStat.textContent=d.message;
-    }
-    const longForm=d.message_long||d.users_long||toLongForm(d.message);
-    if(longForm){
-      document.querySelectorAll('.js-user-count').forEach(el=>{el.textContent=longForm});
-      const tag=document.getElementById('stat-tag-users');
-      if(tag) tag.textContent=longForm;
-    }
-  })
-  .catch(()=>{});
-
-// GitHub stars
-fetch('https://api.github.com/repos/mksglu/context-mode')
-  .then(r=>r.json())
-  .then(d=>{
-    if(d && d.stargazers_count){
-      const v=d.stargazers_count;
-      const el=document.getElementById('stat-stars');
-      if(el) el.textContent = v >= 1000 ? (v/1000).toFixed(1)+'k' : v;
-    }
-  })
-  .catch(()=>{});
+// Stats are static in this fork — no upstream fetch (stats.json / GitHub API
+// live on the upstream repo, and this fork does not call upstream infra).
 </script>
 </body>
 </html>

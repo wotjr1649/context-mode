@@ -47,9 +47,8 @@ export function resolveClaudeGlobalSettingsPath(
  * Issue #451 round-3: cross-adapter deny-policy parity.
  *
  * `resolveClaudeGlobalSettingsPath` hardcodes the `.claude` segment, so
- * non-Claude adapters (cursor, codex, qwen-code, gemini-cli, jetbrains-copilot,
- * vscode-copilot, etc.) never had their global settings consulted by the
- * security policy reader. This helper returns the union of:
+ * non-Claude adapters (codex) never had their global settings consulted by
+ * the security policy reader. This helper returns the union of:
  *
  *   1. The currently-detected adapter's home-rooted settings.json (when the
  *      adapter is non-claude — claude is already covered by entry 2).

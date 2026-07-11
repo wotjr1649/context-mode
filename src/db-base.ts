@@ -540,7 +540,7 @@ export abstract class SQLiteBase {
    *
    * v1.0.128 introduced a single-writer guard here as a defense against
    * #560. That defense was an over-correction — the actual root causes
-   * of #560 were #559 (zombie MCP child accumulation) and #561 (Pi
+   * of #560 were #559 (zombie MCP child accumulation) and #561 (host
    * misdetection writing to the wrong DB path), both fixed in v1.0.128
    * + v1.0.129. The single-writer guard broke legitimate multi-window
    * users; v1.0.130 rolls it out. See

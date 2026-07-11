@@ -62,15 +62,18 @@ import {
   resolveProjectScope,
 } from "./search/ctx-search-schema.js";
 import { FloodGuard } from "./search/flood-guard.js";
-import { buildNodeCommand, type HookAdapter, type PlatformId, isInProcessPluginPlatform } from "./adapters/types.js";
+import { buildNodeCommand, type HookAdapter, type PlatformId } from "./adapters/types.js";
 import { detectPlatform, getSessionDirSegments } from "./adapters/detect.js";
 import { parseCodexContextModePluginRoot } from "./adapters/codex/index.js";
 import { getHookScriptPaths } from "./util/hook-config.js";
-import { stripJsonComments } from "./util/jsonc.js";
 import { resolveClaudeConfigDir } from "./util/claude-config.js";
 import { resolveProjectDir } from "./util/project-dir.js";
 import { loadDatabase } from "./db-base.js";
 import { AnalyticsEngine, formatReport, getConversationStats, getContentBytesAllSessions, getConversationWindowStats, getLifetimeStats, getMultiAdapterLifetimeStats, getRealBytesStats, pricePerToken } from "./session/analytics.js";
+// Issue #46915 self-heal — single source of truth shared with start.mjs
+// HEAL block, scripts/postinstall.mjs, and src/cli.ts upgrade().
+// @ts-expect-error — JS module, no TS declarations
+import { derivePluginKey } from "../scripts/heal-installed-plugins.mjs";
 const __pkg_dir = dirname(fileURLToPath(import.meta.url));
 const VERSION: string = (() => {
   for (const rel of ["../package.json", "./package.json"]) {
@@ -120,11 +123,11 @@ function getRuntimeAwarePackageRoot(platformId?: PlatformId): string {
 
 // Prevent silent MCP server death from unhandled async errors.
 //
-// Guarded for plugin-native OpenCode/Kilo imports (#574): when server.js is
-// imported only to reuse the ctx_* tool registry, these handlers would become
-// process-wide OpenCode/Kilo host handlers. In Node, adding an
-// `uncaughtException` listener changes default crash behavior, so only the
-// standalone MCP process may install them.
+// Guarded for embedded plugin imports (#574): when server.js is imported
+// only to reuse the ctx_* tool registry, these handlers would become
+// process-wide host handlers. In Node, adding an `uncaughtException`
+// listener changes default crash behavior, so only the standalone MCP
+// process may install them.
 if (process.env.CONTEXT_MODE_EMBEDDED_PLUGIN_TOOLS !== "1") {
   process.on("unhandledRejection", (err) => {
     process.stderr.write(`[context-mode] unhandledRejection: ${err}\n`);
@@ -153,127 +156,6 @@ export interface RegisteredCtxTool {
 
 export const REGISTERED_CTX_TOOLS: RegisteredCtxTool[] = [];
 
-export function shouldSuppressMcpToolsForNativePluginHost(
-  opts: { embedded?: string; platform?: PlatformId; settings?: Record<string, unknown> | null } = {},
-): boolean {
-  const embedded = opts.embedded ?? process.env.CONTEXT_MODE_EMBEDDED_PLUGIN_TOOLS;
-  if (embedded === "1") return false;
-  const platform = opts.platform ?? detectPlatform().platform;
-  if (platform !== "opencode" && platform !== "kilo") return false;
-  const settings = opts.settings ?? readNativePluginHostSettings(platform);
-  return settingsHasContextModePlugin(settings) && settingsHasLegacyContextModeMcp(settings);
-}
-
-function readNativePluginHostSettings(platform: PlatformId): Record<string, unknown> | null {
-  const base = platform === "kilo" ? "kilo" : "opencode";
-  const paths = [
-    resolve(`${base}.json`),
-    resolve(`${base}.jsonc`),
-    resolve(`.${base}`, `${base}.json`),
-    resolve(`.${base}`, `${base}.jsonc`),
-    join(homedir(), ".config", base, `${base}.json`),
-    join(homedir(), ".config", base, `${base}.jsonc`),
-  ];
-  for (const p of paths) {
-    try {
-      if (!existsSync(p)) continue;
-      return JSON.parse(stripJsonComments(readFileSync(p, "utf8"))) as Record<string, unknown>;
-    } catch { /* try next config path */ }
-  }
-  return null;
-}
-
-function settingsHasContextModePlugin(settings: Record<string, unknown> | null | undefined): boolean {
-  const plugins = settings?.plugin;
-  return Array.isArray(plugins) && plugins.some((p) => typeof p === "string" && p.includes("context-mode"));
-}
-
-function settingsHasLegacyContextModeMcp(settings: Record<string, unknown> | null | undefined): boolean {
-  const mcp = settings?.mcp;
-  return !!(
-    mcp &&
-    typeof mcp === "object" &&
-    !Array.isArray(mcp) &&
-    Object.prototype.hasOwnProperty.call(mcp, "context-mode")
-  );
-}
-
-const suppressMcpToolsForNativePluginHost = shouldSuppressMcpToolsForNativePluginHost();
-
-/**
- * Issue #623 — surface why ctx_* tools/list is empty on suppressed legacy MCP
- * children. When a user upgrades OpenCode/Kilo from v1.0.136 → v1.0.137+ without
- * running `context-mode upgrade`, their opencode.json still has BOTH the legacy
- * mcp.context-mode block AND the plugin entry. The plugin path registers the
- * tools natively, but the legacy MCP child runs in parallel and used to expose
- * duplicate tools — v1.0.137 suppressed those duplicates. The suppression was
- * silent, leaving any MCP client that inspected the child via tools/list with
- * an empty list and no diagnostic. Emit one stderr line per process so an
- * operator running the child directly (or any non-plugin MCP host) sees the
- * exact reason and the `context-mode upgrade` fix.
- *
- * Exported for test (suppression-diagnostic regression guard).
- */
-let __suppressionDiagnosticEmitted = false;
-export function emitSuppressionDiagnostic(
-  opts: { platform?: string; write?: (chunk: string) => void } = {},
-): void {
-  if (__suppressionDiagnosticEmitted) return;
-  __suppressionDiagnosticEmitted = true;
-  const write = opts.write ?? ((c: string) => { process.stderr.write(c); });
-  const platform = opts.platform ?? "opencode/kilo";
-  write(
-    `[context-mode] ctx_* tools/list intentionally empty on this MCP child: ` +
-    `legacy mcp.context-mode block coexists with plugin: ["context-mode"] in ` +
-    `${platform}.json — plugin-native tools are the supported path (#623). ` +
-    `Run \`context-mode upgrade\` to remove the legacy block (preserves other ` +
-    `MCP servers).\n`
-  );
-}
-/** Test-only: reset the one-shot emission flag so suites can re-exercise. */
-export function __resetSuppressionDiagnosticForTests(): void {
-  __suppressionDiagnosticEmitted = false;
-}
-
-/**
- * Issue #637 — register an explicit empty `tools/list` handler on the McpServer.
- *
- * Background: when `suppressMcpToolsForNativePluginHost` is true, every
- * `server.registerTool()` call is short-circuited (returns `undefined` above).
- * The MCP SDK only installs the SDK-default `tools/list` handler when at least
- * one `registerTool()` reaches `setToolRequestHandlers()` internally
- * (mcp.js:56-67). Suppressing every registration leaves `tools/list`
- * unregistered, and the framework's RPC layer answers it with
- * `-32601 "Method not found"`.
- *
- * The reporter of #637 (SquirrelRat) inspected the suppressed child via
- * `tools/list` and read the JSON-RPC error as "the plugin never registers any
- * ctx_* tools" — when in fact the plugin DOES register all 11 tools natively
- * (verified at `src/adapters/opencode/plugin.ts:469` and
- * `tests/opencode-plugin.test.ts:88`). The misleading -32601 is the seed of
- * the #637 perception.
- *
- * This helper installs an explicit handler that returns `{tools: []}` — a
- * spec-compliant empty list. Paired with the existing #623 stderr diagnostic,
- * an operator now sees:
- *   - wire response: `{tools: []}` (matches expectation, no JSON-RPC error)
- *   - stderr: `[context-mode] ctx_* tools/list intentionally empty… (#623)`
- *
- * Idempotent: throws inside SDK if called twice on the same server because
- * `assertCanSetRequestHandler` (mcp.js:60) rejects duplicate registrations;
- * we therefore install the SDK's default tool handlers FIRST (via a no-op
- * registerTool of a fake tool, immediately removed) only if needed. To keep
- * the public surface minimal, we just call `server.server.setRequestHandler`
- * directly — that is the same low-level call used for prompts/resources at
- * server.ts:259-261 and avoids the SDK guard entirely.
- *
- * Exported for test (#637 in-memory regression guard).
- */
-export function registerEmptyToolsListHandler(target: McpServer = server): void {
-  target.server.registerCapabilities({ tools: { listChanged: false } });
-  target.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
-}
-
 const originalRegisterTool = server.registerTool.bind(server);
 (server as unknown as { registerTool: (...args: unknown[]) => unknown }).registerTool = (...args: unknown[]) => {
   const [name, config, handler] = args as [
@@ -281,10 +163,6 @@ const originalRegisterTool = server.registerTool.bind(server);
     Record<string, unknown>,
     (toolArgs: Record<string, unknown>) => Promise<unknown> | unknown,
   ];
-  if (suppressMcpToolsForNativePluginHost) {
-    emitSuppressionDiagnostic();
-    return undefined;
-  }
   const wrappedHandler = wrapToolHandler(name, handler);
   REGISTERED_CTX_TOOLS.push({ name, config, handler: wrappedHandler });
   args[2] = wrappedHandler;
@@ -319,17 +197,6 @@ function wrapToolHandler(
   };
 }
 
-// Issue #637 — when suppression is active, install the empty tools/list handler
-// once at module-init time so the suppressed MCP child responds with
-// `{tools: []}` instead of JSON-RPC `-32601 Method not found`. Pair with the
-// #623 stderr diagnostic that explains WHY the list is empty. Skipped for the
-// embedded plugin-import path because the embedded process is not the stdio
-// MCP child an operator would inspect — it lives inside the OpenCode/Kilo
-// host and never speaks JSON-RPC over stdio.
-if (suppressMcpToolsForNativePluginHost && process.env.CONTEXT_MODE_EMBEDDED_PLUGIN_TOOLS !== "1") {
-  registerEmptyToolsListHandler(server);
-}
-
 type ToolContextOverride = { projectDir: string; sessionId?: string };
 const projectDirOverride = new AsyncLocalStorage<ToolContextOverride>();
 
@@ -342,26 +209,26 @@ export async function withProjectDirOverride<T>(
 }
 
 // Register empty prompts/resources handlers so MCP clients don't get -32601 (#168).
-// OpenCode calls listPrompts()/listResources() unconditionally — the error can poison
-// the SDK transport layer, causing subsequent listTools() calls to fail permanently.
+// Some MCP clients call listPrompts()/listResources() unconditionally — the error can
+// poison the SDK transport layer, causing subsequent listTools() calls to fail permanently.
 import { ListPromptsRequestSchema, ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 server.server.registerCapabilities({ prompts: { listChanged: false }, resources: { listChanged: false } });
 server.server.setRequestHandler(ListPromptsRequestSchema, async () => ({ prompts: [] }));
 server.server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: [] }));
 server.server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({ resourceTemplates: [] }));
 
-// ── Strict-client (Gemini function-calling) schema compatibility ──────────────
-// Gemini's function-calling API — used by Antigravity CLI (`agy`) and Gemini CLI
-// — rejects JSON Schema `const` and `additionalProperties`. A rejected parameter
-// schema makes the host SILENTLY DROP that tool from the model's function list,
-// so the agent never sees our ctx_* tools and falls back to hand-rolling the MCP
-// protocol through its Bash tool. Sanitize the EMITTED tools/list schema:
+// ── Strict-client (function-calling) schema compatibility ─────────────────────
+// Some strict function-calling APIs reject JSON Schema `const` and
+// `additionalProperties`. A rejected parameter schema makes the host SILENTLY
+// DROP that tool from the model's function list, so the agent never sees our
+// ctx_* tools and falls back to hand-rolling the MCP protocol through its Bash
+// tool. Sanitize the EMITTED tools/list schema:
 //   • `const: X`  →  `enum: [X]`   — an identical single-value constraint
 //   • drop `additionalProperties`  — advisory only; every ctx_* handler parses
 //     args with Zod (which strips unknown keys server-side), so removing it
 //     changes no validation and no call behavior.
-// Both transforms are behavior-preserving for every other client (Claude Code,
-// Copilot, Cursor, …): `const` and a one-value `enum` are equivalent, and no
+// Both transforms are behavior-preserving for every supported client (Claude
+// Code, Codex): `const` and a one-value `enum` are equivalent, and no
 // model sends undeclared properties. Only the wire schema changes — never
 // validation or how any tool is invoked.
 export function sanitizeSchemaForStrictClients(node: unknown): unknown {
@@ -429,7 +296,7 @@ writeFileSync(
   `(function(){var __cm_fs=0;process.on('exit',function(){if(__cm_fs>0)try{process.stderr.write('__CM_FS__:'+__cm_fs+'\\n')}catch(e){}});try{var f=require('fs');var ors=f.readFileSync;f.readFileSync=function(){var r=ors.apply(this,arguments);if(Buffer.isBuffer(r))__cm_fs+=r.length;else if(typeof r==='string')__cm_fs+=Buffer.byteLength(r);return r;};}catch(e){}})();\n`,
 );
 // In the stdio MCP path, main() also removes this file during graceful
-// shutdown. Plugin-native OpenCode/Kilo imports skip main() (#574), so
+// shutdown. Embedded plugin imports skip main() (#574), so
 // register a top-level best-effort cleanup too to avoid leaking preload
 // snippets under /tmp when the host process exits.
 process.on("exit", () => { try { unlinkSync(CM_FS_PRELOAD); } catch { /* best effort */ } });
@@ -450,11 +317,9 @@ export function currentAttribution(): { sessionId?: string } | undefined {
   if (override?.sessionId) return { sessionId: override.sessionId };
 
   // CLAUDE_SESSION_ID env var is NOT propagated to MCP servers (only to hooks).
-  // Cross-adapter resolution: every adapter (15 of them) sets *_PROJECT_DIR env
-  // and writes session_events via hooks. Read the most-recent session_id from
-  // THIS project's session DB. Works for claude-code/cursor/gemini-cli/codex/
-  // kiro/opencode/zed/kilo/openclaw/qwen-code/vscode-copilot/jetbrains-copilot/
-  // omp/pi/antigravity — no adapter-specific transcript path required.
+  // Cross-adapter resolution: every adapter writes session_events via hooks.
+  // Read the most-recent session_id from THIS project's session DB. Works for
+  // claude-code and codex alike — no adapter-specific transcript path required.
   const sessionId = process.env.CLAUDE_SESSION_ID ?? resolveSessionIdFromSessionDB();
   if (!sessionId) return undefined;
   return { sessionId };
@@ -548,6 +413,38 @@ async function getDiagnosticAdapter(): Promise<HookAdapter | null> {
   }
 }
 
+/** Type of the dynamically-imported detect module — used to type the test loader. */
+type DetectModule = typeof import("./adapters/detect.js");
+
+/**
+ * Resolve `_detectedAdapter` from the MCP handshake clientInfo. Rethrows
+ * `UnsupportedClientError` for a removed client so the caller fails loudly
+ * instead of silently degrading to .claude; the rethrow propagates wherever
+ * the caller holds clientInfo — the request-boundary re-detections today. At
+ * boot clientInfo is undefined (pre-existing connect-then-sync timing), so the
+ * guard's live surface is those re-detections, not MCP init. Any other failure
+ * returns null (best effort). Extracted from the inline try block so it is testable.
+ *
+ * @param clientInfo  MCP initialize handshake clientInfo (undefined when absent).
+ * @param deps.loadDetect  detect-module loader — tests inject a failing loader.
+ */
+export async function resolveDetectedAdapter(
+  clientInfo: { name: string; version?: string } | undefined,
+  deps: { loadDetect?: () => Promise<DetectModule> } = {},
+): Promise<HookAdapter | null> {
+  const load = deps.loadDetect ?? (() => import("./adapters/detect.js"));
+  try {
+    const { detectPlatform, getAdapter } = await load();
+    const signal = detectPlatform(clientInfo);
+    return await getAdapter(signal.platform);
+  } catch (err) {
+    // Match by name, not `instanceof` — the class can cross a bundle/module
+    // boundary and fail `instanceof` silently (see the MCP-init call site).
+    if ((err as { name?: string })?.name === "UnsupportedClientError") throw err;
+    return null; // best effort — caller falls back to .claude
+  }
+}
+
 /**
  * Get the platform-specific sessions directory from the detected adapter.
  * Falls back to the detected platform config root before adapter detection.
@@ -592,7 +489,7 @@ function getSessionDir(): string {
  *   3. process.cwd() (last resort)
  *
  * CONTEXT_MODE_PROJECT_DIR guarantees correct projectDir even for platforms
- * that don't set their own env var (Cursor, OpenClaw, Codex, Kiro, Zed).
+ * that don't set their own env var (Codex).
  */
 export function getProjectDir(): string {
   const override = projectDirOverride.getStore();
@@ -607,24 +504,24 @@ export function getProjectDir(): string {
   // app launch, /ctx-upgrade respawn). See src/util/project-dir.ts.
   //
   // Issue #521 (v1.0.119): the transcript heuristic ONLY applies on Claude
-  // Code. Other platforms (Cursor, OpenCode, Codex, ...) either have no
-  // transcript at that path or use a different schema without `cwd`. Worse,
-  // a Cursor user who also runs Claude Code would pick up the most-recently-
-  // modified Claude Code session's cwd — wrong project entirely. Gate the
-  // path on detected platform so non-Claude hosts skip the heuristic and
-  // fall through to PWD/cwd cleanly.
+  // Code. Other platforms (Codex, ...) either have no transcript at that
+  // path or use a different schema without `cwd`. Worse, a non-Claude host
+  // sharing the machine would pick up the most-recently-modified Claude Code
+  // session's cwd — wrong project entirely. Gate the path on detected
+  // platform so non-Claude hosts skip the heuristic and fall through to
+  // PWD/cwd cleanly.
   //
-  // The Claude heuristic must also be fresh. Hosts such as Pi can be
-  // misdetected as Claude Code solely because ~/.claude exists; without a
-  // freshness guard an old Claude transcript can globally hijack ctx shell cwd
-  // after reboot. Active Claude sessions update their transcript as the user
-  // interacts, so stale transcripts should fall through to PWD/cwd.
+  // The Claude heuristic must also be fresh. A host can be misdetected as
+  // Claude Code solely because ~/.claude exists; without a freshness guard
+  // an old Claude transcript can globally hijack ctx shell cwd after reboot.
+  // Active Claude sessions update their transcript as the user interacts,
+  // so stale transcripts should fall through to PWD/cwd.
   //
   // Issue #545 (v1.0.124): pass strictPlatform for ALL adapters so the
   // env-var cascade is built ALGORITHMICALLY from the platform's own
   // workspace vars + universal escape hatch — foreign workspace vars (e.g.
-  // CLAUDE_PROJECT_DIR leaked into Pi's MCP child env from the user's shell)
-  // cannot win, regardless of cascade order. start.mjs intentionally does
+  // CLAUDE_PROJECT_DIR leaked into another host's MCP child env from the
+  // user's shell) cannot win, regardless of cascade order. start.mjs does
   // NOT pass strictPlatform — host detection is unreliable at the entrypoint
   // and the legacy literal cascade is preserved there for semver safety.
   let transcriptsRoot: string | undefined;
@@ -685,7 +582,7 @@ function getSessionDbPath(): string {
  *
  * Layout: ~/<configDir>/context-mode/content/<hash>.db
  *   e.g.  ~/.claude/context-mode/content/87c28c41ddb64d38.db
- *         ~/.cursor/context-mode/content/87c28c41ddb64d38.db
+ *         ~/.codex/context-mode/content/87c28c41ddb64d38.db
  */
 function getStorePath(): string {
   const dir = ensureWritableStorageDir(resolveContentStorageDir(getDefaultSessionDir));
@@ -802,8 +699,6 @@ async function fetchLatestVersion(): Promise<string> {
 function getUpgradeHint(): string {
   const name = _detectedAdapter?.name;
   if (name === "Claude Code") return "/ctx-upgrade";
-  if (name === "OpenClaw") return "npm run install:openclaw";
-  if (name === "Pi") return "npm run build";
   return "npm update -g context-mode";
 }
 
@@ -863,8 +758,10 @@ function healCacheMidSession(): void {
     catch { cacheRootCanon = cacheRoot; }
     // Plugin root: build/ for tsc, plugin root for bundle
     const pluginRoot = getPackageRoot();
+    const pluginKey = derivePluginKey(pluginRoot);
+    if (!pluginKey) return;
     for (const [key, entries] of Object.entries((ip.plugins ?? {}) as Record<string, Array<{ installPath?: string }>>)) {
-      if (key !== "context-mode@context-mode") continue;
+      if (key !== pluginKey) continue;
       for (const entry of entries) {
         const rp = entry.installPath;
         if (!rp || existsSync(rp)) continue;
@@ -995,7 +892,7 @@ let _lifetimeCache: { tokens: number; computedAt: number } | undefined;
  * (`pid-<parent pid>`), so a status line script can derive
  * the same id from `$PPID` without coupling to MCP.
  */
-// CLAUDE_SESSION_ID flows from the hosting process (Claude Code, pi, etc.)
+// CLAUDE_SESSION_ID flows from the hosting process (Claude Code, etc.)
 // straight into a path.join, and path.join collapses ".." into the result,
 // so a host env CLAUDE_SESSION_ID=../../evil writes "stats-evil.json" two
 // levels above statsDir. The env var is not under direct MCP-tool-caller
@@ -1072,9 +969,8 @@ function persistStats(): void {
       reduction_pct: reductionPct,
       tokens_saved: tokensSaved,
       // statusline-facing $ values — pre-computed at the current per-token
-      // rate (dynamic when PI_CONTEXT_MODE_PRICE_OUTPUT_PER_TOKEN is set by a
-      // Pi host; Opus $15/1M otherwise). Resolved on every persist via
-      // pricePerToken() so the env override picks up without an MCP restart.
+      // rate. Resolved on every persist via pricePerToken() (single pricing
+      // source of truth in src/session/analytics.ts).
       dollars_saved_session: +(tokensSaved * pricePerToken()).toFixed(2),
       tokens_saved_lifetime: lifetimeTokens,
       dollars_saved_lifetime: +(lifetimeTokens * pricePerToken()).toFixed(2),
@@ -1483,22 +1379,16 @@ function truncateCommandForEcho(command: string): string {
 }
 
 /**
- * Default execution timeout (ms) applied ONLY under Antigravity CLI (`agy`).
- * agy does not enforce an MCP RPC timeout, so a ctx_execute with a runaway or
- * blocking script hangs forever — the host never kills it and the user must
- * interrupt. Every other host enforces its own RPC timeout, so we keep the
- * no-server-timer behavior there (Issue #406 — long builds need an unbounded
- * run). A caller can still pass an explicit `timeout` to override on any host.
+ * Default execution timeout (ms). Historically applied only under one
+ * removed upstream-era CLI adapter, which never enforced its own MCP RPC
+ * timeout. Every remaining host (hard fork: Claude Code and Codex only)
+ * enforces its own RPC timeout and gets the no-server-timer behavior
+ * (Issue #406 — long builds need an unbounded run). A caller can still pass
+ * an explicit `timeout` to override.
  */
 export const AGY_DEFAULT_EXEC_TIMEOUT_MS = 120_000;
 export function resolveExecTimeout(timeout: number | undefined): number | undefined {
-  if (timeout !== undefined) return timeout;
-  // Only agy gets a default — every other host enforces its own RPC timeout, so
-  // keep the unbounded behavior there. Detected via the env the agy bundle pins
-  // (CONTEXT_MODE_PLATFORM=antigravity-cli). Tunable via CONTEXT_MODE_AGY_EXEC_TIMEOUT_MS.
-  if (detectPlatform().platform !== "antigravity-cli") return undefined;
-  const override = Number(process.env.CONTEXT_MODE_AGY_EXEC_TIMEOUT_MS);
-  return Number.isFinite(override) && override > 0 ? override : AGY_DEFAULT_EXEC_TIMEOUT_MS;
+  return timeout;
 }
 
 /**
@@ -1716,10 +1606,10 @@ EXAMPLE: ctx_execute(language: "javascript", code: "const out = require('child_p
         .optional()
         .describe("Max execution time in ms. When omitted, no server-side timer fires — the MCP host's RPC timeout governs (which is the right layer for this policy). Pass an explicit value for long-running builds (Gradle/Maven/SBT)."),
       // background: wrapped in coerceBoolean preprocessor so the literal
-      // strings "true"/"false" arriving from OpenCode's native plugin
-      // bridge (and several LLM providers' tool-call JSON) parse as the
-      // boolean the handler expects. z.coerce.boolean() is unsafe here —
-      // Boolean("false") is true. Fixes #627.
+      // strings "true"/"false" arriving from several LLM providers'
+      // tool-call JSON parse as the boolean the handler expects.
+      // z.coerce.boolean() is unsafe here — Boolean("false") is true.
+      // Fixes #627.
       background: z
         .preprocess(coerceBoolean, z.boolean())
         .optional()
@@ -2491,11 +2381,11 @@ function searchFloodGuardKey(): string {
  * Two shapes show up from the wild:
  *   1. `"[\"a\",\"b\"]"` — Claude Code double-serialization bug
  *      (https://github.com/anthropics/claude-code/issues/34520).
- *   2. `"single query"` — some LLM providers / OpenCode's native plugin
- *      bridge deliver a single string when the schema expects `string[]`
- *      (issue #627). v1.0.139 (#621) made the bridge run the Zod schema,
- *      so this now surfaces as `Expected array, received string`. The
- *      ergonomic recovery is to treat it as `["single query"]`.
+ *   2. `"single query"` — some LLM providers / MCP plugin bridges deliver
+ *      a single string when the schema expects `string[]` (issue #627).
+ *      v1.0.139 (#621) made the bridge run the Zod schema, so this now
+ *      surfaces as `Expected array, received string`. The ergonomic
+ *      recovery is to treat it as `["single query"]`.
  *
  * An empty string is intentionally NOT lifted — empty input should still
  * fail Zod's `.min(1)` check rather than masquerade as `[""]`.
@@ -2516,8 +2406,8 @@ function coerceJsonArray(val: unknown): unknown {
 
 /**
  * Defensive coercion: accept the string literals "true"/"false" as
- * booleans. The OpenCode native plugin bridge (and several LLM providers'
- * tool-call JSON) stringifies primitives — `background:"false"` instead
+ * booleans. Several LLM providers' tool-call JSON (and some MCP plugin
+ * bridges) stringify primitives — `background:"false"` instead
  * of `background:false`, `confirm:"true"` instead of `confirm:true`.
  *
  * We deliberately do NOT use `z.coerce.boolean()` for boolean fields:
@@ -3892,29 +3782,6 @@ EXAMPLE: ctx_batch_execute(
   },
 );
 
-/**
- * Pi byte accounting: patch lifetime.totalEvents from bytes_sandboxed
- * in stats-*.json files instead of the default events × 256 heuristic.
- * Only active for Pi adapter — other platforms use getLifetimeStats() as-is.
- */
-function patchPiLifetimeFromStatsFiles(lifetime: ReturnType<typeof getLifetimeStats>, sessionsDir: string): void {
-  if (!existsSync(sessionsDir)) return;
-  let sandboxedBytes = 0;
-  try {
-    for (const f of readdirSync(sessionsDir)) {
-      if (!f.startsWith("stats-") || !f.endsWith(".json")) continue;
-      try {
-        const raw = JSON.parse(readFileSync(join(sessionsDir, f), "utf-8"));
-        sandboxedBytes += (raw?.bytes_sandboxed ?? 0) + (raw?.bytes_indexed ?? 0);
-      } catch { /* corrupt file — skip */ }
-    }
-  } catch { /* never block ctx_stats on stats file I/O */ }
-  if (sandboxedBytes > 0) {
-    const rescueTokens = (lifetime.rescueBytes ?? 0) / 4;
-    lifetime.totalEvents = Math.round((sandboxedBytes / 4 + rescueTokens) / 256);
-  }
-}
-
 // ─────────────────────────────────────────────────────────
 // Tool: stats
 // ─────────────────────────────────────────────────────────
@@ -3977,8 +3844,8 @@ server.registerTool(
           // (Bugs #3/#4); failures are absorbed inside getLifetimeStats so a
           // corrupt sidecar can never break ctx_stats.
           // B3b Slice 3.1: scope to active adapter via getSessionDir() so
-          // non-Claude platforms (Cursor, OpenCode, JetBrains, ...) read
-          // from THEIR sessions dir — not the hardcoded ~/.claude/ default.
+          // non-Claude platforms (Codex) read from THEIR sessions dir —
+          // not the hardcoded ~/.claude/ default.
           // Mirrors the statusline contract at src/server.ts:540.
           const lifetime = getLifetimeStats({ sessionsDir: getSessionDir() });
           // B3b Slices 3.2-3.6: cross-adapter aggregation so the renderer
@@ -4083,11 +3950,6 @@ server.registerTool(
               realBytes = { conversation: convReal, lifetime: lifeReal };
             }
           } catch { /* never block ctx_stats */ }
-          // Pi byte accounting: patch lifetime from stats-*.json files
-          // (actual bytes_sandboxed, not events × 256 heuristic).
-          if (_detectedAdapter?.name === "Pi") {
-            patchPiLifetimeFromStatsFiles(lifetime, getSessionDir());
-          }
           // v1.0.117: pass projectDir as cwd so the narrative renderer's
           // "started in <path>" line matches the user's actual project.
           // Snapshot the persistent store so the renderer can show
@@ -4106,9 +3968,6 @@ server.registerTool(
         const engine = new AnalyticsEngine(createMinimalDb());
         const report = engine.queryAll(sessionStats);
         const lifetime = getLifetimeStats({ sessionsDir: getSessionDir() });
-        if (_detectedAdapter?.name === "Pi") {
-          patchPiLifetimeFromStatsFiles(lifetime, getSessionDir());
-        }
         let multiAdapter;
         try { multiAdapter = getMultiAdapterLifetimeStats(); } catch { /* never block ctx_stats */ }
         let indexState;
@@ -4121,9 +3980,6 @@ server.registerTool(
       const report = engine.queryAll(sessionStats);
       let lifetime;
       try { lifetime = getLifetimeStats({ sessionsDir: getSessionDir() }); } catch { /* never block ctx_stats */ }
-      if (_detectedAdapter?.name === "Pi" && lifetime) {
-        patchPiLifetimeFromStatsFiles(lifetime, getSessionDir());
-      }
       let multiAdapter;
       try { multiAdapter = getMultiAdapterLifetimeStats(); } catch { /* never block ctx_stats */ }
       text = formatReport(report, VERSION, _latestVersion, (lifetime || multiAdapter) ? { lifetime, multiAdapter } : undefined);
@@ -4166,7 +4022,10 @@ server.registerTool(
     let currentPlatform: PlatformId | undefined;
     try {
       currentPlatform = detectPlatform(server.server.getClientVersion() ?? undefined).platform;
-    } catch {
+    } catch (err) {
+      // Removed clients hard-fail here too (defense in depth); every other
+      // failure stays best-effort. Match by name, not `instanceof`.
+      if ((err as { name?: string })?.name === "UnsupportedClientError") throw err;
       currentPlatform = detectPlatform().platform;
     }
     // __pkg_dir is build/ for tsc, plugin root for bundle — resolve to plugin root.
@@ -4303,10 +4162,10 @@ server.registerTool(
       const signal = detectPlatform(clientInfo ?? undefined);
       platformId = signal.platform;
       platformFlag = ` --platform ${signal.platform}`;
-      nodeOpts = isInProcessPluginPlatform(signal.platform) && runtimes.javascript
-        ? { platform: signal.platform, jsRuntime: runtimes.javascript }
-        : undefined;
-    } catch {
+    } catch (err) {
+      // Removed clients hard-fail here too (defense in depth); every other
+      // failure stays best-effort. Match by name, not `instanceof`.
+      if ((err as { name?: string })?.name === "UnsupportedClientError") throw err;
       try { platformId = detectPlatform().platform; } catch { /* best effort — fall back to upgrade()'s own detect */ }
     }
 
@@ -4483,9 +4342,9 @@ EXAMPLE: ctx_purge(confirm: true, scope: "project")`,
     // .superRefine() wrapper. See block comment above & issue #563. The
     // cross-field ambiguity check lives in the handler body below.
     inputSchema: z.object({
-      // confirm: wrapped in coerceBoolean preprocessor — OpenCode's native
-      // plugin bridge can deliver `confirm:"true"` / `confirm:"false"` as
-      // string literals. Without this, v1.0.139's inputSchema.parse() path
+      // confirm: wrapped in coerceBoolean preprocessor — some LLM providers
+      // and MCP plugin bridges deliver `confirm:"true"` / `confirm:"false"`
+      // as string literals. Without this, v1.0.139's inputSchema.parse() path
       // rejects valid intent as "Expected boolean, received string" (#627).
       confirm: z.preprocess(coerceBoolean, z.boolean()).describe(
         "MUST be true. Destructive operation; false returns 'purge cancelled'."
@@ -4897,7 +4756,7 @@ async function main() {
 
   // #854: refresh the bridge-child idle clock on each inbound MCP message so an
   // abandoned bridge child (CONTEXT_MODE_BRIDGE_DEPTH>0) self-terminates instead
-  // of accumulating under a long-lived Pi/omp parent. Best-effort; no stdin touch.
+  // of accumulating under a long-lived bridge parent. Best-effort; no stdin touch.
   attachMcpActivityTap(
     transport as unknown as { onmessage?: (message: unknown, extra?: unknown) => unknown },
   );
@@ -4917,14 +4776,20 @@ async function main() {
 
   // Detect platform adapter — stored for platform-aware session paths
   try {
-    const { detectPlatform, getAdapter } = await import("./adapters/detect.js");
     const clientInfo = server.server.getClientVersion();
-    const signal = detectPlatform(clientInfo ?? undefined);
-    _detectedAdapter = await getAdapter(signal.platform);
-    if (clientInfo) {
-      console.error(`MCP client: ${clientInfo.name} v${clientInfo.version} → ${signal.platform}`);
+    _detectedAdapter = await resolveDetectedAdapter(clientInfo ?? undefined);
+    if (clientInfo && _detectedAdapter) {
+      console.error(`MCP client: ${clientInfo.name} v${clientInfo.version} → ${_detectedAdapter.name}`);
     }
-  } catch { /* best effort — _detectedAdapter stays null, falls back to .claude */ }
+  } catch (err) {
+    // Rethrow keeps an unsupported (removed) client from silently degrading to
+    // .claude. clientInfo is undefined at boot (connect-then-sync timing above),
+    // so this catch is inert today; the guard's live surface is the
+    // request-boundary re-detections, and a future init-await would extend it
+    // to boot. Match by name, not `instanceof` (bundle boundary).
+    if ((err as { name?: string })?.name === "UnsupportedClientError") throw err;
+    /* best effort — _detectedAdapter stays null, falls back to .claude */
+  }
 
   // Restore tool-call counters from SessionDB BEFORE the heartbeat fires
   // so the very first persistStats() carries the prior PID's totals into
@@ -4979,8 +4844,8 @@ async function main() {
 }
 
 // Runs after every registerTool() above, so the SDK's default tools/list handler
-// exists and can be wrapped. Makes ctx_* schemas safe for strict (Gemini
-// function-calling) clients like Antigravity CLI (`agy`) / Gemini CLI.
+// exists and can be wrapped. Makes ctx_* schemas safe for strict
+// function-calling clients.
 installStrictClientSchemaCompat();
 
 if (process.env.CONTEXT_MODE_EMBEDDED_PLUGIN_TOOLS !== "1") {

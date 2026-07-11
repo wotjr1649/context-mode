@@ -32,8 +32,8 @@ describe("BaseAdapter memory/config defaults", () => {
   });
 
   it("getConfigDir handles multi-segment sessionDirSegments", () => {
-    const adapter = new TestAdapter([".config", "zed"]);
-    expect(adapter.getConfigDir()).toBe(join(homedir(), ".config", "zed"));
+    const adapter = new TestAdapter([".config", "acme"]);
+    expect(adapter.getConfigDir()).toBe(join(homedir(), ".config", "acme"));
   });
 
   it("getInstructionFiles defaults to ['CLAUDE.md']", () => {
@@ -49,7 +49,7 @@ describe("BaseAdapter memory/config defaults", () => {
 
 // Issue #649 — CONTEXT_MODE_DATA_DIR universal storage override.
 //
-// Several adapters (Pi, OMP, Gemini CLI, Codex, Cursor, …) hardcode their
+// Adapters historically hardcoded their
 // storage root to `~/.<platform>/context-mode/sessions/` with no env-var
 // escape hatch. CI runners, dev containers, and NFS-home users need to point
 // context-mode storage at a writable volume without patching source or
@@ -80,7 +80,7 @@ describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
   });
 
   it("getSessionDir uses CONTEXT_MODE_DATA_DIR root when set (overrides homedir)", () => {
-    const adapter = new TestAdapter([".pi"]);
+    const adapter = new TestAdapter([".acme"]);
     process.env[ENV_KEY] = "/tmp/custom-data";
     expect(adapter.getSessionDir()).toBe(
       resolve("/tmp/custom-data", "context-mode", "sessions"),
@@ -88,9 +88,9 @@ describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
   });
 
   it("getSessionDir falls back to <home>/<segments>/context-mode/sessions when env unset", () => {
-    const adapter = new TestAdapter([".pi"]);
+    const adapter = new TestAdapter([".acme"]);
     expect(adapter.getSessionDir()).toBe(
-      join(homedir(), ".pi", "context-mode", "sessions"),
+      join(homedir(), ".acme", "context-mode", "sessions"),
     );
   });
 
@@ -103,7 +103,7 @@ describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
   });
 
   it("getSessionDir expands leading tilde against homedir (~/foo, ~\\foo)", () => {
-    const adapter = new TestAdapter([".omp"]);
+    const adapter = new TestAdapter([".acme"]);
     process.env[ENV_KEY] = "~/relocated-storage";
     expect(adapter.getSessionDir()).toBe(
       resolve(homedir(), "relocated-storage", "context-mode", "sessions"),
@@ -111,7 +111,7 @@ describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
   });
 
   it("getMemoryDir relocates to <DATA_DIR>/context-mode/memory when env set", () => {
-    const adapter = new TestAdapter([".pi"]);
+    const adapter = new TestAdapter([".acme"]);
     process.env[ENV_KEY] = "/tmp/custom-data";
     expect(adapter.getMemoryDir()).toBe(
       resolve("/tmp/custom-data", "context-mode", "memory"),
@@ -119,17 +119,17 @@ describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
   });
 
   it("getMemoryDir defaults to <configDir>/memory when env unset", () => {
-    const adapter = new TestAdapter([".pi"]);
-    expect(adapter.getMemoryDir()).toBe(join(homedir(), ".pi", "memory"));
+    const adapter = new TestAdapter([".acme"]);
+    expect(adapter.getMemoryDir()).toBe(join(homedir(), ".acme", "memory"));
   });
 
   it("getConfigDir is NOT relocated by CONTEXT_MODE_DATA_DIR (platform-native settings stay put)", () => {
-    const adapter = new TestAdapter([".pi"]);
+    const adapter = new TestAdapter([".acme"]);
     process.env[ENV_KEY] = "/tmp/custom-data";
     // settings.json belongs with the platform install, not with context-mode
     // storage — relocating it would silently fork platform behaviour from
     // platform tooling. The override only moves context-mode-owned state.
-    expect(adapter.getConfigDir()).toBe(join(homedir(), ".pi"));
+    expect(adapter.getConfigDir()).toBe(join(homedir(), ".acme"));
   });
 });
 
@@ -158,8 +158,8 @@ describe("BaseAdapter — adapter-storage interface narrowing (C2)", () => {
 
 // Issue #663 — auto-memory leaks across projects.
 //
-// Before this fix, `getMemoryDir()` ignored `projectDir` and every adapter
-// (except OpenClaw, whose configDir is the project root) returned a path
+// Before this fix, `getMemoryDir()` ignored `projectDir` and every
+// home-rooted adapter returned a path
 // shared by every project on the machine. Two terminals open in different
 // repos read each other's memory files via searchAutoMemory().
 //
@@ -216,7 +216,7 @@ describe("BaseAdapter — getMemoryDir project scoping (#663)", () => {
   });
 
   it("hash suffix lives under CONTEXT_MODE_DATA_DIR root when env is set", () => {
-    const adapter = new TestAdapter([".pi"]);
+    const adapter = new TestAdapter([".acme"]);
     process.env[ENV_KEY] = "/tmp/custom-data";
     const projectDir = "/Users/test/projects/delta";
     expect(adapter.getMemoryDir(projectDir)).toBe(

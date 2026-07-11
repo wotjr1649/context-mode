@@ -12,7 +12,7 @@
  * #311/#388 without reintroducing the false-positive shutdowns of #236.
  *
  * Additionally, for MCP BRIDGE CHILDREN only (CONTEXT_MODE_BRIDGE_DEPTH>0), a
- * request-idle self-shutdown reaps a child that a pi/omp sub-context abandoned
+ * request-idle self-shutdown reaps a child that a bridge sub-context abandoned
  * while its long-lived parent keeps running (#854) — gated so the depth-0
  * keep-alive servers #602 restored are never reaped, never via stdin EOF, and
  * never while a tool call is in flight (#643).
@@ -105,11 +105,11 @@ const defaultIsParentAlive = makeDefaultIsParentAlive();
 /**
  * Resolve the parent-liveness poll interval based on context (#534).
  *
- * When this process is the MCP bridge child spawned by the Pi adapter
- * (`bootstrapMCPTools` in `src/adapters/pi/mcp-bridge.ts` sets
+ * When this process is an MCP bridge child (the upstream-era bridge set
  * `CONTEXT_MODE_BRIDGE_DEPTH=1` in the child env), we tighten the poll to
- * 1 s. The Pi parent can disappear in under 50 ms (`pi --help` prints
- * usage and returns), so the default 30 s window leaves a long-lived
+ * 1 s. A short-lived bridge parent can disappear in under 50 ms (a bare
+ * `--help` invocation prints usage and returns), so the default 30 s window
+ * leaves a long-lived
  * CPU-spinning orphan. For top-level MCP servers (depth 0 / absent) we
  * keep the original 30 s cadence — the existing #311/#388 ppid + stdin
  * recovery paths already cover Claude Code style hosts.
@@ -217,7 +217,8 @@ export function attachMcpActivityTap(
 
 /**
  * Start the lifecycle guard. Returns a cleanup function.
- * Skipped automatically when stdin is a TTY (e.g. OpenCode ts-plugin).
+ * Skipped automatically when stdin is a TTY (in-process plugin hosts,
+ * where stdin is not the MCP channel).
  */
 export function startLifecycleGuard(opts: LifecycleGuardOptions): () => void {
   const interval = opts.checkIntervalMs ?? lifecycleGuardIntervalForEnv();
@@ -255,7 +256,7 @@ export function startLifecycleGuard(opts: LifecycleGuardOptions): () => void {
   // regression test still passes; if the parent is gone, we collapse the
   // 30 s detection window to ~0.
   //
-  // Skipped on TTY (OpenCode ts-plugin) where stdin is not the MCP channel.
+  // Skipped on TTY (in-process plugin hosts) where stdin is not the MCP channel.
   const onStdinEnd = () => {
     if (!check()) shutdown();
   };
@@ -264,8 +265,8 @@ export function startLifecycleGuard(opts: LifecycleGuardOptions): () => void {
   }
 
   // #854: request-idle self-shutdown for MCP BRIDGE CHILDREN only
-  // (CONTEXT_MODE_BRIDGE_DEPTH>0). Pi/omp loads the extension once per
-  // sub-context and spawns one bridge child each, tearing them down only at
+  // (CONTEXT_MODE_BRIDGE_DEPTH>0). The upstream-era bridge loaded once per
+  // sub-context and spawned one bridge child each, tearing them down only at
   // session_shutdown — which never fires for sub-contexts while the long-lived
   // parent stays alive, so idle children accumulate (#854, same class as #565).
   // A bridge child that receives no inbound MCP message for `idleMs` exits
@@ -286,8 +287,8 @@ export function startLifecycleGuard(opts: LifecycleGuardOptions): () => void {
       // further messages (#643 unbounded calls) — the false-reap regression the
       // adversarial review flagged.
       if (_inFlight === 0 && Date.now() - _lastMcpActivity >= idleMs) {
-        // Child's own stderr — the pi bridge forwards it to pi.logger, never the
-        // TUI terminal (#868). DX-tuned wording via idleReapMessage.
+        // Child's own stderr — a bridge parent forwards it to its logger, never
+        // the TUI terminal (#868). DX-tuned wording via idleReapMessage.
         process.stderr.write(idleReapMessage(idleMs) + "\n");
         shutdown();
       }

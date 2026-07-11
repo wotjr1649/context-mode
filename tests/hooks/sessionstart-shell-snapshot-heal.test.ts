@@ -21,6 +21,15 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { selfHealShellSnapshots } from "../../hooks/cache-heal-utils.mjs";
 
+// Trust anchor: selfHealShellSnapshots forwards pluginRoot to
+// rewriteShellSnapshots, which derives the `cache/<marketplace>/<plugin>/`
+// prefix from it. The fixtures use the upstream `context-mode/context-mode/`
+// layout, so the real installed-tree pluginRoot names that anchor. The old
+// `pluginCacheRoot: join(root, "cache")` was the shallow `.../cache` meaning
+// and no-ops under the depth guard.
+const PLUGIN_ROOT =
+  "/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.151";
+
 const cleanups: string[] = [];
 
 afterEach(() => {
@@ -56,7 +65,7 @@ describe("selfHealShellSnapshots — SessionStart entry point", () => {
 
     const result = selfHealShellSnapshots({
       snapshotsDir,
-      pluginCacheRoot: join(root, "cache"),
+      pluginRoot: PLUGIN_ROOT,
       currentVersion: "1.0.151",
     });
 
@@ -77,7 +86,7 @@ describe("selfHealShellSnapshots — SessionStart entry point", () => {
 
     const result = selfHealShellSnapshots({
       snapshotsDir,
-      pluginCacheRoot: join(root, "cache"),
+      pluginRoot: PLUGIN_ROOT,
       currentVersion: "1.0.151",
     });
 
@@ -89,7 +98,7 @@ describe("selfHealShellSnapshots — SessionStart entry point", () => {
     expect(() => {
       result = selfHealShellSnapshots({
         snapshotsDir: "/path/does/not/exist/xyz",
-        pluginCacheRoot: "/whatever",
+        pluginRoot: PLUGIN_ROOT,
         currentVersion: "1.0.151",
       });
     }).not.toThrow();
@@ -102,7 +111,7 @@ describe("selfHealShellSnapshots — SessionStart entry point", () => {
         // @ts-expect-error — exercise runtime guard
         snapshotsDir: undefined,
         // @ts-expect-error
-        pluginCacheRoot: undefined,
+        pluginRoot: undefined,
         // @ts-expect-error
         currentVersion: undefined,
       }),

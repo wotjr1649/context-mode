@@ -6,7 +6,6 @@ import { join } from "node:path";
 
 import { searchAutoMemory } from "../../src/search/auto-memory.js";
 import { CodexAdapter } from "../../src/adapters/codex/index.js";
-import { GeminiCLIAdapter } from "../../src/adapters/gemini-cli/index.js";
 
 /**
  * Slice 4 — searchAutoMemory accepts an adapter and uses its
@@ -111,25 +110,6 @@ describe("searchAutoMemory adapter dispatch", () => {
 
     expect(results.length).toBeGreaterThan(0);
     expect(results[0].source).toContain("AGENTS.override.md");
-  });
-
-  it("uses Gemini convention (GEMINI.md) when GeminiCLIAdapter is supplied", () => {
-    writeFileSync(
-      join(projectDir, "GEMINI.md"),
-      "Gemini rules: invoke EPSILON-GEMINI-FLAG on every read.\n",
-      "utf-8",
-    );
-
-    const results = searchAutoMemory(
-      ["EPSILON-GEMINI-FLAG"],
-      5,
-      projectDir,
-      undefined,
-      new GeminiCLIAdapter(),
-    );
-
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0].source).toContain("GEMINI.md");
   });
 });
 

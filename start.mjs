@@ -345,7 +345,7 @@ try{
   const cacheRoot=resolve(cfgDir(),"plugins","cache");
   const ip=JSON.parse(readFileSync(f,"utf-8"));
   for(const[k,es]of Object.entries(ip.plugins||{})){
-    if(k!=="context-mode@context-mode")continue;
+    if(k!==${JSON.stringify(PLUGIN_KEY)})continue;
     for(const e of es){
       const p=e.installPath;
       if(!p)continue;

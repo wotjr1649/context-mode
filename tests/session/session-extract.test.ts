@@ -710,8 +710,8 @@ describe("Subagent Events", () => {
   test("captures tool_response in subagent event when Agent completes", () => {
     const input = {
       tool_name: "Agent",
-      tool_input: { prompt: "Research Cursor env vars" },
-      tool_response: "Found CURSOR_TRACE_DIR and CURSOR_CHANNEL env vars. Cursor also sets VSCODE_PID.",
+      tool_input: { prompt: "Research Acme env vars" },
+      tool_response: "Found ACME_TRACE_DIR and ACME_CHANNEL env vars. Acme also sets VSCODE_PID.",
     };
 
     const events = extractEvents(input);
@@ -719,7 +719,7 @@ describe("Subagent Events", () => {
     assert.equal(subagentEvents.length, 1);
     // The event data MUST include the response, not just the prompt
     assert.ok(
-      subagentEvents[0].data.includes("CURSOR_TRACE_DIR") || subagentEvents[0].data.includes("Found"),
+      subagentEvents[0].data.includes("ACME_TRACE_DIR") || subagentEvents[0].data.includes("Found"),
       `subagent event data should include tool_response content, got: "${subagentEvents[0].data}"`,
     );
   });
@@ -1973,8 +1973,8 @@ describe("Agent Finding Events", () => {
   test("agent_finding coexists with subagent_completed", () => {
     const input = {
       tool_name: "Agent",
-      tool_input: { prompt: "Research Cursor env vars" },
-      tool_response: "Found CURSOR_TRACE_DIR and CURSOR_CHANNEL.",
+      tool_input: { prompt: "Research Acme env vars" },
+      tool_response: "Found ACME_TRACE_DIR and ACME_CHANNEL.",
     };
 
     const events = extractEvents(input);
@@ -2733,11 +2733,14 @@ describe("Blocked-On Events", () => {
   });
 });
 
-// ─── SLICE Qwen-4: extractEvents Qwen-aware (Z5b) ───
-describe("Qwen native tool name normalization", () => {
-  test("run_shell_command + git status emits git event", () => {
+// ─── Codex native tool name normalization (TOOL_NAME_NORMALIZE) ───
+// Claude Code already emits canonical names; the surviving alias rows are
+// Codex CLI's. Without them, Codex `shell` events would silently produce
+// zero git/cwd extractions.
+describe("Codex native tool name normalization", () => {
+  test("shell + git status emits git event", () => {
     const events = extractEvents({
-      tool_name: "run_shell_command",
+      tool_name: "shell",
       tool_input: { command: "git status" },
       tool_response: "On branch main",
     });
@@ -2746,9 +2749,9 @@ describe("Qwen native tool name normalization", () => {
     assert.equal(gitEvents[0].data, "status");
   });
 
-  test("run_shell_command + cd emits cwd event", () => {
+  test("exec_command + cd emits cwd event", () => {
     const events = extractEvents({
-      tool_name: "run_shell_command",
+      tool_name: "exec_command",
       tool_input: { command: "cd /tmp/foo && ls" },
       tool_response: "",
     });
@@ -2757,65 +2760,13 @@ describe("Qwen native tool name normalization", () => {
     assert.equal(cwdEvents[0].data, "/tmp/foo");
   });
 
-  test("read_file emits file_read event", () => {
+  test("local_shell + git status emits git event (alias parity)", () => {
     const events = extractEvents({
-      tool_name: "read_file",
-      tool_input: { file_path: "/tmp/a.ts" },
-      tool_response: "code",
+      tool_name: "local_shell",
+      tool_input: { command: "git status" },
+      tool_response: "On branch main",
     });
-    const fileEvents = events.filter(e => e.type === "file_read");
-    assert.equal(fileEvents.length, 1);
-    assert.equal(fileEvents[0].data, "/tmp/a.ts");
-  });
-
-  test("write_file emits file_write event", () => {
-    const events = extractEvents({
-      tool_name: "write_file",
-      tool_input: { file_path: "/tmp/b.ts" },
-      tool_response: "ok",
-    });
-    const fileEvents = events.filter(e => e.type === "file_write");
-    assert.equal(fileEvents.length, 1);
-  });
-
-  test("edit emits file_edit event", () => {
-    const events = extractEvents({
-      tool_name: "edit",
-      tool_input: { file_path: "/tmp/c.ts" },
-      tool_response: "ok",
-    });
-    const fileEvents = events.filter(e => e.type === "file_edit");
-    assert.equal(fileEvents.length, 1);
-  });
-
-  test("todo_write emits task event", () => {
-    const events = extractEvents({
-      tool_name: "todo_write",
-      tool_input: { todos: [{ content: "do thing" }] },
-      tool_response: "ok",
-    });
-    const taskEvents = events.filter(e => e.category === "task");
-    assert.equal(taskEvents.length, 1);
-  });
-
-  test("agent emits subagent event", () => {
-    const events = extractEvents({
-      tool_name: "agent",
-      tool_input: { prompt: "investigate the bug" },
-      tool_response: "found it",
-    });
-    const subEvents = events.filter(e => e.category === "subagent");
-    assert.equal(subEvents.length, 1);
-    assert.equal(subEvents[0].type, "subagent_completed");
-  });
-
-  test("read_file with QWEN.md path emits rule event", () => {
-    const events = extractEvents({
-      tool_name: "read_file",
-      tool_input: { file_path: "/proj/QWEN.md" },
-      tool_response: "qwen rules",
-    });
-    const ruleEvents = events.filter(e => e.category === "rule");
-    assert.ok(ruleEvents.length >= 1, "QWEN.md should emit rule event");
+    const gitEvents = events.filter(e => e.category === "git");
+    assert.equal(gitEvents.length, 1);
   });
 });

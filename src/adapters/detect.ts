@@ -1,24 +1,17 @@
 /**
  * adapters/detect — Auto-detect which platform is running.
  *
+ * Hard fork: Claude Code and Codex only.
+ *
  * Detection priority:
  *   1. Environment variables (high confidence)
  *   2. Config directory existence (medium confidence)
  *   3. Fallback to Claude Code (low confidence — most common)
  *
  * Verified env vars per platform (from source code audit):
- *   - Claude Code:    CLAUDE_CODE_ENTRYPOINT, CLAUDE_PLUGIN_ROOT,
- *                     CLAUDE_PROJECT_DIR, CLAUDE_SESSION_ID | ~/.claude/
- *   - Gemini CLI:     GEMINI_PROJECT_DIR (hooks), GEMINI_CLI (MCP) | ~/.gemini/
- *   - KiloCode:       KILO, KILO_PID | ~/.config/kilo/
- *   - OpenCode:       OPENCODE_PROJECT_DIR, OPENCODE_CLIENT,
- *                     OPENCODE_TERMINAL, OPENCODE, OPENCODE_PID |
- *                     ~/.config/opencode/
- *   - OpenClaw:       OPENCLAW_HOME, OPENCLAW_CLI | ~/.openclaw/
- *   - Codex CLI:      CODEX_CI, CODEX_THREAD_ID | ~/.codex/
- *   - Cursor:         CURSOR_TRACE_ID (MCP), CURSOR_CLI (terminal) | ~/.cursor/
- *   - VS Code Copilot: VSCODE_PID, VSCODE_CWD | ~/.vscode/
- *   - JetBrains Copilot: IDEA_INITIAL_DIRECTORY, IDEA_HOME, JETBRAINS_CLIENT_ID | ~/.config/JetBrains/
+ *   - Claude Code: CLAUDE_CODE_ENTRYPOINT, CLAUDE_PLUGIN_ROOT,
+ *                  CLAUDE_PROJECT_DIR, CLAUDE_SESSION_ID | ~/.claude/
+ *   - Codex CLI:   CODEX_CI, CODEX_THREAD_ID | ~/.codex/
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -26,17 +19,18 @@ import { resolve } from "node:path";
 import { homedir } from "node:os";
 
 import type { PlatformId, DetectionSignal, HookAdapter } from "./types.js";
-import { CLIENT_NAME_TO_PLATFORM } from "./client-map.js";
+import { CLIENT_NAME_TO_PLATFORM, REMOVED_CLIENT_NAMES, UnsupportedClientError } from "./client-map.js";
 
 /**
- * Issue #539 — fallback disambiguator. When env-var detection would
- * otherwise resolve to vscode-copilot (because Microsoft's `code` exports
- * VSCODE_PID into every spawned child), we look at
- * ~/.claude/plugins/installed_plugins.json. If that file lists context-mode
- * as an installed plugin, the runtime MUST be Claude Code — VS Code Copilot
- * has no concept of Claude plugins. Memoized per-process: the file is read
- * at most once, with a tri-state cache so a missing/malformed file does not
- * trigger repeated I/O on the detect() hot path.
+ * Issue #539 — VS Code host disambiguator. A VS Code-hosted terminal exports
+ * VSCODE_PID/VSCODE_CWD into every spawned child — an ambiguous signal on its
+ * own. When one is present, we look at ~/.claude/plugins/installed_plugins.json:
+ * if that file lists context-mode as an installed plugin, the runtime MUST be
+ * Claude Code (only Claude Code has a concept of Claude plugins), so detection
+ * resolves to claude-code instead of falling through to a lower-confidence
+ * config-directory tier. Memoized per-process: the file is read at most once,
+ * with a tri-state cache so a missing/malformed file does not trigger repeated
+ * I/O on the detect() hot path.
  */
 type PluginCache = { hasCM: boolean } | "miss" | null;
 let claudeCodePluginCache: PluginCache = null;
@@ -72,9 +66,9 @@ export function __resetClaudeCodePluginCacheForTests(): void {
 
 /**
  * Test-only: pretend installed_plugins.json does not exist (or has no
- * context-mode entry). Lets tests that exercise the genuine vscode-copilot
- * env-var path run on a developer machine that actually has context-mode
- * installed as a Claude Code plugin.
+ * context-mode entry). Lets tests that exercise the VSCODE_PID env-var
+ * disambiguation path (#539) run on a developer machine that actually has
+ * context-mode installed as a Claude Code plugin.
  */
 export function __seedClaudeCodePluginCacheMissForTests(): void {
   claudeCodePluginCache = "miss";
@@ -83,8 +77,7 @@ export function __seedClaudeCodePluginCacheMissForTests(): void {
 /**
  * Tag for each PLATFORM_ENV_VARS row.
  *   - `workspace`: env var names a project/working directory. Used by
- *     `resolveProjectDir({ strictPlatform })` to form the candidate list,
- *     and by Pi's bridge to scrub foreign workspace vars on child spawn.
+ *     `resolveProjectDir({ strictPlatform })` to form the candidate list.
  *   - `identification`: env var only signals which host is running; carries
  *     no project path. PRESERVED in normal operation (some are load-bearing
  *     for hook integrations on the host that owns them, e.g. CLAUDE_PLUGIN_ROOT
@@ -92,14 +85,13 @@ export function __seedClaudeCodePluginCacheMissForTests(): void {
  *
  * Issue #545 — algorithmic env-leak fix. The split allows resolveProjectDir
  * to derive ALLOW (own workspace vars) and BAN (other platforms' workspace
- * vars) sets from a single registry, satisfying MUST-3 (17 adapters equal).
+ * vars) sets from a single registry, keeping every adapter on equal rules.
  *
  * Issue #561 — FOREIGN identification vars MUST be scrubbed when spawning a
- * child under a different host (e.g. Pi spawning context-mode child must
- * scrub Claude Code identification vars CLAUDE_CODE_ENTRYPOINT /
- * CLAUDE_PLUGIN_ROOT to prevent detectPlatform() in the child from
- * misidentifying the host as claude-code and writing Pi's data into
- * ~/.claude/context-mode/). See `foreignIdentificationEnv()` below.
+ * context-mode child under a different host (a bridge parent must scrub
+ * Claude Code identification vars CLAUDE_CODE_ENTRYPOINT / CLAUDE_PLUGIN_ROOT
+ * to prevent detectPlatform() in the child from misidentifying the host as
+ * claude-code and writing the host's data into ~/.claude/context-mode/).
  */
 export type EnvVarRole = "workspace" | "identification";
 export interface PlatformEnvEntry {
@@ -107,24 +99,21 @@ export interface PlatformEnvEntry {
   readonly role: EnvVarRole;
   /**
    * When `false`, this entry is NOT used as a high-confidence detection
-   * signal — only consumed by `workspaceEnvVarsFor`/`foreignWorkspaceEnv`
-   * (project-dir cascade and bridge env scrub). Use for consumer-set
+   * signal — only consumed by `workspaceEnvVarsFor` (project-dir cascade
+   * and bridge env scrub). Use for consumer-set
    * workspace vars that the host runtime never emits itself, so that a
-   * stale env var on an unrelated host does not misclassify the platform.
-   * Default: `true` (entry participates in detection).
-   *
-   * Issue #542 — PI_PROJECT_DIR / PI_WORKSPACE_DIR are consumer-set and
-   * MUST NOT trigger Pi detection on their own.
+   * stale env var on an unrelated host does not misclassify the platform
+   * (issue #542). Default: `true` (entry participates in detection).
    */
   readonly detect?: boolean;
 }
 
 /**
  * High-confidence env vars per platform, checked in priority order.
- * Single source of truth — consumed by detectPlatform() below, by
- * `resolveProjectDir({ strictPlatform })` for cascade construction, and by
- * Pi's bridge env scrub. Tests also iterate this map to clear platform-
- * related env vars deterministically.
+ * Single source of truth — consumed by detectPlatform() below and by
+ * `resolveProjectDir({ strictPlatform })` for cascade construction.
+ * Tests also iterate this map to clear platform-related env vars
+ * deterministically.
  *
  * The map shape is `Map<PlatformId, ReadonlyArray<PlatformEnvEntry>>`. Use
  * `getEnvVarNames(p)` to get just the names (legacy `string[]` shape).
@@ -138,56 +127,11 @@ const _PLATFORM_ENV_VARS_RAW: ReadonlyArray<readonly [PlatformId, readonly Platf
   //   CLAUDE_PLUGIN_ROOT=/Users/.../<version>  (set when a plugin is loaded)
   //   CLAUDE_PROJECT_DIR=/Users/.../project    (set in hooks context)
   //   CLAUDE_SESSION_ID=<uuid>                 (legacy session marker)
-  // CLAUDE_CODE_ENTRYPOINT and CLAUDE_PLUGIN_ROOT are CC-exclusive — they
-  // are the disambiguators for issue #539 (Claude Code running inside a
-  // VS Code integrated terminal that has VSCODE_PID set). They MUST be
-  // checked here so detect resolves to claude-code BEFORE falling through
-  // to vscode-copilot below.
   ["claude-code", [
     { name: "CLAUDE_CODE_ENTRYPOINT", role: "identification" },
     { name: "CLAUDE_PLUGIN_ROOT",     role: "identification" },
     { name: "CLAUDE_PROJECT_DIR",     role: "workspace" },
     { name: "CLAUDE_SESSION_ID",      role: "identification" },
-  ]],
-  // antigravity (Electron/VSCode fork) — google-gemini/gemini-cli
-  // packages/core/src/ide/detect-ide.ts checks ANTIGRAVITY_CLI_ALIAS as the
-  // canonical Antigravity marker. Listed before vscode-copilot.
-  ["antigravity", [
-    { name: "ANTIGRAVITY_CLI_ALIAS", role: "identification" },
-  ]],
-  // cursor (VSCode fork) — listed before vscode-copilot. CURSOR_TRACE_ID has
-  // 800+ hits in major OSS detection libs (Vercel Next.js, Bun, Google
-  // gemini-cli, Nx, CrewAI). CURSOR_CWD is the documented workspace var
-  // (issue #521) — listed first so workspace cascade picks it up.
-  ["cursor", [
-    { name: "CURSOR_CWD",       role: "workspace" },
-    { name: "CURSOR_TRACE_ID",  role: "identification" },
-    { name: "CURSOR_CLI",       role: "identification" },
-  ]],
-  // kilo (OpenCode fork) — Kilo-Org/kilocode packages/opencode/src/index.ts:138 + 139
-  // sets `process.env.KILO = 1` + `process.env.KILO_PID = String(process.pid)`.
-  ["kilo", [
-    { name: "KILO",     role: "identification" },
-    { name: "KILO_PID", role: "identification" },
-  ]],
-  // opencode — sst/opencode packages/opencode/src/index.ts:108-109 sets
-  // OPENCODE=1 + OPENCODE_PID=<pid> on CLI invocations. OpenCode desktop
-  // shells also expose OPENCODE_CLIENT=desktop and OPENCODE_TERMINAL=1.
-  // OPENCODE_PROJECT_DIR is the documented workspace var (consumed by the
-  // legacy resolver cascade) — listed first so the workspace cascade picks
-  // it up under strict mode.
-  ["opencode", [
-    { name: "OPENCODE_PROJECT_DIR", role: "workspace" },
-    { name: "OPENCODE_CLIENT",      role: "identification" },
-    { name: "OPENCODE_TERMINAL",    role: "identification" },
-    { name: "OPENCODE",             role: "identification" },
-    { name: "OPENCODE_PID",         role: "identification" },
-  ]],
-  // zed — zed-industries/zed crates/terminal/src/terminal.rs sets ZED_TERM=true
-  // in `insert_zed_terminal_env()`. Google's gemini-cli uses ZED_SESSION_ID.
-  ["zed", [
-    { name: "ZED_SESSION_ID", role: "identification" },
-    { name: "ZED_TERM",       role: "identification" },
   ]],
   // codex — openai/codex codex-rs/core/src/exec_env.rs sets CODEX_THREAD_ID
   // per exec; unified_exec/process_manager.rs sets CODEX_CI in CI mode.
@@ -195,62 +139,6 @@ const _PLATFORM_ENV_VARS_RAW: ReadonlyArray<readonly [PlatformId, readonly Platf
     { name: "CODEX_THREAD_ID", role: "identification" },
     { name: "CODEX_CI",        role: "identification" },
   ]],
-  // gemini-cli — GEMINI_PROJECT_DIR per google-gemini/gemini-cli
-  // docs/hooks/index.md; GEMINI_CLI is the MCP-server sentinel.
-  ["gemini-cli", [
-    { name: "GEMINI_PROJECT_DIR", role: "workspace" },
-    { name: "GEMINI_CLI",         role: "identification" },
-  ]],
-  // vscode-copilot — VSCODE_PID + VSCODE_CWD set by microsoft/vscode bootstrap.
-  // Listed AFTER cursor and antigravity since they inherit these vars as forks.
-  ["vscode-copilot", [
-    { name: "VSCODE_CWD", role: "workspace" },
-    { name: "VSCODE_PID", role: "identification" },
-  ]],
-  // jetbrains-copilot — IDEA_INITIAL_DIRECTORY set by JetBrains launcher.
-  // (IDEA_HOME and JETBRAINS_CLIENT_ID removed — no source-line evidence.)
-  ["jetbrains-copilot", [
-    { name: "IDEA_INITIAL_DIRECTORY", role: "workspace" },
-  ]],
-  // qwen-code — QWEN_PROJECT_DIR per QwenLM/qwen-code docs/users/features/hooks.md.
-  // (QWEN_SESSION_ID removed — 0 hits in qwen-code repository.)
-  ["qwen-code", [
-    { name: "QWEN_PROJECT_DIR", role: "workspace" },
-  ]],
-  // omp (can1357/oh-my-pi). PI_CODING_AGENT_DIR is the upstream
-  // agent-dir override per `packages/utils/src/dirs.ts:193`. Listed
-  // BEFORE pi so OMP is not misclassified as Pi when both are installed.
-  ["omp", [
-    { name: "PI_CODING_AGENT_DIR", role: "workspace" },
-  ]],
-  // pi — Issue #542 marker correction. PI_PROJECT_DIR is a consumer-set
-  // var (read by src/adapters/pi/extension.ts) but is NOT auto-set by
-  // the Pi runtime — verified against
-  //   refs/platforms/oh-my-pi/packages/coding-agent/src/mcp/transports/stdio.ts:55-63
-  // (env passthrough only, no synthesis). The Pi runtime DOES set
-  // PI_CONFIG_DIR (config dir override), PI_SESSION_FILE (active session
-  // path), PI_COMPILED (binary build marker), and PI_CODING_AGENT=true
-  // in package-spawned MCP children (#760). PI_CODING_AGENT_DIR is owned
-  // by OMP above; keep it there.
-  //
-  // Issue #545 — PI_WORKSPACE_DIR / PI_PROJECT_DIR are workspace vars set
-  // by Pi's bridge so the resolver picks them up under strict mode.
-  // PI_WORKSPACE_DIR comes first (extension-set, freshest) before
-  // PI_PROJECT_DIR (user override) per registry-author cascade order.
-  ["pi", [
-    // Issue #545 — workspace vars set by Pi's bridge so resolveProjectDir
-    // under strict mode picks them up. detect=false because PI_*_DIR are
-    // consumer-set and must NOT misclassify a non-Pi host as Pi (#542).
-    { name: "PI_WORKSPACE_DIR", role: "workspace",      detect: false },
-    { name: "PI_PROJECT_DIR",   role: "workspace",      detect: false },
-    { name: "PI_CONFIG_DIR",    role: "identification" },
-    { name: "PI_SESSION_FILE",  role: "identification" },
-    { name: "PI_COMPILED",      role: "identification" },
-    { name: "PI_CODING_AGENT",  role: "identification" },
-  ]],
-  // openclaw — removed (runtime never sets OPENCLAW_HOME or OPENCLAW_CLI;
-  // detection falls through to ~/.openclaw/ config-dir tier below).
-  // kiro — not listed (no auto-set process env vars; ~/.kiro/ config-dir tier).
 ];
 
 export const PLATFORM_ENV_VARS: ReadonlyMap<PlatformId, readonly PlatformEnvEntry[]> = new Map(
@@ -269,59 +157,13 @@ export function getEnvVarNames(platform: PlatformId): string[] {
 /**
  * Issue #545 — return only role=workspace env var names for a platform, in
  * registry order. Empty array for adapters with no workspace var (e.g.
- * codex, kilo, zed, antigravity, openclaw, kiro). Consumed by
- * `resolveProjectDir({ strictPlatform })` to build the cascade.
+ * codex). Consumed by `resolveProjectDir({ strictPlatform })` to build the
+ * cascade.
  */
 export function workspaceEnvVarsFor(platform: PlatformId): string[] {
   return (PLATFORM_ENV_VARS.get(platform) ?? [])
     .filter((e) => e.role === "workspace")
     .map((e) => e.name);
-}
-
-/**
- * Issue #545 — return the union of workspace env vars from ALL platforms
- * EXCEPT the given one. Consumed by Pi's bridge env scrub (strip foreign
- * workspace vars from spawned MCP child) and by the matrix regression test.
- */
-export function foreignWorkspaceEnv(platform: PlatformId): Set<string> {
-  const ban = new Set<string>();
-  for (const [p, vars] of PLATFORM_ENV_VARS) {
-    if (p === platform) continue;
-    for (const v of vars) {
-      if (v.role === "workspace") ban.add(v.name);
-    }
-  }
-  return ban;
-}
-
-/**
- * Issue #561 — return the union of identification env vars from ALL
- * platforms EXCEPT the given one. Sibling of `foreignWorkspaceEnv`,
- * filtered on `role === "identification"` instead of "workspace".
- *
- * Consumed by Pi's bridge env scrub: when Pi spawns the context-mode
- * MCP child, the child inherits the host shell env including any
- * identification vars set by a co-resident Claude Code session
- * (CLAUDE_CODE_ENTRYPOINT / CLAUDE_PLUGIN_ROOT). Without scrubbing,
- * `detectPlatform()` in the child falls through env priority order and
- * resolves to claude-code first — Pi's session data then writes into
- * `~/.claude/context-mode/` instead of Pi's own dir. Scrubbing FOREIGN
- * identification vars (everyone else's) preserves Pi's OWN identification
- * vars (PI_CONFIG_DIR / PI_SESSION_FILE / PI_COMPILED) so the child still
- * detects pi correctly.
- *
- * Algorithmic, registry-driven — adding adapter #16 grows the scrub
- * automatically (no edit to mcp-bridge.ts).
- */
-export function foreignIdentificationEnv(platform: PlatformId): Set<string> {
-  const ban = new Set<string>();
-  for (const [p, vars] of PLATFORM_ENV_VARS) {
-    if (p === platform) continue;
-    for (const v of vars) {
-      if (v.role === "identification") ban.add(v.name);
-    }
-  }
-  return ban;
 }
 
 /**
@@ -336,25 +178,9 @@ export function foreignIdentificationEnv(platform: PlatformId): Set<string> {
  */
 export function getSessionDirSegments(platform: string): string[] | null {
   switch (platform) {
-    case "claude-code":      return [".claude"];
-    case "gemini-cli":       return [".gemini"];
-    case "antigravity":      return [".gemini"];
-    case "antigravity-cli":  return [".gemini"];
-    case "openclaw":         return [".openclaw"];
-    case "codex":            return [".codex"];
-    case "cursor":           return [".cursor"];
-    case "vscode-copilot":   return [".vscode"];
-    case "copilot-cli":      return [".copilot"];
-    case "kiro":             return [".kiro"];
-    case "pi":               return [".pi"];
-    case "omp":              return [".omp"];
-    case "qwen-code":        return [".qwen"];
-    case "kimi":             return [".kimi-code"];
-    case "kilo":             return [".config", "kilo"];
-    case "opencode":         return [".config", "opencode"];
-    case "zed":              return [".config", "zed"];
-    case "jetbrains-copilot": return [".config", "JetBrains"];
-    default:                 return null;
+    case "claude-code": return [".claude"];
+    case "codex":        return [".codex"];
+    default:             return null;
   }
 }
 
@@ -375,23 +201,23 @@ export function detectPlatform(clientInfo?: { name: string; version?: string }):
         reason: `MCP clientInfo.name="${clientInfo.name}"`,
       };
     }
-    // Qwen Code uses dynamic client names: qwen-cli-mcp-client-<serverName>
-    if (clientInfo.name.startsWith("qwen-cli-mcp-client")) {
-      return {
-        platform: "qwen-code",
-        confidence: "high",
-        reason: `MCP clientInfo.name="${clientInfo.name}" (qwen-cli pattern)`,
-      };
+    // Net 4 (branch B): a client this fork REMOVED hard-fails instead of
+    // silently degrading to claude-code. The qwen check is a prefix match —
+    // the runtime name is `qwen-cli-mcp-client-<serverName>`, so a Set lookup
+    // (and tsc) can never catch it. Unknown names NOT on this list fall
+    // through to the config-dir sniffing below.
+    if (
+      REMOVED_CLIENT_NAMES.has(clientInfo.name) ||
+      clientInfo.name.startsWith("qwen-cli-mcp-client")
+    ) {
+      throw new UnsupportedClientError(clientInfo.name);
     }
   }
 
   // ── Explicit platform override ────────────────────────
   const platformOverride = process.env.CONTEXT_MODE_PLATFORM;
   if (platformOverride) {
-    const validPlatforms: PlatformId[] = [
-      "claude-code", "gemini-cli", "kilo", "opencode", "codex",
-      "vscode-copilot", "jetbrains-copilot", "copilot-cli", "cursor", "antigravity", "antigravity-cli", "kiro", "pi", "omp", "zed", "qwen-code", "kimi",
-    ];
+    const validPlatforms: PlatformId[] = ["claude-code", "codex"];
     if (validPlatforms.includes(platformOverride as PlatformId)) {
       return {
         platform: platformOverride as PlatformId,
@@ -405,23 +231,6 @@ export function detectPlatform(clientInfo?: { name: string; version?: string }):
 
   for (const [platform, vars] of PLATFORM_ENV_VARS) {
     if (vars.some((v) => v.detect !== false && process.env[v.name])) {
-      // Issue #539 belt-and-suspenders: VSCODE_PID/VSCODE_CWD are exported
-      // by VS Code into EVERY child process — including a Claude Code CLI
-      // launched from the integrated terminal. If env vars alone want to
-      // resolve to vscode-copilot, but ~/.claude/plugins/installed_plugins.json
-      // lists context-mode as a Claude Code plugin, the runtime must be
-      // Claude Code (VS Code Copilot has no plugin concept). The env-var
-      // tier above already handles the common case via CLAUDE_CODE_ENTRYPOINT
-      // / CLAUDE_PLUGIN_ROOT; this branch covers MCP-server-only boots where
-      // those vars have not propagated yet.
-      if (platform === "vscode-copilot" && claudeCodeHasContextModePlugin()) {
-        return {
-          platform: "claude-code",
-          confidence: "high",
-          reason:
-            "VSCODE_PID set but ~/.claude/plugins/installed_plugins.json lists context-mode (issue #539 fallback)",
-        };
-      }
       return {
         platform,
         confidence: "high",
@@ -430,73 +239,28 @@ export function detectPlatform(clientInfo?: { name: string; version?: string }):
     }
   }
 
+  // Issue #539: Claude Code booting inside VS Code exposes only VSCODE_* env
+  // markers (Microsoft's `code` exports VSCODE_PID/VSCODE_CWD into every
+  // child process) — the CLAUDE_* vars handled by the loop above may not
+  // have propagated yet on an MCP-server-only boot. If this machine's
+  // ~/.claude/plugins/installed_plugins.json lists context-mode, that is
+  // Claude Code running in a VS Code terminal — keep high confidence
+  // instead of falling through to the config-dir tier.
+  if (
+    (process.env.VSCODE_PID || process.env.VSCODE_CWD) &&
+    claudeCodeHasContextModePlugin()
+  ) {
+    return {
+      platform: "claude-code",
+      confidence: "high",
+      reason:
+        "VSCODE_PID set but ~/.claude/plugins/installed_plugins.json lists context-mode (issue #539 fallback)",
+    };
+  }
+
   // ── Medium confidence: config directory existence ──────
 
   const home = homedir();
-
-  // Issue #774 — dedicated CLI agents (Antigravity CLI `agy`, GitHub Copilot
-  // CLI) MUST be probed BEFORE the generic ~/.claude and ~/.gemini fallbacks.
-  // A user migrating from gemini-cli to `agy` keeps ~/.claude AND ~/.gemini, so
-  // the ~/.claude check below otherwise wins and `context-mode doctor`
-  // mis-detected `agy` as Claude Code — pointing storage at ~/.claude and
-  // reporting the wrong platform (reproduced in #774).
-  //
-  // Regression guard (whole-branch detection-ordering review): these markers
-  // are deliberately narrow so they cannot relocate an existing Claude Code
-  // user's storage from a bare shell. The antigravity-cli markers are either
-  // agy-exclusive (`~/.local/bin/agy`, `~/.gemini/antigravity-cli`) or map to
-  // the SAME `~/.gemini` root as gemini-cli (so a mis-detect is storage-neutral
-  // and never collides with `~/.gemini/settings.json` (gemini-cli) or
-  // `~/.gemini/antigravity/` (Antigravity IDE)). The copilot-cli marker is
-  // gated on a context-mode-written file (NOT a bare `~/.copilot/` directory),
-  // so a Claude Code user who merely co-installed GitHub Copilot CLI — but has
-  // not configured context-mode for it — is NOT pulled away from ~/.claude.
-  // GitHub Copilot CLI's config root is relocatable via COPILOT_HOME (the
-  // documented relocation env, incl. on Windows), so the marker must honor it —
-  // not just ~/.copilot. Mirrors copilotCliHome() in copilot-cli/index.ts.
-  const copilotHome = (() => {
-    const raw = process.env.COPILOT_HOME;
-    if (raw && raw.trim() !== "") {
-      return raw.startsWith("~") ? resolve(home, raw.replace(/^~[/\\]?/, "")) : resolve(raw);
-    }
-    return resolve(home, ".copilot");
-  })();
-  const copilotConfigured =
-    existsSync(resolve(copilotHome, "mcp-config.json")) ||
-    existsSync(resolve(copilotHome, "hooks", "context-mode.json"));
-
-  // A non-empty COPILOT_HOME is an explicit user/session selection, not a
-  // passive co-install marker. Respect it before agy's global markers so a
-  // Copilot doctor run in an isolated COPILOT_HOME is not stolen by an
-  // unrelated ~/.local/bin/agy or ~/.gemini/config/mcp_config.json.
-  if (process.env.COPILOT_HOME?.trim() && copilotConfigured) {
-    return {
-      platform: "copilot-cli",
-      confidence: "medium",
-      reason: "context-mode config in explicit COPILOT_HOME exists (mcp-config.json or hooks/context-mode.json)",
-    };
-  }
-
-  if (
-    existsSync(resolve(home, ".local", "bin", "agy")) ||
-    existsSync(resolve(home, ".gemini", "antigravity-cli")) ||
-    existsSync(resolve(home, ".gemini", "config", "mcp_config.json"))
-  ) {
-    return {
-      platform: "antigravity-cli",
-      confidence: "medium",
-      reason:
-        "Antigravity CLI marker exists (~/.local/bin/agy, ~/.gemini/antigravity-cli, or ~/.gemini/config/mcp_config.json)",
-    };
-  }
-
-  if (copilotConfigured) {
-    return {
-      platform: "copilot-cli",
-      confidence: "medium",
-      reason: "context-mode config in Copilot CLI home exists (mcp-config.json or hooks/context-mode.json; honors COPILOT_HOME)",
-    };
-  }
 
   if (existsSync(resolve(home, ".claude"))) {
     return {
@@ -506,118 +270,11 @@ export function detectPlatform(clientInfo?: { name: string; version?: string }):
     };
   }
 
-  if (existsSync(resolve(home, ".gemini"))) {
-    return {
-      platform: "gemini-cli",
-      confidence: "medium",
-      reason: "~/.gemini/ directory exists",
-    };
-  }
-
   if (existsSync(resolve(home, ".codex"))) {
     return {
       platform: "codex",
       confidence: "medium",
       reason: "~/.codex/ directory exists",
-    };
-  }
-
-  // Issue #542 — CLI agents BEFORE host IDEs.
-  //
-  // Cursor (a VSCode fork) is the most installed editor across our user
-  // base. Checking ~/.cursor/ first means every CLI agent co-installed
-  // with Cursor (Pi, OMP, Kiro, Qwen) silently routes through
-  // CursorAdapter even though the agent owns the session — Cursor merely
-  // hosts the terminal. Reorder: agents (.kiro/.omp/.pi/.qwen/.openclaw)
-  // win the medium-confidence tier, editors (~/.cursor/, ~/.vscode/,
-  // JetBrains) lose. Verified by the detect-config-dir.test.ts matrix.
-  if (existsSync(resolve(home, ".kiro"))) {
-    return {
-      platform: "kiro",
-      confidence: "medium",
-      reason: "~/.kiro/ directory exists",
-    };
-  }
-
-  // OMP listed BEFORE pi: shared ~/.pi history with OMP-only ~/.omp/ marker.
-  if (existsSync(resolve(home, ".omp"))) {
-    return {
-      platform: "omp",
-      confidence: "medium",
-      reason: "~/.omp/ directory exists",
-    };
-  }
-
-  if (existsSync(resolve(home, ".pi"))) {
-    return {
-      platform: "pi",
-      confidence: "medium",
-      reason: "~/.pi/ directory exists",
-    };
-  }
-
-  if (existsSync(resolve(home, ".qwen"))) {
-    return {
-      platform: "qwen-code",
-      confidence: "medium",
-      reason: "~/.qwen/ directory exists",
-    };
-  }
-
-  if (existsSync(resolve(home, ".kimi-code"))) {
-    return {
-      platform: "kimi",
-      confidence: "medium",
-      reason: "~/.kimi-code/ directory exists",
-    };
-  }
-
-  if (existsSync(resolve(home, ".openclaw"))) {
-    return {
-      platform: "openclaw",
-      confidence: "medium",
-      reason: "~/.openclaw/ directory exists",
-    };
-  }
-
-  // Cursor / host IDEs — checked AFTER all CLI agents (issue #542).
-  if (existsSync(resolve(home, ".cursor"))) {
-    return {
-      platform: "cursor",
-      confidence: "medium",
-      reason: "~/.cursor/ directory exists",
-    };
-  }
-
-  if (existsSync(resolve(home, ".config", "kilo"))) {
-    return {
-      platform: "kilo",
-      confidence: "medium",
-      reason: "~/.config/kilo/ directory exists",
-    };
-  }
-
-  if (existsSync(resolve(home, ".config", "JetBrains"))) {
-    return {
-      platform: "jetbrains-copilot",
-      confidence: "medium",
-      reason: "~/.config/JetBrains/ directory exists",
-    };
-  }
-
-  if (existsSync(resolve(home, ".config", "opencode"))) {
-    return {
-      platform: "opencode",
-      confidence: "medium",
-      reason: "~/.config/opencode/ directory exists",
-    };
-  }
-
-  if (existsSync(resolve(home, ".config", "zed"))) {
-    return {
-      platform: "zed",
-      confidence: "medium",
-      reason: "~/.config/zed/ directory exists",
     };
   }
 
@@ -643,95 +300,23 @@ export async function getAdapter(platform?: PlatformId): Promise<HookAdapter> {
       return new ClaudeCodeAdapter();
     }
 
-    case "gemini-cli": {
-      const { GeminiCLIAdapter } = await import("./gemini-cli/index.js");
-      return new GeminiCLIAdapter();
-    }
-
-    case "kilo":
-    case "opencode": {
-      const { OpenCodeAdapter } = await import("./opencode/index.js");
-      return new OpenCodeAdapter(target);
-    }
-
-    case "openclaw": {
-      const { OpenClawAdapter } = await import("./openclaw/index.js");
-      return new OpenClawAdapter();
-    }
-
     case "codex": {
       const { CodexAdapter } = await import("./codex/index.js");
       return new CodexAdapter();
     }
 
-    case "vscode-copilot": {
-      const { VSCodeCopilotAdapter } = await import("./vscode-copilot/index.js");
-      return new VSCodeCopilotAdapter();
-    }
-
-    case "jetbrains-copilot": {
-      const { JetBrainsCopilotAdapter } = await import("./jetbrains-copilot/index.js");
-      return new JetBrainsCopilotAdapter();
-    }
-
-    case "copilot-cli": {
-      const { CopilotCliAdapter } = await import("./copilot-cli/index.js");
-      return new CopilotCliAdapter();
-    }
-
-    case "cursor": {
-      const { CursorAdapter } = await import("./cursor/index.js");
-      return new CursorAdapter();
-    }
-
-    case "antigravity": {
-      const { AntigravityAdapter } = await import("./antigravity/index.js");
-      return new AntigravityAdapter();
-    }
-
-    case "antigravity-cli": {
-      const { AntigravityCliAdapter } = await import("./antigravity-cli/index.js");
-      return new AntigravityCliAdapter();
-    }
-
-    case "kiro": {
-      const { KiroAdapter } = await import("./kiro/index.js");
-      return new KiroAdapter();
-    }
-
-    case "zed": {
-      const { ZedAdapter } = await import("./zed/index.js");
-      return new ZedAdapter();
-    }
-
-    case "qwen-code": {
-      const { QwenCodeAdapter } = await import("./qwen-code/index.js");
-      return new QwenCodeAdapter();
-    }
-
-    case "omp": {
-      const { OMPAdapter } = await import("./omp/index.js");
-      return new OMPAdapter();
-    }
-
-    case "pi": {
-      // Issue #473 follow-up: without this case, getAdapter("pi") fell
-      // through to ClaudeCodeAdapter and Pi sessions wrote into
-      // ~/.claude/context-mode/. PiAdapter pins storage to ~/.pi/.
-      const { PiAdapter } = await import("./pi/index.js");
-      return new PiAdapter();
-    }
-
-    case "kimi": {
-      const { KimiAdapter } = await import("./kimi/index.js");
-      return new KimiAdapter();
-    }
-
-    default: {
-      // Unsupported platform — fall back to Claude Code adapter
-      // (MCP server works everywhere, hooks may not)
+    case "unknown": {
+      // Normal state (CLI path booted without clientInfo, fresh install) —
+      // an explicit contract, not a silent fallback.
       const { ClaudeCodeAdapter } = await import("./claude-code/index.js");
       return new ClaudeCodeAdapter();
     }
+
+    default:
+      // PlatformId is narrowed to 3, so unreachable in TS. This is the runtime
+      // string defense for a value that bypassed the type (e.g. a bad cast).
+      throw new Error(
+        `unsupported platform: ${target}. This fork supports claude-code and codex only.`,
+      );
   }
 }

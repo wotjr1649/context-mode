@@ -99,6 +99,7 @@ git clone https://github.com/wotjr1649/context-mode.git
 cd context-mode
 npm install
 npm run build  # tsc compiles src/ → build/
+git config core.hooksPath .githooks   # bundle-freshness guard (once per clone)
 ```
 
 ### 2. Symlink the cache to your local clone

@@ -2,11 +2,10 @@
  * adapters/types — Platform adapter interface for multi-platform hook support.
  *
  * Defines the contract that each platform adapter must implement.
- * Three paradigms exist across supported platforms:
- *   A) JSON stdin/stdout — Claude Code, Gemini/Qwen family CLIs, Copilot/Codex/Kimi,
- *      Cursor, Kiro, Antigravity CLI (`agy`)
- *   B) TS Plugin Functions — OpenCode, KiloCode, OpenClaw
- *   C) MCP-only (no hooks) — Antigravity IDE, Zed, Pi/OMP MCP-only paths
+ * Both supported platforms (hard fork: Claude Code and Codex only) use the
+ * JSON stdin/stdout paradigm; the `ts-plugin` and `mcp-only` paradigm tags
+ * survive in the type union for historical data written by upstream-era
+ * adapters.
  *
  * The MCP server layer is 100% portable and needs no adapter.
  * Only the hook layer requires platform-specific adapters.
@@ -166,8 +165,8 @@ export type HookRegistration = Record<string, HookEntry[]>;
 /**
  * HookAdapter — contract for platform-specific hook implementations.
  *
- * Each supported platform (Claude Code, Gemini CLI, OpenCode, etc.)
- * provides an adapter that normalizes its hook I/O into a common format.
+ * Each supported platform (Claude Code, Codex) provides an adapter that
+ * normalizes its hook I/O into a common format.
  */
 export interface HookAdapter {
   /** Human-readable platform name (e.g., "Claude Code", "Gemini CLI"). */
@@ -232,12 +231,11 @@ export interface HookAdapter {
    * where callers could not tell whether the return needed further resolution.
    *
    * Resolution rules:
-   *   - Home-rooted platforms (claude-code, codex, qwen, gemini, antigravity,
-   *     zed, opencode, …) return paths under `homedir()` / XDG / APPDATA.
-   *   - Project-scoped platforms (cursor → `.cursor`, vscode-copilot &
-   *     jetbrains-copilot → `.github`, kiro → `.kiro`, openclaw → project root)
-   *     resolve their segment against the supplied `projectDir`. When
-   *     `projectDir` is omitted, `process.cwd()` is used as the fallback.
+   *   - Home-rooted platforms (claude-code, codex) return paths under
+   *     `homedir()` / XDG / APPDATA.
+   *   - Project-scoped platforms (upstream-era adapters used dotdirs like
+   *     `.github`) resolve their segment against the supplied `projectDir`.
+   *     When `projectDir` is omitted, `process.cwd()` is used as the fallback.
    *
    * @param projectDir Optional project root used to resolve project-scoped
    *                   adapters. Ignored by home-rooted adapters.
@@ -379,13 +377,7 @@ export function buildNodeCommand(
   scriptPath: string,
   opts?: { platform?: string; jsRuntime?: string },
 ): string {
-  let nodePath = process.execPath.replace(/\\/g, "/");
-  if (isInProcessPluginPlatform(opts?.platform)) {
-    const base = nodePath.split("/").pop()!.replace(/\.exe$/i, "");
-    if (!JS_RUNTIMES.has(base)) {
-      nodePath = opts?.jsRuntime?.replace(/\\/g, "/") ?? "node";
-    }
-  }
+  const nodePath = process.execPath.replace(/\\/g, "/");
   const safePath = scriptPath.replace(/\\/g, "/");
   return `"${nodePath}" "${safePath}"`;
 }
@@ -403,27 +395,18 @@ export function buildNodeCommand(
  * tool call.
  *
  * Why a SEPARATE helper instead of repurposing {@link buildNodeCommand}:
- *   `buildNodeCommand` is also called by openclaw plugin (doctor / upgrade
- *   command suggestions in `src/adapters/openclaw/plugin.ts`). Those CLI
- *   targets MUST stay on Node because they load better-sqlite3, which has
- *   no Bun-compatible prebuild yet (#543). Keeping the two helpers separate
- *   makes the audit trivial: anything emitting a hook spawn command uses
+ *   `buildNodeCommand` is also used for user-visible CLI command suggestions
+ *   (doctor / upgrade hints in `src/server.ts`). Those CLI targets MUST stay
+ *   on Node because they load better-sqlite3, which has no Bun-compatible
+ *   prebuild yet (#543). Keeping the two helpers separate makes the audit
+ *   trivial: anything emitting a hook spawn command uses
  *   `buildHookRuntimeCommand`; anything emitting a user-visible CLI command
  *   stays on `buildNodeCommand`.
- *
- * `opts.platform` is forwarded to {@link isInProcessPluginPlatform} so the
- * existing opencode/kilo in-process JS-runtime substitution still works
- * (those platforms inject their own runtime via `opts.jsRuntime`).
  */
 export function buildHookRuntimeCommand(
   scriptPath: string,
   opts?: { platform?: string; jsRuntime?: string },
 ): string {
-  // In-process plugin platforms (opencode/kilo) inject their own runtime —
-  // delegate to buildNodeCommand which already handles that special case.
-  if (isInProcessPluginPlatform(opts?.platform)) {
-    return buildNodeCommand(scriptPath, opts);
-  }
   const runtime = resolveHookRuntime();
   const runtimePath = runtime.path.replace(/\\/g, "/");
   const safePath = scriptPath.replace(/\\/g, "/");
@@ -463,34 +446,8 @@ export function parseNodeCommand(
 /** Known JS runtime binary names (base filename without extension). */
 export const JS_RUNTIMES: ReadonlySet<string> = new Set(["node", "bun", "deno"]);
 
-/** Platforms where context-mode runs as an in-process TS plugin (not MCP stdio). */
-export const IN_PROCESS_PLUGIN_PLATFORMS: ReadonlySet<string> = new Set(["opencode", "kilo"]);
-
-export function isInProcessPluginPlatform(p: string | undefined): boolean {
-  return !!p && IN_PROCESS_PLUGIN_PLATFORMS.has(p);
-}
-
-/** Supported platform identifiers. */
-export type PlatformId =
-  | "claude-code"
-  | "gemini-cli"
-  | "opencode"
-  | "kilo"
-  | "openclaw"
-  | "codex"
-  | "vscode-copilot"
-  | "jetbrains-copilot"
-  | "copilot-cli"
-  | "cursor"
-  | "antigravity"
-  | "antigravity-cli"
-  | "kiro"
-  | "pi"
-  | "omp"
-  | "kimi"
-  | "zed"
-  | "qwen-code"
-  | "unknown";
+/** Supported platform identifiers. Hard fork: Claude Code and Codex only. */
+export type PlatformId = "claude-code" | "codex" | "unknown";
 
 /** Detection signal used to identify which platform is running. */
 export interface DetectionSignal {

@@ -18,7 +18,7 @@ process.env.USERPROFILE = fakeHome;
 process.env.HOMEDRIVE = root.replace(/[\\/]+$/, "");
 process.env.HOMEPATH = fakeHome.slice(root.length) || root;
 
-// Prevent CONTEXT_MODE_BRIDGE_DEPTH from leaking in when Pi's MCP child
+// Prevent CONTEXT_MODE_BRIDGE_DEPTH from leaking in when an MCP bridge child
 // spawned with depth=1 and that env persisted into the test runner.
 delete process.env.CONTEXT_MODE_BRIDGE_DEPTH;
 

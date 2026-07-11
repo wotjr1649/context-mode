@@ -618,31 +618,16 @@ export interface AdapterDirEntry {
  * so a single call surfaces "your work everywhere on this machine across
  * all AI tools" (the marketing line).
  *
- * Returns ALL 17 adapters even when the dir doesn't exist on disk — the
+ * Returns ALL 2 adapters even when the dir doesn't exist on disk — the
  * scanner functions filter to existing dirs. That keeps the enumeration
  * pure / testable without filesystem dependencies.
  */
 export function enumerateAdapterDirs(opts?: { home?: string }): AdapterDirEntry[] {
   const home = opts?.home ?? homedir();
-  // Mirrors `getSessionDirSegments` in src/adapters/detect.ts:92-111.
+  // Mirrors `getSessionDirSegments` in src/adapters/detect.ts.
   const map: ReadonlyArray<readonly [string, readonly string[]]> = [
-    ["claude-code",      [".claude"]],
-    ["gemini-cli",       [".gemini"]],
-    ["antigravity",      [".gemini"]],
-    ["antigravity-cli",  [".gemini"]],
-    ["openclaw",         [".openclaw"]],
-    ["codex",            [".codex"]],
-    ["cursor",           [".cursor"]],
-    ["vscode-copilot",   [".vscode"]],
-    ["copilot-cli",      [".copilot"]],
-    ["kiro",             [".kiro"]],
-    ["pi",               [".pi"]],
-    ["omp",              [".omp"]],
-    ["qwen-code",        [".qwen"]],
-    ["kilo",             [".config", "kilo"]],
-    ["opencode",         [".config", "opencode"]],
-    ["zed",              [".config", "zed"]],
-    ["jetbrains-copilot", [".config", "JetBrains"]],
+    ["claude-code", [".claude"]],
+    ["codex",       [".codex"]],
   ];
   return map.map(([name, segments]) => {
     const base = join(home, ...segments, "context-mode");
@@ -1757,23 +1742,8 @@ export const autoMemoryLabels: Record<string, string> = {
  * each tool's own surface area.
  */
 export const adapterLabels: Record<string, string> = {
-  "claude-code":       "Claude Code",
-  "gemini-cli":        "Gemini CLI",
-  "antigravity":       "Antigravity",
-  "antigravity-cli":   "Antigravity CLI",
-  "openclaw":          "Openclaw",
-  "codex":             "Codex CLI",
-  "cursor":            "Cursor",
-  "vscode-copilot":    "VS Code Copilot",
-  "copilot-cli":       "GitHub Copilot CLI",
-  "kiro":              "Kiro",
-  "pi":                "Pi",
-  "omp":               "OMP",
-  "qwen-code":         "Qwen Code",
-  "kilo":              "Kilo",
-  "opencode":          "OpenCode",
-  "zed":               "Zed",
-  "jetbrains-copilot": "JetBrains",
+  "claude-code": "Claude Code",
+  "codex":       "Codex CLI",
 };
 
 /** Look up an adapter's marketing label. Falls back to the raw id. */
@@ -1956,7 +1926,7 @@ function shortPath(abs: string): string {
  * the section disappears cleanly on a fresh install.
  *
  * Math constants:
- *   Opus 4.7/4.8 = $5.00 per 1M input tokens (fallback when PI_CONTEXT_MODE_PRICE_OUTPUT_PER_TOKEN not set)
+ *   Opus 4.7/4.8 = $5.00 per 1M input tokens
  *   Sonnet 4.6   = $3.00 per 1M input tokens
  *   GPT-4o       = $2.50 per 1M input tokens
  *   Gemini 2     = $1.25 per 1M input tokens
@@ -1999,28 +1969,14 @@ export function renderCostExample(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _haikuUsd  = ((lifetimeTokens * 1.0)  / 1_000_000).toFixed(2);
 
-  const usingDynamicPrice =
-    process.env.PI_CONTEXT_MODE_PRICE_OUTPUT_PER_TOKEN !== undefined;
-  const modelId = process.env.PI_CONTEXT_MODE_MODEL_ID;
-
   // Mert: "daha marketing ve business value e vermeli, math hesaplamalari ile
   // kalabalik yapma" — collapse the old 4-block render into ONE headline
   // number, ONE relatable comparison, ONE team-scale callout.
   const out: string[] = [];
 
-  if (usingDynamicPrice && modelId) {
-    out.push(
-      `  $${usdStr(lifetimeUsd)} of ${modelId} tokens your team didn't burn.`,
-    );
-  } else if (usingDynamicPrice) {
-    out.push(
-      `  $${usdStr(lifetimeUsd)} of tokens your team didn't burn.`,
-    );
-  } else {
-    out.push(
-      `  $${usdStr(lifetimeUsd)} of Opus 4.7 tokens your team didn't burn.`,
-    );
-  }
+  out.push(
+    `  $${usdStr(lifetimeUsd)} of Opus 4.7 tokens your team didn't burn.`,
+  );
 
   out.push(
     `  context-mode kept ${kb(lifetimeBytes)} out of context — that's ${cursorMonths} months of Cursor Pro paid for itself.`,
@@ -2032,12 +1988,10 @@ export function renderCostExample(
     );
   }
 
-  if (!usingDynamicPrice) {
-    out.push("");
-    out.push(
-      `  (Opus rates shown for context. On cheaper models the dollar number drops; the savings ratio holds.)`,
-    );
-  }
+  out.push("");
+  out.push(
+    `  (Opus rates shown for context. On cheaper models the dollar number drops; the savings ratio holds.)`,
+  );
   return out;
 }
 
@@ -2480,41 +2434,26 @@ function fmtNum(n: number): string {
 // ─────────────────────────────────────────────────────────
 
 // ── Pricing (Bug #6) — per-token USD rate ─────────────────
-// Reads PI_CONTEXT_MODE_PRICE_OUTPUT_PER_TOKEN when set by a Pi host;
-// falls back to the Opus 4.7/4.8 input rate ($5/1M) for all other adapters.
+// Opus 4.7/4.8 input rate ($5/1M) for every supported adapter.
 // Verified against platform.claude.com/docs/en/about-claude/pricing 2026-06.
 //
-// IMPORTANT: this is a FUNCTION, not a const. Pi sets the env var
-// AFTER the MCP server has been imported (the bridge spawns the server
-// child, then the child reads its own env on every render). A
-// module-load-time const would freeze to the fallback because
-// process.env.PI_CONTEXT_MODE_PRICE_OUTPUT_PER_TOKEN is unset at
-// import time. Resolving on every call keeps the dynamic-pricing
-// contract honest — the env var works without an MCP restart.
-// (Reverted module-load const semantics, PR #741 follow-up.)
+// Kept as a FUNCTION for call-site stability: the upstream-era dynamic
+// per-host env override (PR #741) was removed with its host adapter, but
+// five call sites (server.ts persist path, renderers, tokensToUsd) still
+// resolve the rate through this single source of truth.
 
-/**
- * Per-token USD rate — resolves on every call.
- * Dynamic when PI_CONTEXT_MODE_PRICE_OUTPUT_PER_TOKEN is set, Opus 4.7/4.8 input
- * ($5 per 1M tokens) otherwise.
- */
+/** Per-token USD rate — Opus 4.7/4.8 input ($5 per 1M tokens). */
 export function pricePerToken(): number {
-  const env = process.env.PI_CONTEXT_MODE_PRICE_OUTPUT_PER_TOKEN;
-  if (env !== undefined && env !== "") {
-    const parsed = Number(env);
-    if (Number.isFinite(parsed) && parsed > 0) return parsed;
-  }
-  return 5 / 1_000_000; // Opus 4.7/4.8 input fallback
+  return 5 / 1_000_000; // Opus 4.7/4.8 input rate
 }
 
 /**
  * Back-compat alias for the original Opus-rate const (PR #401 architect
  * P1.1 — single source of truth). Kept as a literal so any third-party
  * consumer importing the named constant still resolves to the same
- * fallback rate. New code should call pricePerToken() to pick up the
- * dynamic Pi env override.
+ * fallback rate.
  *
- * @deprecated Use pricePerToken() to honor PI_CONTEXT_MODE_PRICE_OUTPUT_PER_TOKEN.
+ * @deprecated Use pricePerToken().
  */
 export const OPUS_INPUT_PRICE_PER_TOKEN = 5 / 1_000_000;
 

@@ -499,14 +499,14 @@ describe("Subagent Rendering", () => {
       makeEvent({
         type: "subagent_completed",
         category: "subagent",
-        data: "[completed] Research Cursor env vars → Found CURSOR_TRACE_DIR",
+        data: "[completed] Research Acme env vars → Found ACME_TRACE_DIR",
         priority: 2,
       }),
     ];
     const xml = buildResumeSnapshot(events);
     assert.ok(xml.includes("<subagents"), "should include <subagents");
     assert.ok(xml.includes("</subagents>"), "should close </subagents>");
-    assert.ok(xml.includes("CURSOR_TRACE_DIR"), "should include agent result data");
+    assert.ok(xml.includes("ACME_TRACE_DIR"), "should include agent result data");
   });
 
   test("buildResumeSnapshot with no subagent events omits subagents section", () => {
@@ -536,13 +536,13 @@ describe("Subagent Rendering", () => {
 
   test("buildResumeSnapshot with 4 completed agents preserves all results", () => {
     const events: StoredEvent[] = [
-      makeEvent({ type: "subagent_completed", category: "subagent", data: "[completed] Cursor → CURSOR_TRACE_DIR", priority: 2 }),
+      makeEvent({ type: "subagent_completed", category: "subagent", data: "[completed] Acme → ACME_TRACE_DIR", priority: 2 }),
       makeEvent({ type: "subagent_completed", category: "subagent", data: "[completed] Gemini → GEMINI_PROJECT_DIR", priority: 2 }),
       makeEvent({ type: "subagent_completed", category: "subagent", data: "[completed] Codex → no detection", priority: 2 }),
       makeEvent({ type: "subagent_completed", category: "subagent", data: "[completed] VS Code → VSCODE_PID", priority: 2 }),
     ];
     const xml = buildResumeSnapshot(events);
-    assert.ok(xml.includes("Cursor"), "should include Cursor agent result");
+    assert.ok(xml.includes("Acme"), "should include Acme agent result");
     assert.ok(xml.includes("Gemini"), "should include Gemini agent result");
     assert.ok(xml.includes("Codex"), "should include Codex agent result");
     assert.ok(xml.includes("VS Code"), "should include VS Code agent result");

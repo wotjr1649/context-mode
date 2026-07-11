@@ -2,9 +2,11 @@
  * Issue #545 — server.ts getProjectDir() passes strictPlatform to resolveProjectDir.
  *
  * Without strict mode, a foreign workspace var (e.g. CLAUDE_PROJECT_DIR
- * leaked into Pi's MCP child env) wins the cascade and Pi's sessions write
- * into Claude Code's project. Slice 5 wires `strictPlatform: detectPlatform().platform`
- * for ALL adapters as defense in depth.
+ * leaked into another host's MCP child env) wins the cascade and that host's
+ * sessions write into Claude Code's project. Slice 5 wires
+ * `strictPlatform: detectPlatform().platform` for ALL adapters as defense
+ * in depth. The leak fixture below deliberately keeps upstream-era vars:
+ * they can linger in real user shells and must never steer a kept platform.
  *
  * This integration test exercises the wiring by importing the real resolver
  * and asserting that each platform's strict-mode call rejects foreign env
@@ -50,26 +52,11 @@ describe("server getProjectDir wiring — strictPlatform for all adapters (issue
   // Adapters with at least one workspace var.
   const platformsWithOwnVar: ReadonlyArray<PlatformId> = [
     "claude-code",
-    "gemini-cli",
-    "cursor",
-    "vscode-copilot",
-    "jetbrains-copilot",
-    "opencode",
-    "qwen-code",
-    "pi",
-    "omp",
   ];
 
   // Adapters with no workspace var (rely on universal escape hatch / pwd / cwd).
   const platformsNoOwnVar: ReadonlyArray<PlatformId> = [
     "codex",
-    "kilo",
-    "kiro",
-    "zed",
-    "antigravity",
-    "antigravity-cli",
-    "copilot-cli",
-    "openclaw",
   ];
 
   for (const platform of platformsWithOwnVar) {
@@ -130,11 +117,10 @@ describe("server getProjectDir wiring — strictPlatform for all adapters (issue
         codexHome: platform === "codex" ? emptyCodexHome : undefined,
       });
       // No own workspace var matches (we set leaks, not the platform's own
-      // value). PWD is the next tier. PI / OMP have own vars set in the
-      // leak env to /leak/* values though — those would win for them. So
-      // distinguish: if the platform has a workspace var that the leak env
-      // also sets, that "leak" value IS this platform's value (test artifact).
-      // Use a stricter check: the result must NOT be from a foreign-only var.
+      // value). PWD is the next tier. If a platform's own workspace var is
+      // also present in the leak env, that "leak" value IS this platform's
+      // value (test artifact) and legitimately wins. So distinguish with a
+      // stricter check: the result must NOT be from a foreign-only var.
       const ownVars = new Set(workspaceEnvVarsFor(platform));
       // Check: for any "/leak/*" the result is, the source var must be in ownVars.
       if (result.startsWith("/leak/")) {

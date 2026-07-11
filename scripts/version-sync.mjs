@@ -15,8 +15,6 @@ import { fileURLToPath } from "node:url";
 export const TARGETS = [
   ".claude-plugin/plugin.json",
   ".claude-plugin/marketplace.json",
-  ".cursor-plugin/plugin.json",
-  ".codex-plugin/plugin.json",
   // .codex-plugin/marketplace.json is intentionally absent — Codex CLI
   // reads marketplaces from .agents/plugins/marketplace.json (or
   // .claude-plugin/marketplace.json for Claude-compat). See
@@ -26,22 +24,8 @@ export const TARGETS = [
   // .agents/plugins/marketplace.json has no top-level `version` field
   // (per the Codex serde schema at marketplace.rs:694-700 — only `name`,
   // `interface`, and `plugins[]`), so it doesn't need version-syncing.
-  // Per-plugin `version` lives in .codex-plugin/plugin.json which is
-  // already in this list.
-  ".openclaw-plugin/openclaw.plugin.json",
-  ".openclaw-plugin/package.json",
-  "openclaw.plugin.json",
-  ".pi/extensions/context-mode/package.json",
-  // Antigravity CLI (agy) plugin bundle manifest — agy installs it via
-  // `agy plugin install configs/antigravity-cli`. Without this entry it would
-  // freeze at its pinned version on the next bump (cf. the .cursor-plugin
-  // v1.0.111 drift the version-sync test guards against).
-  "configs/antigravity-cli/plugin.json",
-  // GitHub Copilot CLI plugin bundle manifest — installed via
-  // `copilot plugin install <repo>:configs/copilot-cli`. Same drift guard as
-  // the agy bundle above: without this it freezes at its pinned version on the
-  // next bump (cf. the .cursor-plugin v1.0.111 drift the version-sync test guards).
-  "configs/copilot-cli/.github/plugin/plugin.json",
+  // Per-plugin `version` lives in the .codex-plugin/plugin.json entry below.
+  ".codex-plugin/plugin.json",
 ];
 
 function syncManifests() {
@@ -88,10 +72,3 @@ function syncManifests() {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   syncManifests();
 }
-
-// Note: package.json's `omp` block intentionally has no `version` field.
-// The OMP loader stamps `manifest.version = pluginPkg.version` from the
-// top-level package.json:version at load time (see
-// refs/platforms/oh-my-pi/packages/coding-agent/src/extensibility/plugins/
-// loader.ts:87), so a duplicate would just drift on every release without
-// adding any signal. The `pi` block follows the same upstream rule.

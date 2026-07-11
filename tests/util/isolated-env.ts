@@ -3,8 +3,8 @@
  *
  * `tests/setup-home.ts` only sets HOME/USERPROFILE/HOMEDRIVE/HOMEPATH. That's
  * enough on POSIX where session state is `~/.{adapter}/...`, but on Windows
- * `getMultiAdapterLifetimeStats`, OpenCode's `getConfigDir`, and the bun
- * runtime fallbacks read `%APPDATA%`, `%LOCALAPPDATA%`, `XDG_CONFIG_HOME`,
+ * `getMultiAdapterLifetimeStats` and the bun runtime fallbacks read
+ * `%APPDATA%`, `%LOCALAPPDATA%`, `XDG_CONFIG_HOME`,
  * `XDG_DATA_HOME`, `XDG_CACHE_HOME`, `TMPDIR`, `TEMP`, `TMP` directly. Without
  * isolating those, real adapter dirs leak into render output and PR #515's
  * BRAND_NEW assertion fails on the windows-latest runner.

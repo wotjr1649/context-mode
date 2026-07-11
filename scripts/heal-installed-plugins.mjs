@@ -18,7 +18,28 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, readdirSync, unlinkSync, statSync } from "node:fs";
-import { resolve, sep } from "node:path";
+import { dirname, resolve, sep } from "node:path";
+
+// Derive the registry key from `<…>/plugins/cache/<marketplace>/<plugin>/<version>`.
+// Capture order: $1 = marketplace, $2 = plugin. The key reverses them.
+// Forgetting the reversal passes every test on the upstream layout, where both
+// names are the literal `context-mode` — the F42/F54 bug class. Cross-check
+// against start.mjs:149-152.
+const CACHE_PATH_RE = /[/\\]plugins[/\\]cache[/\\]([^/\\]+)[/\\]([^/\\]+)[/\\][^/\\]+[/\\]?$/;
+
+export function derivePluginKey(pluginRoot) {
+  if (typeof pluginRoot !== "string") return null;
+  const m = pluginRoot.match(CACHE_PATH_RE);
+  return m ? `${m[2]}@${m[1]}` : null;
+}
+
+export function derivePluginCacheParent(pluginRoot) {
+  if (typeof pluginRoot !== "string") return null;
+  if (!CACHE_PATH_RE.test(pluginRoot)) return null;
+  // `dirname`, NOT `resolve(pluginRoot, "..")` — resolve() prepends the cwd to a
+  // POSIX-looking path on Windows. dirname is a pure string operation.
+  return dirname(pluginRoot);
+}
 
 /**
  * @typedef {Object} HealResult
@@ -525,10 +546,10 @@ export function healClaudeJsonMcpArgs({ dotClaudeJsonPath, pluginCacheParent, ne
 
 /**
  * Remove every `.mcp.json` from per-version directories under
- * `<pluginCacheRoot>/<owner>/<plugin>/<X.Y.Z>/`.
+ * `<pluginCacheRoot>/<marketplace>/<plugin>/<X.Y.Z>/`.
  *
  * @param {{ pluginCacheRoot: string, pluginKey: string }} opts
- *   pluginKey is the "<owner>@<plugin>" form (e.g. "context-mode@context-mode").
+ *   pluginKey is the "<plugin>@<marketplace>" form (e.g. "context-mode@context-mode-js").
  * @returns {SweepResult}
  */
 export function sweepStaleMcpJson({ pluginCacheRoot, pluginKey }) {
@@ -544,39 +565,48 @@ export function sweepStaleMcpJson({ pluginCacheRoot, pluginKey }) {
     return { removed, skipped: "no-cache-root" };
   }
 
-  // pluginKey shape: "<owner>@<plugin>"
-  const [ownerSegment, pluginSegment] = pluginKey.split("@");
-  if (!ownerSegment || !pluginSegment) {
+  // pluginKey shape: "<plugin>@<marketplace>"  (Claude Code registry key)
+  // cache layout:    <cacheRoot>/<marketplace>/<plugin>/<x.y.z>/
+  // Before the marketplace rename the two names were identical, so an
+  // inverted slice never surfaced.
+  const segments = pluginKey.split("@");
+  if (segments.length !== 2) {
+    return { removed, skipped: "bad-plugin-key" };
+  }
+  const [pluginSegment, marketplaceSegment] = segments;
+  // Validate the segments themselves. The root guard alone is not enough —
+  // `../victim@context-mode-js` normalizes to `<cacheRoot>/victim`, which
+  // PASSES `startsWith(cacheRoot + sep)`. (Codex review Important 2)
+  const SAFE_SEGMENT = /^[A-Za-z0-9._-]+$/;
+  if (!SAFE_SEGMENT.test(pluginSegment) || !SAFE_SEGMENT.test(marketplaceSegment)
+      || pluginSegment === ".." || marketplaceSegment === "..") {
     return { removed, skipped: "bad-plugin-key" };
   }
 
-  // Path-traversal guard: refuse to walk outside the declared cache root,
-  // even if pluginKey contains `..` segments. Per Mert's standing Windows
-  // safety rule, resolve normalizes both `/` and `\` so the guard fires
-  // on either separator.
-  const ownerDir = resolve(resolvedCacheRoot, ownerSegment, pluginSegment);
+  // Path-traversal guard (second line of defense): resolve normalizes both `/` and `\`.
+  const pluginDir = resolve(resolvedCacheRoot, marketplaceSegment, pluginSegment);
   const cacheRootWithSep = resolvedCacheRoot + sep;
-  if (!ownerDir.startsWith(cacheRootWithSep)) {
+  if (!pluginDir.startsWith(cacheRootWithSep)) {
     return { removed, skipped: "outside-cache-root" };
   }
 
-  if (!existsSync(ownerDir)) {
+  if (!existsSync(pluginDir)) {
     return { removed, skipped: "no-plugin-dir" };
   }
 
   /** @type {string[]} */
   let versionEntries = [];
   try {
-    versionEntries = readdirSync(ownerDir);
+    versionEntries = readdirSync(pluginDir);
   } catch {
     return { removed, skipped: "readdir-failed" };
   }
 
   for (const versionEntry of versionEntries) {
-    const versionDir = resolve(ownerDir, versionEntry);
+    const versionDir = resolve(pluginDir, versionEntry);
     // Per-version guard: only enter directories whose resolved path stays
-    // under the owner dir. Belt-and-braces against weird FS entries.
-    if (!versionDir.startsWith(ownerDir + sep)) continue;
+    // under the plugin dir. Belt-and-braces against weird FS entries.
+    if (!versionDir.startsWith(pluginDir + sep)) continue;
     try {
       const stat = statSync(versionDir);
       if (!stat.isDirectory()) continue;

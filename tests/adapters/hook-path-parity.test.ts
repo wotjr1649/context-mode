@@ -9,32 +9,20 @@ import {
   type HookType as ClaudeHookType,
 } from "../../src/adapters/claude-code/hooks.js";
 
-import {
-  HOOK_SCRIPTS as GEMINI_HOOK_SCRIPTS,
-  buildHookCommand as buildGeminiHookCommand,
-  type HookType as GeminiHookType,
-} from "../../src/adapters/gemini-cli/hooks.js";
-
-import {
-  HOOK_SCRIPTS as KIRO_HOOK_SCRIPTS,
-  buildHookCommand as buildKiroHookCommand,
-} from "../../src/adapters/kiro/hooks.js";
-
 /**
  * Cross-adapter parity test for issue #712.
  *
  * For every adapter whose `buildHookCommand` emits an absolute filesystem
- * path (i.e. NOT a CLI-dispatcher Tier C adapter — vscode-copilot,
- * jetbrains-copilot, cursor, codex deliberately emit
- * `context-mode hook <platform> <event>` strings and are excluded), the
+ * path (i.e. NOT a CLI-dispatcher Tier C adapter — codex deliberately emits
+ * `context-mode hook <platform> <event>` strings and is excluded), the
  * emitted command MUST resolve to a script that exists in the published
  * tree under the same relative layout HOOK_MAP in src/cli.ts uses.
  *
- * Why this test exists: issue #712 — gemini-cli's `buildHookCommand`
- * carried claude-code's flat `hooks/<script>` shape across without
- * accounting for the `gemini-cli/` platform subdir. HOOK_MAP knew the
+ * Why this test exists: issue #712 — an upstream-era adapter's
+ * `buildHookCommand` carried claude-code's flat `hooks/<script>` shape
+ * across without accounting for its platform subdir. HOOK_MAP knew the
  * correct layout, `setHookPermissions` knew the correct layout, but the
- * command emit didn't — and the gemini-cli doctor's regex round-trip
+ * command emit didn't — and that adapter's doctor regex round-trip
  * (`getHookScriptPaths` -> parse command -> check existsSync on parsed
  * path) silently failed on every install.
  *
@@ -44,10 +32,6 @@ import {
  * command points at actually exist?".
  *
  * Adapters NOT covered here (CLI-dispatcher Tier C):
- *   - vscode-copilot  (PR #620, .github/hooks/context-mode.json is
- *                      workspace-committed; absolute paths leak PII)
- *   - jetbrains-copilot (same as above; .jetbrains/copilot/hooks.json)
- *   - cursor           (CLI dispatcher in .cursor/hooks.json)
  *   - codex            (CLI dispatcher in ~/.codex/hooks.json)
  */
 
@@ -67,18 +51,6 @@ const adapters: AdapterParityCase[] = [
     scripts: CLAUDE_HOOK_SCRIPTS,
     build: (h, p) => buildClaudeHookCommand(h as ClaudeHookType, p),
     subdir: "",
-  },
-  {
-    platform: "gemini-cli",
-    scripts: GEMINI_HOOK_SCRIPTS,
-    build: (h, p) => buildGeminiHookCommand(h as GeminiHookType, p),
-    subdir: "gemini-cli",
-  },
-  {
-    platform: "kiro",
-    scripts: KIRO_HOOK_SCRIPTS,
-    build: (h, p) => buildKiroHookCommand(h, p),
-    subdir: "kiro",
   },
 ];
 
@@ -112,12 +84,7 @@ describe("hook path parity across adapters (issue #712)", () => {
 
       it("never emits the wrong subdir (regression guard for issue #712)", () => {
         const otherSubdirs = [
-          "gemini-cli",
-          "kiro",
-          "vscode-copilot",
-          "cursor",
           "codex",
-          "jetbrains-copilot",
         ].filter((s) => s !== adapter.subdir);
         for (const [hookType, scriptName] of Object.entries(adapter.scripts)) {
           const cmd = adapter.build(hookType, "/fixed/plugin/root");

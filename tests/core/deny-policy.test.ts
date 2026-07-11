@@ -3,8 +3,8 @@
  *
  * `checkFilePathDenyPolicy` must use the canonical `getProjectDir()` helper so
  * that all supported adapters resolve project root via the full env cascade
- * (CLAUDE_PROJECT_DIR, GEMINI_PROJECT_DIR, VSCODE_CWD, OPENCODE_PROJECT_DIR,
- * PI_PROJECT_DIR, CONTEXT_MODE_PROJECT_DIR, cwd).
+ * (CLAUDE_PROJECT_DIR, GEMINI_PROJECT_DIR, VSCODE_CWD,
+ * CONTEXT_MODE_PROJECT_DIR, cwd).
  *
  * The previous implementation used `process.env.CLAUDE_PROJECT_DIR ?? cwd()`
  * which fails open (or matches the wrong repo's deny rules) on every
@@ -38,8 +38,9 @@ describe("checkFilePathDenyPolicy: project-dir resolution", () => {
     expect(body).toMatch(/getProjectDir\(\)/);
 
     // RED-guard: must NOT use the divergent ad-hoc resolution that
-    // skips GEMINI_PROJECT_DIR / VSCODE_CWD / OPENCODE_PROJECT_DIR /
-    // PI_PROJECT_DIR / CONTEXT_MODE_PROJECT_DIR.
+    // skips the rest of the cascade (GEMINI_PROJECT_DIR / VSCODE_CWD /
+    // CONTEXT_MODE_PROJECT_DIR). The removed-platform vars asserted absent
+    // below stay as negative pins — they must never reappear.
     expect(body).not.toMatch(
       /process\.env\.CLAUDE_PROJECT_DIR\s*\?\?\s*process\.cwd\(\)/,
     );

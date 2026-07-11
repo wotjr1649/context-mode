@@ -272,7 +272,7 @@ describe("ClaudeCodeAdapter", () => {
 
     // C2 narrowing (2026-05): the test now composes the DB path through
     // resolveSessionDbPath + adapter.getSessionDir() — this is the SAME
-    // composition production callers (server.ts, opencode plugin, hooks)
+    // composition production callers (server.ts, hooks)
     // perform. The regression pin still holds: $CLAUDE_CONFIG_DIR must
     // route the file out of ~/.claude.
     it("DB path lands under $CLAUDE_CONFIG_DIR (not ~/.claude)", () => {

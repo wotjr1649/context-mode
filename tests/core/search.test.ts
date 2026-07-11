@@ -2724,7 +2724,7 @@ const RELEVANCE_CORPUS: Array<{ source: string; markdown: string }> = [
   },
   {
     source: "git-log-recent",
-    markdown: `# Git log\n\n## Recent commits\n\n- eb36c2e perf: enable mmap_size pragma for FTS5 search\n- 766de41 ci: update server.bundle.mjs\n- 01470ec fix(store): wrap indexPlainText with withRetry\n- c445a12 feat(kiro): add full hook support for Kiro IDE`,
+    markdown: `# Git log\n\n## Recent commits\n\n- eb36c2e perf: enable mmap_size pragma for FTS5 search\n- 766de41 ci: update server.bundle.mjs\n- 01470ec fix(store): wrap indexPlainText with withRetry\n- c445a12 feat(hooks): add full hook support for the Codex CLI`,
   },
   {
     source: "tailwind-config",

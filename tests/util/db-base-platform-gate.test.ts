@@ -82,7 +82,7 @@ describe("db-base platform gate (#551)", () => {
 // HISTORY: v1.0.128 introduced an `acquireDbLock` lockfile + `locking_mode
 // = EXCLUSIVE` pragma in the SQLiteBase ctor as a defense against #560.
 // That defense was an OVER-CORRECTION — the real root causes of #560
-// were #559 (zombie MCP child accumulation) and #561 (Pi misdetection
+// were #559 (zombie MCP child accumulation) and #561 (host misdetection
 // writing to the wrong DB path). With both root causes fixed in v1.0.128
 // + v1.0.129, normal usage is one MCP process per Claude session per
 // project; legitimate multi-window UX means two processes on the SAME

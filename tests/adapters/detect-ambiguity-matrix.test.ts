@@ -59,35 +59,17 @@ describe("detectPlatform — all-pairs ambiguity matrix (issue #542)", () => {
   };
 
   // Row format: [scenario name, [dirA-segments], [dirB-segments], expected winner]
+  // Post-fork reality: only claude-code and codex remain detectable. Every
+  // surviving row asserts that a stale removed-client config dir (~/.cursor,
+  // ~/.vscode, ~/.kiro, ~/.pi, ~/.omp left on disk) must NOT hijack a
+  // kept-client config-dir detection.
   const cases: Array<[string, string[], string[], string]> = [
-    // ── CLI agents beat the most-installed host IDE (Cursor) ──
-    ["cursor + pi    → pi",      [".cursor"], [".pi"],      "pi"],
-    ["cursor + omp   → omp",     [".cursor"], [".omp"],     "omp"],
-    ["cursor + kiro  → kiro",    [".cursor"], [".kiro"],    "kiro"],
-    ["cursor + qwen  → qwen",    [".cursor"], [".qwen"],    "qwen-code"],
-    ["cursor + gemini→ gemini",  [".cursor"], [".gemini"],  "gemini-cli"],
     ["cursor + claude→ claude",  [".cursor"], [".claude"],  "claude-code"],
     ["cursor + codex → codex",   [".cursor"], [".codex"],   "codex"],
-
-    // ── VSCode coexistence: agent always wins ──
     ["vscode + claude→ claude",  [".vscode"], [".claude"],  "claude-code"],
-    ["vscode + pi    → pi",      [".vscode"], [".pi"],      "pi"],
-
-    // ── Pi → OMP rebrand collision: OMP wins (more specific) ──
-    ["pi + omp       → omp",     [".pi"],     [".omp"],     "omp"],
-
-    // ── Two-agent collision: priority is documented in detect.ts ──
-    // claude > gemini > codex > kiro > omp > pi > qwen > openclaw > cursor
-    // (issue #542 reorder — agents-first, then editors).
-    ["kiro + gemini  → gemini",  [".kiro"],   [".gemini"],  "gemini-cli"],
     ["kiro + claude  → claude",  [".kiro"],   [".claude"],  "claude-code"],
     ["pi + claude    → claude",  [".pi"],     [".claude"],  "claude-code"],
     ["omp + claude   → claude",  [".omp"],    [".claude"],  "claude-code"],
-
-    // ── Regressions: bare single-dir resolutions still work ──
-    ["cursor only    → cursor",  [".cursor"], [".cursor"],  "cursor"],
-    ["pi only        → pi",      [".pi"],     [".pi"],      "pi"],
-    ["omp only       → omp",     [".omp"],    [".omp"],     "omp"],
     ["claude only    → claude",  [".claude"], [".claude"],  "claude-code"],
   ];
 

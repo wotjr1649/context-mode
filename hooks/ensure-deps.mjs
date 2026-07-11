@@ -229,7 +229,7 @@ export function ensureNativeCompat(pluginRoot) {
  * Ad-hoc codesign a native binary on macOS.
  *
  * When a cached .node binary is copied over the active one, macOS hardened
- * runtime (e.g. Zed, VS Code with runtime hardening) will SIGKILL the
+ * runtime (e.g. editors with runtime hardening) will SIGKILL the
  * process on the next dlopen because the code signature is invalidated.
  * SIGKILL is uncatchable — the only fix is to re-sign after the copy.
  *

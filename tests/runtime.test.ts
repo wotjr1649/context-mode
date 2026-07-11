@@ -883,11 +883,11 @@ describe("buildCommand shell variants", () => {
 
 // ─────────────────────────────────────────────────────────
 // #731: ctx_execute(language: "javascript") fails when the host process
-// is a bun-compiled self-contained binary (OpenCode, Kilo, etc).
+// is a self-contained non-JS binary (an upstream-era bug class).
 //
 // detectRuntimes() returned `process.execPath` for `javascript`, which
-// in those hosts resolves to `opencode.exe` / `opencode` — NOT node.
-// PolyglotExecutor then spawned `opencode.exe <script.js>` which the
+// in such hosts resolves to the host executable — NOT node.
+// PolyglotExecutor then spawned `somehost.exe <script.js>` which the
 // yargs CLI rejects with "Failed to change directory" (it treats the
 // path as a cwd, not a script).
 //
@@ -900,7 +900,7 @@ describe("buildCommand shell variants", () => {
 // Preserves PR #190 (snap-node fix, f69b0d2): snap wrapper's basename
 // is `node`, which IS in JS_RUNTIMES → execPath is still returned.
 // ─────────────────────────────────────────────────────────
-describe("detectRuntimes — JS runtime fallback for in-process plugin hosts (#731)", () => {
+describe("detectRuntimes — JS runtime fallback for non-JS host binaries (#731)", () => {
   let originalExecPath: string;
 
   beforeEach(() => {
@@ -924,8 +924,8 @@ describe("detectRuntimes — JS runtime fallback for in-process plugin hosts (#7
     });
   }
 
-  test("Windows OpenCode binary host (opencode.exe) falls back to 'node' on PATH", async () => {
-    stubExecPath("C:\\Users\\Test\\opencode.exe");
+  test("Windows non-JS binary host (somehost.exe) falls back to 'node' on PATH", async () => {
+    stubExecPath("C:\\Users\\Test\\somehost.exe");
 
     // No bun anywhere; commandExists("node") returns true. We don't
     // stub process.platform here — commandExists uses whichever probe
@@ -951,13 +951,13 @@ describe("detectRuntimes — JS runtime fallback for in-process plugin hosts (#7
     const { detectRuntimes } = await import("../src/runtime.js");
     const r = detectRuntimes();
 
-    // Must NOT return the opencode.exe path — that's the bug.
-    expect(r.javascript).not.toBe("C:\\Users\\Test\\opencode.exe");
+    // Must NOT return the host-binary path — that's the bug.
+    expect(r.javascript).not.toBe("C:\\Users\\Test\\somehost.exe");
     expect(r.javascript).toBe("node");
   });
 
-  test("POSIX OpenCode binary host (opencode) falls back to 'node' on PATH — cross-OS (not Windows-only)", async () => {
-    stubExecPath("/usr/local/bin/opencode");
+  test("POSIX non-JS binary host (somehost) falls back to 'node' on PATH — cross-OS (not Windows-only)", async () => {
+    stubExecPath("/usr/local/bin/somehost");
 
     const execSync = vi.fn((cmd: string) => {
       // commandExists uses `where <name>` on win32, `command -v <name>` elsewhere.
@@ -982,12 +982,12 @@ describe("detectRuntimes — JS runtime fallback for in-process plugin hosts (#7
     const { detectRuntimes } = await import("../src/runtime.js");
     const r = detectRuntimes();
 
-    expect(r.javascript).not.toBe("/usr/local/bin/opencode");
+    expect(r.javascript).not.toBe("/usr/local/bin/somehost");
     expect(r.javascript).toBe("node");
   });
 
   test("returns null when host is non-JS binary AND node is missing — surfaces actionable error", async () => {
-    stubExecPath("/usr/local/bin/opencode");
+    stubExecPath("/usr/local/bin/somehost");
 
     const execSync = vi.fn((cmd: string) => {
       // Nothing exists — no bun, no node, no other runtime.
@@ -1046,8 +1046,8 @@ describe("detectRuntimes — JS runtime fallback for in-process plugin hosts (#7
   });
 
   test("regression: bun host preserves execPath — basename matches BUN allowlist", async () => {
-    // When the host IS bun (e.g. opencode binary built with bun's
-    // bundler exposes execPath as the actual bun binary), the allowlist
+    // When the host IS bun (a bun-built host binary can expose execPath
+    // as the actual bun binary), the allowlist
     // permits it and bunCommand()'s own detection sets javascript to bun
     // anyway. This case asserts the basename check doesn't accidentally
     // demote a bun execPath.

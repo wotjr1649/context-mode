@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "MCP plugin that saves 98% of your context window. Works with Claude Code, Gemini CLI, VS Code Copilot, OpenCode, and Codex CLI. Sandboxed code execution, FTS5 knowledge base, and intent-driven search.",
+  "description": "MCP plugin that saves 98% of your context window. Works with Claude Code and Codex CLI (hard fork). Sandboxed code execution, FTS5 knowledge base, and intent-driven search.",
   "author": "Mert Koseoğlu",
   "license": "Elastic-2.0",
   "keywords": [
@@ -11,49 +11,22 @@
     "model-context-protocol",
     "claude",
     "claude-code",
-    "gemini-cli",
-    "vscode-copilot",
-    "opencode",
-    "openclaw",
     "codex-cli",
     "context-window",
     "sandbox",
     "code-execution",
     "fts5",
-    "bm25",
-    "pi-package"
+    "bm25"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/wotjr1649/context-mode"
   },
   "homepage": "https://github.com/wotjr1649/context-mode#readme",
-  "pi": {
-    "extensions": [
-      "./build/adapters/pi/extension.js"
-    ],
-    "skills": [
-      "./skills"
-    ]
-  },
-  "openclaw": {
-    "extensions": [
-      "./build/adapters/openclaw/plugin.js"
-    ]
-  },
-  "omp": {
-    "name": "context-mode",
-    "description": "Save 98% of your context window in OMP — sandboxed code execution, FTS5 search, hard-block curl/wget, session continuity across compaction.",
-    "extensions": [
-      "./build/adapters/omp/plugin.js"
-    ]
-  },
   "bugs": "https://github.com/wotjr1649/context-mode/issues",
   "main": "./build/adapters/opencode/plugin.js",
   "exports": {
     ".": "./build/adapters/opencode/plugin.js",
-    "./plugin": "./build/adapters/opencode/plugin.js",
-    "./openclaw": "./build/adapters/openclaw/plugin.js",
     "./cli": "./cli.bundle.mjs"
   },
   "bin": {
@@ -69,8 +42,6 @@
     "skills",
     ".claude-plugin",
     ".codex-plugin",
-    ".openclaw-plugin",
-    "openclaw.plugin.json",
     "start.mjs",
     "scripts/postinstall.mjs",
     "scripts/heal-better-sqlite3.mjs",
@@ -80,12 +51,13 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && node -e \"if(process.platform!=='win32'){require('fs').chmodSync('build/cli.js',0o755)}\" && npm run bundle && npm run assert-bundle && npm run assert-asymmetric-drift",
-    "assert-bundle": "node scripts/assert-bundle.mjs server.bundle.mjs cli.bundle.mjs hooks/session-extract.bundle.mjs hooks/session-snapshot.bundle.mjs hooks/session-db.bundle.mjs hooks/security.bundle.mjs",
+    "build": "tsc && node -e \"if(process.platform!=='win32'){require('fs').chmodSync('build/cli.js',0o755)}\" && npm run bundle && npm run assert-bundle && npm run assert-asymmetric-drift && npm run assert-no-removed-platforms",
+    "assert-bundle": "node scripts/assert-bundle.mjs server.bundle.mjs cli.bundle.mjs hooks/session-extract.bundle.mjs hooks/session-snapshot.bundle.mjs hooks/session-db.bundle.mjs hooks/security.bundle.mjs hooks/session-attribution.bundle.mjs",
     "assert-asymmetric-drift": "node scripts/assert-asymmetric-drift.mjs",
-    "bundle": "esbuild src/server.ts --bundle --platform=node --target=node18 --format=esm --outfile=server.bundle.mjs --external:better-sqlite3 --external:turndown --external:turndown-plugin-gfm --external:@mixmark-io/domino --minify && esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=cli.bundle.mjs --external:better-sqlite3 --minify && esbuild src/session/extract.ts --bundle --platform=node --target=node18 --format=esm --outfile=hooks/session-extract.bundle.mjs --minify && esbuild src/session/snapshot.ts --bundle --platform=node --target=node18 --format=esm --outfile=hooks/session-snapshot.bundle.mjs --minify && esbuild src/session/db.ts --bundle --platform=node --target=node18 --format=esm --outfile=hooks/session-db.bundle.mjs --external:better-sqlite3 --minify && esbuild src/security.ts --bundle --platform=node --target=node18 --format=esm --outfile=hooks/security.bundle.mjs --minify",
+    "assert-no-removed-platforms": "node scripts/assert-no-removed-platforms.mjs",
+    "bundle": "esbuild src/server.ts --bundle --platform=node --target=node18 --format=esm --outfile=server.bundle.mjs --external:better-sqlite3 --external:turndown --external:turndown-plugin-gfm --external:@mixmark-io/domino --minify && esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=cli.bundle.mjs --external:better-sqlite3 --minify && esbuild src/session/extract.ts --bundle --platform=node --target=node18 --format=esm --outfile=hooks/session-extract.bundle.mjs --minify && esbuild src/session/snapshot.ts --bundle --platform=node --target=node18 --format=esm --outfile=hooks/session-snapshot.bundle.mjs --minify && esbuild src/session/db.ts --bundle --platform=node --target=node18 --format=esm --outfile=hooks/session-db.bundle.mjs --external:better-sqlite3 --minify && esbuild src/security.ts --bundle --platform=node --target=node18 --format=esm --outfile=hooks/security.bundle.mjs --minify && esbuild src/session/project-attribution.ts --bundle --platform=node --target=node18 --format=esm --outfile=hooks/session-attribution.bundle.mjs --minify",
     "version-sync": "node scripts/version-sync.mjs",
-    "version": "node scripts/version-sync.mjs && git add package.json .claude-plugin/plugin.json .claude-plugin/marketplace.json .cursor-plugin/plugin.json .codex-plugin/plugin.json .openclaw-plugin/openclaw.plugin.json .openclaw-plugin/package.json openclaw.plugin.json .pi/extensions/context-mode/package.json configs/antigravity-cli/plugin.json configs/copilot-cli/.github/plugin/plugin.json",
+    "version": "node scripts/version-sync.mjs && git add package.json .claude-plugin/plugin.json .claude-plugin/marketplace.json .codex-plugin/plugin.json",
     "prepublishOnly": "npm run build",
     "dev": "npx tsx src/server.ts",
     "setup": "npx tsx src/cli.ts setup",
@@ -98,7 +70,6 @@
     "test:use-cases": "npx tsx tests/use-cases.ts",
     "test:compare": "npx tsx tests/context-comparison.ts",
     "test:ecosystem": "npx tsx tests/ecosystem-benchmark.ts",
-    "install:openclaw": "node -e \"if(process.platform==='win32'){console.error('OpenClaw install requires bash (Git Bash or WSL)');process.exit(1)}else{require('child_process').execSync('bash scripts/install-openclaw-plugin.sh',{stdio:'inherit'})}\"",
     "postinstall": "node scripts/postinstall.mjs"
   },
   "dependencies": {

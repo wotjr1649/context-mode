@@ -127,7 +127,7 @@ describe("SessionStart Hook", () => {
 // is compacted (or CC issues a fresh session_id for /resume), live events for
 // that session_id are gone — they live in `session_resume.snapshot`. The
 // resume branch must fall back to `claimLatestUnconsumedResume` (the same
-// pattern OpenCode/OpenClaw plugins already use).
+// pattern upstream-era plugins already used).
 
 describe("SessionStart Hook — /resume snapshot fallback (#413)", () => {
   let tmpHome: string;

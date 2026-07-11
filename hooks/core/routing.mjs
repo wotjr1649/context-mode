@@ -11,7 +11,7 @@
  */
 
 import {
-  ROUTING_BLOCK, READ_GUIDANCE, GREP_GUIDANCE, BASH_GUIDANCE, EXTERNAL_MCP_GUIDANCE,
+  READ_GUIDANCE, GREP_GUIDANCE, BASH_GUIDANCE, EXTERNAL_MCP_GUIDANCE,
   createRoutingBlock, createReadGuidance, createGrepGuidance, createBashGuidance,
   createExternalMcpGuidance,
 } from "../routing-block.mjs";
@@ -35,9 +35,9 @@ import { resolve } from "node:path";
 
 // Guidance throttle: show each advisory type at most once per session.
 // Hybrid approach:
-//   - In-memory Set for same-process (OpenCode ts-plugin, vitest)
+//   - In-memory Set for same-process (vitest)
 //   - File-based markers with O_EXCL for cross-process atomicity
-//     (Claude Code, Gemini, Cursor, VS Code Copilot)
+//     (Claude Code, Gemini, VS Code Copilot)
 //
 // Session identity is resolved in this order:
 //   1. sessionId passed in by the caller (stable across hook invocations)
@@ -494,14 +494,10 @@ export function buildSecurityWarningContext() {
  * Normalize platform-specific tool names to canonical (Claude Code) names.
  *
  * Evidence:
- * - Gemini CLI: https://github.com/google-gemini/gemini-cli (run_shell_command, read_file, grep_search, web_fetch, activate_skill)
- * - OpenCode:   https://github.com/opencode-ai/opencode (bash, view, grep, fetch, agent)
  * - Codex CLI:  https://github.com/openai/codex (shell, read_file, grep_files, container.exec)
  * - VS Code Copilot: run_in_terminal (command field), read_file, run_vs_code_task
  */
 const TOOL_ALIASES = {
-  // Gemini CLI / Qwen Code (share native tool names — Qwen is Gemini fork:
-  // refs/platforms/qwen-code/packages/core/src/tools/tool-names.ts)
   "run_shell_command": "Bash",
   "read_file": "Read",
   "read_many_files": "Read",
@@ -509,9 +505,6 @@ const TOOL_ALIASES = {
   "search_file_content": "Grep",
   "web_fetch": "WebFetch",
   "read_url_content": "WebFetch",
-  // Antigravity CLI (`agy`) native tool names. Keep in sync with the two other
-  // agy maps: hooks/antigravity-cli/payload.mjs (normalizeAgyToolName) and
-  // src/session/extract.ts (TOOL_NAME_NORMALIZE).
   "run_command": "Bash",
   "view_file": "Read",
   "list_dir": "LS",
@@ -527,7 +520,6 @@ const TOOL_ALIASES = {
   "save_memory": "Memory",
   "skill": "Skill",
   "exit_plan_mode": "ExitPlanMode",
-  // OpenCode
   "bash": "Bash",
   "view": "Read",
   "grep": "Grep",
@@ -540,18 +532,17 @@ const TOOL_ALIASES = {
   "container.exec": "Bash",
   "local_shell": "Bash",
   "grep_files": "Grep",
-  // OpenClaw native tools
+  // Additional legacy tool-name mappings (retained, not Codex-specific).
   "exec": "Bash",
   "read": "Read",
   "grep": "Grep",
   "search": "Grep",
-  // Cursor
   "mcp_web_fetch": "WebFetch",
   "mcp_fetch_tool": "WebFetch",
   "Shell": "Bash",
   // VS Code Copilot
   "run_in_terminal": "Bash",
-  // Kiro CLI (https://kiro.dev/docs/cli/hooks/)
+  // Additional legacy tool-name mappings
   "fs_read": "Read",
   "fs_write": "Write",
   "execute_bash": "Bash",
@@ -576,39 +567,20 @@ function matchesContextModeTool(toolName, ctxName, legacyName) {
 //
 // MCP-namespaced tool names follow per-platform conventions (see
 // core/tool-naming.mjs):
-//   - `mcp__<server>__<tool>`     Claude Code / Gemini CLI / Antigravity / Qwen Code / Codex
-//   - `MCP:<tool>`                Cursor
-//   - `@<server>/<tool>`          Kiro
+//   - `mcp__<server>__<tool>`     Claude Code / Codex
 //
 // Tools belonging to context-mode itself are excluded — they have dedicated
 // routing branches above (ctx_execute, ctx_execute_file, ctx_batch_execute)
 // and re-routing them here would double-process the call.
 const MCP_PREFIX = "mcp__";
-const CURSOR_MCP_PREFIX = "MCP:";
-const KIRO_MCP_PREFIX = "@";
-const CTX_TOOL_PREFIX = "ctx_";
 const CONTEXT_MODE_SUBSTRING = "context-mode";
 
 function isExternalMcpTool(toolName) {
   const raw = String(toolName ?? "");
 
-  // Claude / Codex / Gemini / Qwen / Antigravity wire shape.
+  // Claude / Codex wire shape.
   if (raw.startsWith(MCP_PREFIX)) {
     const server = raw.slice(MCP_PREFIX.length).split("__")[0];
-    if (!server) return false;
-    return !server.includes(CONTEXT_MODE_SUBSTRING);
-  }
-
-  // Cursor wire shape: `MCP:<tool>` — own tools are `MCP:ctx_*`. There is no
-  // server segment, so the discriminator is the tool-leaf prefix.
-  if (raw.startsWith(CURSOR_MCP_PREFIX)) {
-    const tool = raw.slice(CURSOR_MCP_PREFIX.length);
-    return tool.length > 0 && !tool.startsWith(CTX_TOOL_PREFIX);
-  }
-
-  // Kiro wire shape: `@<server>/<tool>` — own tools are `@context-mode/ctx_*`.
-  if (raw.startsWith(KIRO_MCP_PREFIX) && raw.includes("/")) {
-    const server = raw.slice(KIRO_MCP_PREFIX.length).split("/")[0];
     if (!server) return false;
     return !server.includes(CONTEXT_MODE_SUBSTRING);
   }
@@ -691,7 +663,6 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
   const t = createToolNamer(platform || "claude-code");
 
   // Build platform-specific guidance/routing content
-  const routingBlock = platform ? createRoutingBlock(t) : ROUTING_BLOCK;
   const readGuidance = platform ? createReadGuidance(t) : READ_GUIDANCE;
   const grepGuidance = platform ? createGrepGuidance(t) : GREP_GUIDANCE;
   const bashGuidance = platform ? createBashGuidance(t) : BASH_GUIDANCE;

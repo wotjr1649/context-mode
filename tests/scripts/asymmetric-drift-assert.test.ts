@@ -5,7 +5,7 @@
  * The repo ships TWO sibling files that BOTH carry the MCP server args:
  *
  *   1. `.mcp.json`                            (Claude Code reads at plugin load)
- *   2. `.claude-plugin/plugin.json`           (used by some adapters / Cursor)
+ *   2. `.claude-plugin/plugin.json`           (used by the plugin marketplace)
  *
  * v1.0.118 (#411) fixed `.mcp.json` to use `${CLAUDE_PLUGIN_ROOT}/start.mjs`.
  * v1.0.119 (#523) fixed `.claude-plugin/plugin.json` to use the same placeholder
@@ -262,12 +262,12 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
   });
 
   // ── PR #620 slice 5 — Tier C portability invariant (#613) ─────────────
-  // PR #620 fixed the live regression in vscode-copilot + jetbrains-copilot
+  // PR #620 fixed a live regression in two upstream-era adapters
   // (commit f5c9d02 had baked absolute process.execPath + script paths into
-  // workspace-committed `.github/hooks/context-mode.json` etc.). The fix was
+  // workspace-committed hook config files). The fix was
   // surgical at the adapter layer; nothing structural prevents a future
   // contributor from accidentally re-introducing the same bug class in any
-  // of the 17 adapters under configs/.
+  // adapter config under configs/.
   //
   // This invariant scans every committed config template under configs/**
   // and asserts that no string value contains an absolute path, an fnm
@@ -482,6 +482,10 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
           // Stubbed alongside healMcpJsonArgs for backwards compatibility with
           // any in-flight callers that still import it.
           "export function sweepStaleMcpJson() { return { removed: [] }; }",
+          // Task 3b — postinstall.mjs statically imports derivePluginKey. A
+          // clone scratch dir is outside any plugins/cache tree, so null is
+          // the faithful stub (the real derivation returns null here too).
+          "export function derivePluginKey() { return null; }",
           "",
         ].join("\n"),
       );

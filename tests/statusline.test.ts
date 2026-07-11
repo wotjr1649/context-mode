@@ -109,8 +109,8 @@ function seedDb(opts: {
 }
 
 // Isolate the spawned statusline's env so getMultiAdapterLifetimeStats()
-// (which scans `~/.{adapter}/context-mode/sessions/`) and OpenCode's
-// getConfigDir (which reads APPDATA / XDG_CONFIG_HOME) cannot leak data from
+// (which scans `~/.{adapter}/context-mode/sessions/`) and any
+// APPDATA / XDG_CONFIG_HOME-rooted reader cannot leak data from
 // concurrently-running tests (or the developer's real adapter dirs) into
 // render decisions. Crucially we set APPDATA/LOCALAPPDATA/XDG_* alongside
 // HOME/USERPROFILE — on Windows the latter alone was insufficient and PR

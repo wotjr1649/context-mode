@@ -65,8 +65,10 @@ export interface KillReport {
   totalKilled: number;
 }
 
-// Match BOTH `~/.claude/plugins/cache/context-mode/context-mode/<v>/start.mjs`
-// AND `~/.claude/plugins/marketplaces/context-mode/start.mjs` shapes.
+// Match BOTH `~/.claude/plugins/cache/<marketplace>/context-mode/<v>/start.mjs`
+// AND `~/.claude/plugins/marketplaces/<marketplace>/start.mjs` shapes.
+// The `.*context-mode.*` wildcard below covers renamed marketplaces
+// (this fork installs under `context-mode-js/`) — do not tighten it.
 // Both can be alive concurrently — VERDICT R1 dump confirmed all four
 // PIDs simultaneously across three different versions on a real Mac.
 const POSIX_PGREP_PATTERN =

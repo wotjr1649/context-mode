@@ -11,7 +11,7 @@
  *     Empty/whitespace is ignored; non-empty values must be absolute.
  *
  * Platform auto-detection: CLI detects which platform is running
- * (Claude Code, Gemini CLI, OpenCode, etc.) and uses the appropriate adapter.
+ * (Claude Code, Codex) and uses the appropriate adapter.
  */
 
 import * as p from "@clack/prompts";
@@ -46,7 +46,7 @@ import { discoverSiblingMcpPids, killSiblingMcpServers } from "./util/sibling-mc
 // v1.0.119 — Issue #523 Layer 5 heal: post-bump assertion on .claude-plugin/plugin.json
 // mcpServers args. Single source of truth shared with start.mjs HEAL block + postinstall.
 // @ts-expect-error — JS module, no TS declarations
-import { healPluginJsonMcpServers, sweepStaleMcpJson } from "../scripts/heal-installed-plugins.mjs";
+import { healPluginJsonMcpServers, sweepStaleMcpJson, derivePluginKey } from "../scripts/heal-installed-plugins.mjs";
 // @ts-expect-error — JS module, no TS declarations
 import { detectWindowsVsYear } from "../scripts/heal-better-sqlite3.mjs";
 // Private 16-LOC copy of browserOpenArgv. Canonical version lives in src/server.ts;
@@ -68,7 +68,6 @@ function browserOpenArgv(
 
 // ── Adapter imports ──────────────────────────────────────
 import { detectPlatform, getAdapter } from "./adapters/detect.js";
-import { isInProcessPluginPlatform } from "./adapters/types.js";
 
 /* -------------------------------------------------------
  * Hook dispatcher — `context-mode hook <platform> <event>`
@@ -83,26 +82,6 @@ const HOOK_MAP: Record<string, Record<string, string>> = {
     userpromptsubmit: "hooks/userpromptsubmit.mjs",
     stop: "hooks/stop.mjs",
   },
-  "gemini-cli": {
-    beforeagent: "hooks/gemini-cli/beforeagent.mjs",
-    beforetool: "hooks/gemini-cli/beforetool.mjs",
-    aftertool: "hooks/gemini-cli/aftertool.mjs",
-    precompress: "hooks/gemini-cli/precompress.mjs",
-    sessionstart: "hooks/gemini-cli/sessionstart.mjs",
-  },
-  "vscode-copilot": {
-    pretooluse: "hooks/vscode-copilot/pretooluse.mjs",
-    posttooluse: "hooks/vscode-copilot/posttooluse.mjs",
-    precompact: "hooks/vscode-copilot/precompact.mjs",
-    sessionstart: "hooks/vscode-copilot/sessionstart.mjs",
-  },
-  "cursor": {
-    pretooluse: "hooks/cursor/pretooluse.mjs",
-    posttooluse: "hooks/cursor/posttooluse.mjs",
-    sessionstart: "hooks/cursor/sessionstart.mjs",
-    stop: "hooks/cursor/stop.mjs",
-    afteragentresponse: "hooks/cursor/afteragentresponse.mjs",
-  },
   "codex": {
     pretooluse: "hooks/codex/pretooluse.mjs",
     posttooluse: "hooks/codex/posttooluse.mjs",
@@ -110,48 +89,6 @@ const HOOK_MAP: Record<string, Record<string, string>> = {
     sessionstart: "hooks/codex/sessionstart.mjs",
     userpromptsubmit: "hooks/codex/userpromptsubmit.mjs",
     stop: "hooks/codex/stop.mjs",
-  },
-  "kiro": {
-    pretooluse: "hooks/kiro/pretooluse.mjs",
-    posttooluse: "hooks/kiro/posttooluse.mjs",
-  },
-  "jetbrains-copilot": {
-    pretooluse: "hooks/jetbrains-copilot/pretooluse.mjs",
-    posttooluse: "hooks/jetbrains-copilot/posttooluse.mjs",
-    precompact: "hooks/jetbrains-copilot/precompact.mjs",
-    sessionstart: "hooks/jetbrains-copilot/sessionstart.mjs",
-  },
-  "copilot-cli": {
-    pretooluse: "hooks/copilot-cli/pretooluse.mjs",
-    posttooluse: "hooks/copilot-cli/posttooluse.mjs",
-    precompact: "hooks/copilot-cli/precompact.mjs",
-    sessionstart: "hooks/copilot-cli/sessionstart.mjs",
-    userpromptsubmit: "hooks/copilot-cli/userpromptsubmit.mjs",
-    stop: "hooks/copilot-cli/stop.mjs",
-  },
-  // Antigravity CLI (`agy`) — bounded PreToolUse enforcement plus capture-only
-  // PostToolUse/Stop hooks. Configured via an installed agy plugin's
-  // hooks/hooks.json or ~/.gemini/config/hooks.json.
-  "antigravity-cli": {
-    pretooluse: "hooks/antigravity-cli/pretooluse.mjs",
-    posttooluse: "hooks/antigravity-cli/posttooluse.mjs",
-    stop: "hooks/antigravity-cli/stop.mjs",
-  },
-  "kimi": {
-    pretooluse: "hooks/kimi/pretooluse.mjs",
-    posttooluse: "hooks/kimi/posttooluse.mjs",
-    precompact: "hooks/kimi/precompact.mjs",
-    sessionstart: "hooks/kimi/sessionstart.mjs",
-    sessionend: "hooks/kimi/sessionend.mjs",
-    userpromptsubmit: "hooks/kimi/userpromptsubmit.mjs",
-    stop: "hooks/kimi/stop.mjs",
-  },
-  "qwen-code": {
-    pretooluse: "hooks/pretooluse.mjs",
-    posttooluse: "hooks/posttooluse.mjs",
-    precompact: "hooks/precompact.mjs",
-    sessionstart: "hooks/sessionstart.mjs",
-    userpromptsubmit: "hooks/userpromptsubmit.mjs",
   },
 };
 
@@ -170,7 +107,7 @@ async function hookDispatch(platform: string, event: string): Promise<void> {
   const scriptPath = HOOK_MAP[platform]?.[event];
   if (!scriptPath) {
     // Fail OPEN. context-mode has no hook for this platform/event — most often
-    // because a newer adapter's hook command (`context-mode hook copilot-cli …`)
+    // because a newer adapter's hook command (`context-mode hook <platform> …`)
     // is running against an OLDER global binary that predates that adapter
     // (version skew). Exit 0 (no decision) so the host ALLOWS the tool. Exiting
     // non-zero here makes some hosts treat it as a hook ERROR and DENY the tool:
@@ -235,7 +172,7 @@ if (args[0] === "--help" || args[0] === "-h" || args[0] === "help") {
   // Issue #542 — accept --platform <id> from the ctx_upgrade MCP handler,
   // which forwards the live MCP clientInfo's resolved PlatformId. The flag
   // wins over upgrade()'s own detectPlatform() heuristic chain so an
-  // ambiguous config-dir collision (e.g. ~/.cursor + ~/.pi both present)
+  // ambiguous config-dir collision (multiple host dotdirs on one machine)
   // can never misroute the upgrade.
   const platformFlagIdx = args.indexOf("--platform");
   const platformArg =
@@ -350,25 +287,7 @@ function defaultPluginRoot(): string {
   return __dirname;
 }
 
-// Opencode/Kilocode install plugins from npm into a per-package cache folder.
-// Layout (changed silently in late 2024 — see PR #376 / KiloCode#9503):
-//   POSIX  : ~/.cache/<platform>/packages/context-mode@latest/node_modules/context-mode
-//   Windows: %LOCALAPPDATA%\<platform>\packages\context-mode@latest\node_modules\context-mode
-function cachePluginRoot(platform: string): string {
-  const subPath = ["packages", "context-mode@latest", "node_modules", "context-mode"];
-  if (process.platform === "win32") {
-    const localApp = process.env.LOCALAPPDATA;
-    if (localApp) return resolve(localApp, platform, ...subPath);
-    return resolve(homedir(), "AppData", "Local", platform, ...subPath);
-  }
-  return resolve(homedir(), ".cache", platform, ...subPath);
-}
-
 function getPluginRoot(): string {
-  const platform = detectPlatform().platform;
-  if (isInProcessPluginPlatform(platform)) {
-    return cachePluginRoot(platform);
-  }
   return defaultPluginRoot();
 }
 
@@ -892,114 +811,6 @@ async function doctor(): Promise<number> {
     );
   }
 
-  // ── Issue #613 — proactive Tier C absolute-path detection ───────────
-  // PR #620 fixed `buildHookCommand` for vscode-copilot + jetbrains-copilot
-  // so future writes are CLI-dispatcher-shape. But users who ran
-  // /ctx-upgrade on v1.0.136 or earlier are still carrying poisoned
-  // committable files in their workspace:
-  //   - `.github/hooks/context-mode.json`      (vscode-copilot, team-shared)
-  //   - `.jetbrains/copilot/hooks.json`        (jetbrains-copilot, team-shared)
-  //   - `.cursor/hooks.json`                   (cursor, team-shared)
-  // Per ISSUE-613-VERDICT §6.1 these are Tier C — workspace-committed
-  // cross-machine config. Doctor scans them for absolute paths and
-  // fnm_multishells shims; if found, FAIL with `ctx_upgrade` remediation.
-  // Per ISSUE-604-VERDICT §11 ("silent-green doctor while hooks are dead
-  // is itself a P0 trust bug") — surface poison BEFORE the user hits a
-  // runtime failure.
-  p.log.step("Checking team-shared hook configs in your workspace...");
-  {
-    const projectDir = process.cwd();
-    const tierCFiles = [
-      ".github/hooks/context-mode.json",
-      ".cursor/hooks.json",
-      ".jetbrains/copilot/hooks.json",
-    ];
-    let tierCFails = 0;
-    let tierCChecked = 0;
-
-    // Detect absolute-path patterns that should never appear in a
-    // workspace-committed config. Per Mert's standing Windows-safety rule:
-    // handle both `/` and `\\` separators.
-    function isAbsoluteOrShimPath(s: string): boolean {
-      // unix absolute
-      if (s.startsWith("/")) return true;
-      // Windows drive-letter absolute (e.g. C:/, C:\)
-      if (/^[A-Za-z]:[/\\]/.test(s)) return true;
-      // Windows UNC or escaped-backslash absolute fragments
-      if (s.includes("\\\\")) return true;
-      // fnm shim hint — issue #613 reporter's exact stderr shape
-      if (s.includes("fnm_multishells")) return true;
-      // process.execPath literal baked into JSON
-      if (s.includes("process.execPath")) return true;
-      return false;
-    }
-
-    function recurseStrings(node: unknown, hit: (s: string) => void): void {
-      if (typeof node === "string") {
-        hit(node);
-      } else if (Array.isArray(node)) {
-        for (const item of node) recurseStrings(item, hit);
-      } else if (node && typeof node === "object") {
-        for (const v of Object.values(node)) recurseStrings(v, hit);
-      }
-    }
-
-    for (const rel of tierCFiles) {
-      const abs = resolve(projectDir, rel);
-      if (!existsSync(abs)) continue; // missing config → SKIP, no false fail
-      tierCChecked++;
-      try {
-        const parsed = JSON.parse(readFileSync(abs, "utf-8"));
-        const offenders: string[] = [];
-        recurseStrings(parsed, (s) => {
-          if (isAbsoluteOrShimPath(s)) offenders.push(s);
-        });
-        if (offenders.length > 0) {
-          criticalFails++;
-          tierCFails++;
-          // Truncate to one example to keep output readable; show count.
-          const example = offenders[0].length > 100
-            ? offenders[0].slice(0, 97) + "..."
-            : offenders[0];
-          p.log.error(
-            color.red(`Hook config: FAIL`) +
-              ` — ${rel} has your machine's local paths baked in` +
-              color.dim(
-                "\n  This file is committed to git, so teammates and CI will get your path and the hooks will break for them." +
-                `\n  Found ${offenders.length} hard-coded path(s), e.g.: ${example}` +
-                "\n  Fix: run /context-mode:ctx-upgrade — it rewrites the file to a portable form that works on every machine." +
-                "\n  Details: https://github.com/mksglu/context-mode/issues/613",
-              ),
-          );
-        } else {
-          p.log.success(
-            color.green("Hook config: PASS") +
-              color.dim(` — ${rel} is portable (no hard-coded paths)`),
-          );
-        }
-      } catch (err: unknown) {
-        // Malformed JSON should not crash doctor; warn and move on.
-        const msg = err instanceof Error ? err.message : String(err);
-        p.log.warn(
-          color.yellow(`Hook config: WARN`) +
-            ` — ${rel} is not valid JSON` +
-            color.dim(
-              "\n  Doctor cannot scan it for portability issues until the file parses." +
-              "\n  Fix: open the file and check it in a JSON validator, or delete it and run /context-mode:ctx-upgrade to regenerate." +
-              `\n  Parser said: ${msg.slice(0, 160)}`,
-            ),
-        );
-      }
-    }
-    if (tierCChecked === 0) {
-      p.log.info(
-        color.dim("Hook config: SKIP — no team-shared hook configs found in this workspace"),
-      );
-    } else if (tierCFails === 0) {
-      // already individual PASS messages above; no need for a summary
-    }
-  }
-
   // ── Issue #609 — proactive stale `.mcp.json` detection ──────────────
   // PR #620 deleted the per-version cache `.mcp.json` write from cli.ts
   // and shipped `sweepStaleMcpJson` to clean up any pre-existing copies.
@@ -1238,8 +1049,8 @@ async function upgrade(opts?: { platform?: string }) {
   // explicit --platform <id> (resolved from live clientInfo), trust it
   // over the local heuristic chain. detectPlatform() with no args cannot
   // see the MCP handshake and falls through to the config-dir tier,
-  // which misdetects Pi/OMP installs as Cursor on systems where both
-  // ~/.cursor/ and ~/.pi/ exist.
+  // which historically misdetected hosts on machines carrying several
+  // agent dotdirs at once.
   const detection = opts?.platform
     ? { platform: opts.platform as Parameters<typeof getAdapter>[0], confidence: "high" as const, reason: `--platform ${opts.platform} from ctx_upgrade handler` }
     : detectPlatform();
@@ -1252,6 +1063,11 @@ async function upgrade(opts?: { platform?: string }) {
   );
 
   let pluginRoot = getPluginRoot();
+  // Null when pluginRoot isn't inside a plugin cache (e.g. a dev checkout or
+  // a global npm install) — every Claude Code registry heal below that
+  // uses this is a no-op in that case, which is correct: there is nothing to
+  // heal for a non-Claude-Code install.
+  const pluginKey = derivePluginKey(pluginRoot);
   const changes: string[] = [];
   const s = p.spinner();
 
@@ -1498,19 +1314,20 @@ async function upgrade(opts?: { platform?: string }) {
       // /ctx-upgrade ran.
       //
       // claude-code only — no other adapter uses shell-snapshots. Skip
-      // when running under a non-claude-code adapter (Codex/Cursor/Gemini
-      // etc. spawn Bash differently and have no `~/.claude/shell-snapshots`
-      // tree). Best-effort, idempotent, never throws.
+      // when running under a non-claude-code adapter (Codex spawns Bash
+      // differently and has no `~/.claude/shell-snapshots` tree).
+      // Best-effort, idempotent, never throws.
       try {
         if (detection.platform === "claude-code") {
           const { rewriteShellSnapshots } = await import(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             "../hooks/cache-heal-utils.mjs" as any
-          ) as { rewriteShellSnapshots: (opts: { snapshotsDir: string; currentVersion: string }) => { rewritten: string[] } };
+          ) as { rewriteShellSnapshots: (opts: { snapshotsDir: string; currentVersion: string; pluginRoot: string }) => { rewritten: string[] } };
           const snapshotsDir = resolve(resolveClaudeConfigDir(), "shell-snapshots");
           const result = rewriteShellSnapshots({
             snapshotsDir,
             currentVersion: newVersion,
+            pluginRoot,
           });
           if (result.rewritten.length > 0) {
             p.log.info(color.dim(`  Healed ${result.rewritten.length} stale shell snapshot(s) — Bash tool calls in the active session will pick up v${newVersion} immediately`));
@@ -1550,8 +1367,8 @@ async function upgrade(opts?: { platform?: string }) {
         const ipPath = resolve(resolveClaudeConfigDir(), "plugins", "installed_plugins.json");
         if (existsSync(ipPath)) {
           const ip = JSON.parse(readFileSync(ipPath, "utf-8"));
-          const entries = ip?.plugins?.["context-mode@context-mode"];
-          if (Array.isArray(entries)) {
+          const entries = ip?.plugins?.[pluginKey];
+          if (pluginKey && Array.isArray(entries)) {
             for (const entry of entries) {
               const ip2 = entry?.installPath;
               if (typeof ip2 !== "string" || !ip2) continue;
@@ -1586,7 +1403,6 @@ async function upgrade(opts?: { platform?: string }) {
       // truth shared with start.mjs HEAL block + postinstall.
       try {
         const pluginCacheRoot = resolve(resolveClaudeConfigDir(), "plugins", "cache");
-        const pluginKey = "context-mode@context-mode";
         const firstPass = healPluginJsonMcpServers({ pluginRoot, pluginCacheRoot, pluginKey });
         if (firstPass && firstPass.error) {
           throw new Error(firstPass.error);
@@ -1616,7 +1432,6 @@ async function upgrade(opts?: { platform?: string }) {
       // block + postinstall.
       try {
         const pluginCacheRoot = resolve(resolveClaudeConfigDir(), "plugins", "cache");
-        const pluginKey = "context-mode@context-mode";
         const firstSweep = sweepStaleMcpJson({ pluginCacheRoot, pluginKey });
         if (firstSweep && firstSweep.removed && firstSweep.removed.length > 0) {
           p.log.info(color.dim(`  Swept ${firstSweep.removed.length} stale .mcp.json file(s) from cache`));
@@ -1637,12 +1452,14 @@ async function upgrade(opts?: { platform?: string }) {
       // (anthropics/claude-code#59310 workaround — see heal-installed-plugins.mjs)
       try {
         // @ts-expect-error — JS module, no TS declarations
-        const { healClaudeJsonMcpArgs } = await import("../scripts/heal-installed-plugins.mjs");
+        const { healClaudeJsonMcpArgs, derivePluginCacheParent } = await import("../scripts/heal-installed-plugins.mjs");
         const dotClaudeJson = resolve(homedir(), ".claude.json");
-        const pluginCacheParent = resolve(resolveClaudeConfigDir(), "plugins", "cache", "context-mode", "context-mode");
-        const result = healClaudeJsonMcpArgs({ dotClaudeJsonPath: dotClaudeJson, pluginCacheParent, newPluginRoot: pluginRoot });
-        if (result.healed && result.healed.length > 0) {
-          p.log.info(color.dim("  ~/.claude.json user MCP registrations updated → " + newVersion));
+        const pluginCacheParent = derivePluginCacheParent(pluginRoot);
+        if (pluginCacheParent) {
+          const result = healClaudeJsonMcpArgs({ dotClaudeJsonPath: dotClaudeJson, pluginCacheParent, newPluginRoot: pluginRoot });
+          if (result.healed && result.healed.length > 0) {
+            p.log.info(color.dim("  ~/.claude.json user MCP registrations updated → " + newVersion));
+          }
         }
       } catch {
         /* best effort — never block upgrade */
@@ -1677,7 +1494,10 @@ async function upgrade(opts?: { platform?: string }) {
       });
       s.stop("Dependencies ready");
 
-      if (!isInProcessPluginPlatform(detection.platform)) {
+      // PR #650's in-process-plugin exclusion collapsed with its platforms:
+      // every kept platform (claude-code/codex) takes this path. Bare block
+      // kept so the ABI-verify locals stay scoped as before.
+      {
         // Verify native addons through the same bootstrap start.mjs imports.
         // On modern Node, the ABI-specific cache file is the compatibility marker;
         // the active binding alone may be stale from a previous Node ABI.
@@ -1808,8 +1628,8 @@ async function upgrade(opts?: { platform?: string }) {
           catch { cacheRootCanon = cacheRoot; }
           const cacheRootWithSep = cacheRootCanon + sep;
           const registry = JSON.parse(readFileSync(registryPath, "utf-8"));
-          const entries = registry?.plugins?.["context-mode@context-mode"];
-          if (Array.isArray(entries)) {
+          const entries = registry?.plugins?.[pluginKey];
+          if (pluginKey && Array.isArray(entries)) {
             for (const entry of entries) {
               const installPath = entry?.installPath;
               if (typeof installPath !== "string" || !installPath) continue;
@@ -2009,8 +1829,11 @@ function statuslineForward(): void {
       catch { cacheRootCanon = cacheRoot; }
       const cacheRootWithSep = cacheRootCanon + sep;
       const registry = JSON.parse(readFileSync(registryPath, "utf-8"));
-      const entries = registry?.plugins?.["context-mode@context-mode"];
-      if (Array.isArray(entries)) {
+      // getPluginRoot() is already called above for the first candidate —
+      // reuse the same derivation here rather than inventing another root.
+      const pluginKey = derivePluginKey(getPluginRoot());
+      const entries = registry?.plugins?.[pluginKey];
+      if (pluginKey && Array.isArray(entries)) {
         for (const entry of entries) {
           const installPath = entry?.installPath;
           if (typeof installPath !== "string" || !installPath) continue;

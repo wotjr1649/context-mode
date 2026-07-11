@@ -1624,6 +1624,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and TDD guid
 ```bash
 git clone https://github.com/mksglu/context-mode.git
 cd context-mode && npm install && npm test
+git config core.hooksPath .githooks   # bundle-freshness guard (once per clone)
 ```
 
 ## License

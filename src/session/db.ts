@@ -1364,7 +1364,7 @@ export class SessionDB extends SQLiteBase {
   /**
    * Look up the project_dir from session_meta as a last-resort fallback
    * for event attribution. Prevents project_dir='' orphans when the caller
-   * (e.g. pi adapter) omits the attribution parameter.
+   * omits the attribution parameter.
    */
   _getSessionProjectDir(sessionId: string): string {
     try {
@@ -1709,9 +1709,9 @@ export class SessionDB extends SQLiteBase {
    *
    * Orphaned events accumulate when meta rows were aged out by an older
    * version of `cleanupOldSessions` but the matching events were left
-   * behind (or when callers wrote events without a meta upsert). The Kimi
-   * Code sessionstart hook calls this on every startup as a self-healing
-   * step; surfacing it as a SessionDB method keeps the SQL definition in
+   * behind (or when callers wrote events without a meta upsert).
+   * Sessionstart hooks call this on startup as a self-healing step;
+   * surfacing it as a SessionDB method keeps the SQL definition in
    * one place instead of letting hook scripts reach through to
    * `db.db.exec(...)` and re-encode schema knowledge in mjs files.
    */

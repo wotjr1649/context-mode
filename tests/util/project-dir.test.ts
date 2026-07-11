@@ -155,7 +155,7 @@ describe("resolveProjectDir", () => {
     expect(result).toBe("/Users/x/.claude/plugins/cache/foo/foo/1.0.0");
   });
 
-  it("respects adapter-specific env vars (GEMINI/VSCODE/OPENCODE/PI/IDEA) in the chain", () => {
+  it("respects adapter-specific env vars (GEMINI/VSCODE/IDEA) in the chain", () => {
     expect(resolveProjectDir({
       env: { GEMINI_PROJECT_DIR: "/g/proj" },
       cwd: "/x", pwd: undefined,
@@ -166,27 +166,16 @@ describe("resolveProjectDir", () => {
     })).toBe("/i/proj");
   });
 
-  // Issue #521 Slice 1: CURSOR_CWD is honored when Cursor (or the user) sets
-  // it as an MCP env override. The cursor adapter already trusts CURSOR_CWD
-  // for hook input resolution (src/adapters/cursor/index.ts:581) — extend the
-  // same trust to the global resolver so ctx_stats / SessionDB / hash hit the
-  // workspace path instead of the chdir'd plugin install dir.
-  it("respects CURSOR_CWD when set (Cursor MCP env override or user workaround)", () => {
+  // Issue #521 Slice 1 generalized: any cascade var pointing at a plugin
+  // install path is poisoned (a prior MCP boot's start.mjs auto-set) and
+  // must be rejected so PWD can win.
+  it("rejects a cascade env var when it points at a plugin install path", () => {
     const result = resolveProjectDir({
-      env: { CURSOR_CWD: "/Users/x/cursor-proj" },
-      cwd: "/Users/x/.claude/plugins/cache/foo/foo/1.0.0", // plugin path → rejected
-      pwd: undefined,
-    });
-    expect(result).toBe("/Users/x/cursor-proj");
-  });
-
-  it("rejects CURSOR_CWD when it points at a plugin install path", () => {
-    const result = resolveProjectDir({
-      env: { CURSOR_CWD: "/Users/x/.claude/plugins/cache/foo/foo/1.0.0" },
+      env: { GEMINI_PROJECT_DIR: "/Users/x/.claude/plugins/cache/foo/foo/1.0.0" },
       cwd: "/x",
       pwd: "/Users/x/realproj",
     });
-    expect(result).toBe("/Users/x/realproj"); // PWD wins, CURSOR_CWD rejected as poisoned
+    expect(result).toBe("/Users/x/realproj"); // PWD wins, poisoned var rejected
   });
 });
 
@@ -195,52 +184,26 @@ describe("resolveProjectDir", () => {
 //
 // Under strict mode the candidate list is built from the platform's own
 // workspace env vars + UNIVERSAL escape hatch — foreign workspace vars
-// (e.g. CLAUDE_PROJECT_DIR leaked into Pi's MCP child env) cannot win,
-// regardless of cascade order. The resolver must contain ZERO hardcoded
+// (e.g. CLAUDE_PROJECT_DIR leaked into another host's MCP child env) cannot
+// win, regardless of cascade order. The resolver must contain ZERO hardcoded
 // platform names — the candidate set is derived from PLATFORM_ENV_VARS.
 // ─────────────────────────────────────────────────────────
 
 describe("resolveProjectDir — strictPlatform algorithmic mode (issue #545)", () => {
-  it("strictPlatform=pi prefers PI_PROJECT_DIR over leaked CLAUDE_PROJECT_DIR", () => {
+  it("strictPlatform=claude-code prefers CLAUDE_PROJECT_DIR over a foreign leak", () => {
     const result = resolveProjectDir({
       env: {
-        CLAUDE_PROJECT_DIR: "/leak/from/claude-host",
-        PI_PROJECT_DIR: "/Users/x/own-pi-project",
-      },
-      cwd: "/some/cwd",
-      pwd: undefined,
-      strictPlatform: "pi",
-    });
-    expect(result).toBe("/Users/x/own-pi-project");
-  });
-
-  it("strictPlatform=pi prefers PI_WORKSPACE_DIR over PI_PROJECT_DIR (registry order)", () => {
-    const result = resolveProjectDir({
-      env: {
-        PI_WORKSPACE_DIR: "/Users/x/freshest",
-        PI_PROJECT_DIR: "/Users/x/legacy",
-      },
-      cwd: "/some/cwd",
-      pwd: undefined,
-      strictPlatform: "pi",
-    });
-    expect(result).toBe("/Users/x/freshest");
-  });
-
-  it("strictPlatform=qwen-code prefers QWEN_PROJECT_DIR over leaked GEMINI_PROJECT_DIR", () => {
-    const result = resolveProjectDir({
-      env: {
+        CLAUDE_PROJECT_DIR: "/Users/x/own-claude-project",
         GEMINI_PROJECT_DIR: "/leak/from/gemini-host",
-        QWEN_PROJECT_DIR: "/Users/x/own-qwen-project",
       },
       cwd: "/some/cwd",
       pwd: undefined,
-      strictPlatform: "qwen-code",
+      strictPlatform: "claude-code",
     });
-    expect(result).toBe("/Users/x/own-qwen-project");
+    expect(result).toBe("/Users/x/own-claude-project");
   });
 
-  it("strictPlatform=zed (no workspace var) falls through CONTEXT_MODE_PROJECT_DIR > pwd > cwd", () => {
+  it("strictPlatform=codex (no workspace var) falls through CONTEXT_MODE_PROJECT_DIR > pwd > cwd", () => {
     const result = resolveProjectDir({
       env: {
         // Foreign workspace vars leaked everywhere — none must win.
@@ -248,32 +211,26 @@ describe("resolveProjectDir — strictPlatform algorithmic mode (issue #545)", (
         GEMINI_PROJECT_DIR: "/leak/gemini",
         VSCODE_CWD: "/leak/vscode",
         IDEA_INITIAL_DIRECTORY: "/leak/idea",
-        PI_PROJECT_DIR: "/leak/pi",
-        OPENCODE_PROJECT_DIR: "/leak/opencode",
-        CURSOR_CWD: "/leak/cursor",
         // Universal escape hatch.
         CONTEXT_MODE_PROJECT_DIR: "/Users/x/escape",
       },
       cwd: "/some/cwd",
       pwd: undefined,
-      strictPlatform: "zed",
+      strictPlatform: "codex",
     });
     expect(result).toBe("/Users/x/escape");
   });
 
   it("non-strict mode preserves the EXACT legacy candidate order (semver lock)", () => {
-    // Today's literal order from src/util/project-dir.ts:138-153:
-    //   CLAUDE_PROJECT_DIR > GEMINI_PROJECT_DIR > VSCODE_CWD > OPENCODE_PROJECT_DIR
-    //   > PI_PROJECT_DIR > IDEA_INITIAL_DIRECTORY > CURSOR_CWD > CONTEXT_MODE_PROJECT_DIR
+    // The fork-pruned literal order from src/util/project-dir.ts:
+    //   CLAUDE_PROJECT_DIR > GEMINI_PROJECT_DIR > VSCODE_CWD
+    //   > IDEA_INITIAL_DIRECTORY > CONTEXT_MODE_PROJECT_DIR
     const env = {
       CLAUDE_PROJECT_DIR: "/p1",
       GEMINI_PROJECT_DIR: "/p2",
       VSCODE_CWD: "/p3",
-      OPENCODE_PROJECT_DIR: "/p4",
-      PI_PROJECT_DIR: "/p5",
-      IDEA_INITIAL_DIRECTORY: "/p6",
-      CURSOR_CWD: "/p7",
-      CONTEXT_MODE_PROJECT_DIR: "/p8",
+      IDEA_INITIAL_DIRECTORY: "/p4",
+      CONTEXT_MODE_PROJECT_DIR: "/p5",
     };
     // First wins.
     expect(resolveProjectDir({ env, cwd: "/x", pwd: undefined })).toBe("/p1");
@@ -282,15 +239,14 @@ describe("resolveProjectDir — strictPlatform algorithmic mode (issue #545)", (
       env: { ...env, CLAUDE_PROJECT_DIR: undefined },
       cwd: "/x", pwd: undefined,
     })).toBe("/p2");
-    // Drop down to PI — PI_PROJECT_DIR wins (legacy slot 5).
+    // Drop down to IDEA — IDEA_INITIAL_DIRECTORY wins (legacy slot 4).
     expect(resolveProjectDir({
       env: {
-        OPENCODE_PROJECT_DIR: undefined,
-        PI_PROJECT_DIR: "/p5",
-        IDEA_INITIAL_DIRECTORY: "/p6",
+        IDEA_INITIAL_DIRECTORY: "/p4",
+        CONTEXT_MODE_PROJECT_DIR: "/p5",
       },
       cwd: "/x", pwd: undefined,
-    })).toBe("/p5");
+    })).toBe("/p4");
   });
 });
 

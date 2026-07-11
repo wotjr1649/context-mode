@@ -7,11 +7,9 @@
  *   - getSessionDir()       — builds session dir from sessionDirSegments
  *   - backupSettings()      — copies settings file to .bak
  *
- * Adapters with custom logic override the relevant method:
- *   - vscode-copilot: overrides getSessionDir (checks .github dir)
- *   - opencode: overrides getSessionDir (XDG_CONFIG_HOME / APPDATA)
- *              and backupSettings (calls checkPluginRegistration first)
- *   - openclaw: overrides backupSettings (searches 3 config paths)
+ * Adapters with custom logic override the relevant method (both kept
+ * adapters — claude-code and codex — override getSessionDir/getMemoryDir
+ * to honor their host env vars).
  *
  * NOTE — C2 narrowing (2026-05): `getSessionDBPath` and `getSessionEventsPath`
  * were removed. Both were SHALLOW pure derivatives of `getSessionDir() +
@@ -21,8 +19,8 @@
  * in `src/session/db.ts`. Adapters expose only `getSessionDir()` for
  * storage-related path concerns.
  *
- * Issue #649 — `CONTEXT_MODE_DATA_DIR` universal storage override. Many
- * adapters (Pi, OMP, Gemini CLI, Codex, Cursor, …) had storage hardcoded to
+ * Issue #649 — `CONTEXT_MODE_DATA_DIR` universal storage override. Adapters
+ * historically had storage hardcoded to
  * `~/.<platform>/context-mode/sessions/` with no env-var escape hatch. CI
  * runners on NFS homes, dev containers, and shared-workspace setups need to
  * point context-mode storage at a writable volume without patching source or
@@ -30,8 +28,8 @@
  * only to context-mode-owned state (`getSessionDir`, `getMemoryDir`) — never
  * to platform-native config (`getConfigDir`, `getSettingsPath`), which must
  * stay where the host platform's own tooling expects it. Adapters that
- * override `getSessionDir`/`getMemoryDir` directly (claude-code, codex,
- * opencode, vscode-copilot) honor the override by routing through
+ * override `getSessionDir`/`getMemoryDir` directly (claude-code, codex)
+ * honor the override by routing through
  * `resolveContextModeDataRoot()` at the top of their override.
  */
 
@@ -76,8 +74,8 @@ export abstract class BaseAdapter {
    * Default: build config dir from sessionDirSegments rooted at $HOME.
    *
    * Contract: ALWAYS returns an absolute path. Adapters with project-scoped
-   * or non-home-rooted config dirs (cursor, vscode-copilot, jetbrains-copilot,
-   * openclaw, opencode) override this and resolve their segments against
+   * or non-home-rooted config dirs (an upstream-era pattern; none of the
+   * kept adapters) override this and resolve their segments against
    * `projectDir` (or `process.cwd()` when omitted).
    *
    * NOT relocated by `CONTEXT_MODE_DATA_DIR` (#649). The platform owns its

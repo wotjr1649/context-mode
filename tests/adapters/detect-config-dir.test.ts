@@ -3,10 +3,12 @@
  * detectPlatform() and the env-var priority chain.
  *
  * The adjacent detect.test.ts covers env vars, clientInfo, and the
- * CONTEXT_MODE_PLATFORM override — but the ~80 lines of `~/.<platform>`
- * and `~/.config/<platform>` existsSync checks (detect.ts:128-210) are
- * not exercised. These tests mock `node:fs` to force each branch
- * deterministically and lock the priority ordering.
+ * CONTEXT_MODE_PLATFORM override — but the `~/.<platform>` /
+ * `~/.config/<platform>` existsSync checks are not exercised there. These
+ * tests mock `node:fs` to force each branch deterministically and lock the
+ * priority ordering. Post-fork only claude-code and codex remain detectable;
+ * the removed-client rows also assert that stale ~/.<removed>/ dirs left on
+ * disk never hijack a kept-client detection.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -51,34 +53,13 @@ describe("detectPlatform — config directory branches", () => {
 
   it.each<[string, string]>([
     [".claude", "claude-code"],
-    [".gemini", "gemini-cli"],
     [".codex", "codex"],
-    [".cursor", "cursor"],
-    [".kiro", "kiro"],
-    [".pi", "pi"],
-    [".omp", "omp"],
-    [".qwen", "qwen-code"],
-    [".kimi-code", "kimi"],
-    [".openclaw", "openclaw"],
   ])("detects %s → %s at medium confidence", (dir, expected) => {
     forceDir(resolve(home, dir));
     const signal = detectPlatform();
     expect(signal.platform).toBe(expected);
     expect(signal.confidence).toBe("medium");
     expect(signal.reason).toContain(dir);
-  });
-
-  it.each<[string[], string]>([
-    [[".config", "kilo"], "kilo"],
-    [[".config", "opencode"], "opencode"],
-    [[".config", "zed"], "zed"],
-    [[".config", "JetBrains"], "jetbrains-copilot"],
-  ])("detects XDG ~/%s/%s → %s at medium confidence", (segs, expected) => {
-    forceDir(resolve(home, ...segs));
-    const signal = detectPlatform();
-    expect(signal.platform).toBe(expected);
-    expect(signal.confidence).toBe("medium");
-    expect(signal.reason).toContain(segs.join("/"));
   });
 
   it("falls back to claude-code low-confidence when no dirs exist", () => {
@@ -105,49 +86,16 @@ describe("detectPlatform — config directory branches", () => {
     expect(signal.confidence).toBe("high");
   });
 
-  it("PI_CODING_AGENT=true wins over stale ~/.claude when Pi spawns the MCP server (issue #760)", () => {
-    existsSyncMock.mockImplementation(
-      ((p: unknown) =>
-        p === resolve(home, ".claude") || p === resolve(home, ".pi")) as typeof fs.existsSync,
-    );
-    process.env.PI_CODING_AGENT = "true";
-    const signal = detectPlatform();
-    expect(signal.platform).toBe("pi");
-    expect(signal.confidence).toBe("high");
-  });
-
-  it.each<[string, string]>([
-    ["OPENCODE_CLIENT", "desktop"],
-    ["OPENCODE_TERMINAL", "1"],
-  ])("%s wins over a matching config dir", (envName, envValue) => {
-    forceDir(resolve(home, ".codex"));
-    process.env[envName] = envValue;
-    const signal = detectPlatform();
-    expect(signal.platform).toBe("opencode");
-    expect(signal.confidence).toBe("high");
-  });
-
   it("CONTEXT_MODE_PLATFORM override wins over a matching config dir", () => {
     forceDir(resolve(home, ".claude"));
-    process.env.CONTEXT_MODE_PLATFORM = "antigravity";
-    expect(detectPlatform().platform).toBe("antigravity");
+    process.env.CONTEXT_MODE_PLATFORM = "codex";
+    expect(detectPlatform().platform).toBe("codex");
   });
 
-  // ── Issue #542 — agents BEFORE host IDEs ─────────────
-  //
-  // Cursor is a VSCode fork and the most installed editor across our
-  // user base, so a bare ~/.cursor/ check first means every CLI agent
-  // co-installed with Cursor (Pi, OMP, Kiro, Qwen, Gemini, Codex,
-  // Claude Code) silently routes through CursorAdapter. The clientInfo
-  // tier (slice 1-3) covers the live MCP boot path, but env-less /
-  // clientInfo-less tooling (e.g. CLI subcommands invoked directly) still
-  // depends on the config-dir tier — so agents must be checked before
-  // editors there too.
-  //
-  // The forceDir helper mocks existsSync to return true for ONE target
-  // only, so each row asserts the priority winner when BOTH the agent's
-  // ~/.<dir>/ and ~/.cursor/ coexist. We use mockImplementation directly
-  // to mark BOTH paths as existing.
+  // A stale removed-client ~/.cursor/ left on disk must NOT hijack a
+  // kept-client's config-dir detection. The forceDir helper mocks existsSync
+  // to return true for ONE target only; here we mark BOTH the kept dir and
+  // ~/.cursor/ as existing and assert the kept client still wins.
   const bothDirsExist = (agent: string) => {
     existsSyncMock.mockImplementation(
       ((p: unknown) =>
@@ -156,68 +104,18 @@ describe("detectPlatform — config directory branches", () => {
   };
 
   it.each<[string, string]>([
-    [".pi", "pi"],
-    [".omp", "omp"],
-    [".kiro", "kiro"],
-    [".qwen", "qwen-code"],
-    [".kimi-code", "kimi"],
-    [".gemini", "gemini-cli"],
     [".claude", "claude-code"],
     [".codex", "codex"],
-  ])("agent dir %s beats ~/.cursor/ when both exist (issue #542)", (agent, expected) => {
+  ])("kept dir %s beats a stale ~/.cursor/ when both exist", (agent, expected) => {
     bothDirsExist(agent);
     const signal = detectPlatform();
     expect(signal.platform).toBe(expected);
     expect(signal.confidence).toBe("medium");
   });
 
-  it("bare ~/.cursor/ (no agent dir) still resolves to cursor (regression)", () => {
-    forceDir(resolve(home, ".cursor"));
-    expect(detectPlatform().platform).toBe("cursor");
-  });
-
-  // ── Issue #774 — dedicated CLI agents BEFORE generic ~/.claude / ~/.gemini ──
-  //
-  // A user migrating from gemini-cli to Antigravity CLI (`agy`) keeps BOTH
-  // ~/.claude and ~/.gemini. The closed PR shipped without this ordering, so
-  // `context-mode doctor` matched ~/.claude first and mis-detected `agy` as
-  // Claude Code — pointing storage at ~/.claude (reproduced in #774). These
-  // rows lock the dedicated-CLI markers ahead of the generic fallbacks.
-  it.each<[string[], string]>([
-    [[".local", "bin", "agy"], "antigravity-cli"],
-    [[".gemini", "antigravity-cli"], "antigravity-cli"],
-    [[".gemini", "config", "mcp_config.json"], "antigravity-cli"],
-  ])("detects Antigravity CLI marker ~/%s → antigravity-cli at medium confidence", (segs, expected) => {
-    forceDir(resolve(home, ...segs));
-    const signal = detectPlatform();
-    expect(signal.platform).toBe(expected);
-    expect(signal.confidence).toBe("medium");
-  });
-
-  it("detects ~/.copilot/mcp-config.json → copilot-cli at medium confidence", () => {
-    forceDir(resolve(home, ".copilot", "mcp-config.json"));
-    const signal = detectPlatform();
-    expect(signal.platform).toBe("copilot-cli");
-    expect(signal.confidence).toBe("medium");
-  });
-
-  it("explicit COPILOT_HOME config beats passive agy markers", () => {
-    process.env.COPILOT_HOME = resolve(home, "isolated-copilot");
-    existsSyncMock.mockImplementation(
-      ((p: unknown) =>
-        p === resolve(home, "isolated-copilot", "mcp-config.json") ||
-        p === resolve(home, ".local", "bin", "agy") ||
-        p === resolve(home, ".gemini", "config", "mcp_config.json")) as typeof fs.existsSync,
-    );
-    const signal = detectPlatform();
-    expect(signal.platform).toBe("copilot-cli");
-    expect(signal.confidence).toBe("medium");
-  });
-
   // Regression guard (detection-ordering review): a BARE ~/.copilot/ directory
-  // (GitHub Copilot CLI co-installed but context-mode NOT configured there)
-  // must NOT outrank ~/.claude — only context-mode-written files under
-  // ~/.copilot promote copilot-cli. Protects existing Claude Code users.
+  // (GitHub Copilot CLI co-installed on the same machine) must NOT outrank
+  // ~/.claude. Protects existing Claude Code users from stale-dir hijack.
   it("bare ~/.copilot/ (no context-mode config) does NOT outrank ~/.claude", () => {
     existsSyncMock.mockImplementation(
       ((p: unknown) =>
@@ -225,23 +123,6 @@ describe("detectPlatform — config directory branches", () => {
         p === resolve(home, ".claude")) as typeof fs.existsSync,
     );
     expect(detectPlatform().platform).toBe("claude-code");
-  });
-
-  it.each<[string[], string]>([
-    [[".local", "bin", "agy"], "antigravity-cli"],
-    [[".gemini", "config", "mcp_config.json"], "antigravity-cli"],
-    [[".copilot", "mcp-config.json"], "copilot-cli"],
-  ])("dedicated CLI marker ~/%s beats ~/.claude AND ~/.gemini when all coexist (issue #774)", (segs, expected) => {
-    const target = resolve(home, ...segs);
-    existsSyncMock.mockImplementation(
-      ((p: unknown) =>
-        p === target ||
-        p === resolve(home, ".claude") ||
-        p === resolve(home, ".gemini")) as typeof fs.existsSync,
-    );
-    const signal = detectPlatform();
-    expect(signal.platform).toBe(expected);
-    expect(signal.confidence).toBe("medium");
   });
 });
 
@@ -259,46 +140,11 @@ describe("detectPlatform — env var priority chain", () => {
     existsSyncMock.mockReset();
   });
 
-  it("CLAUDE beats GEMINI when both envs are set", () => {
+  // claude-code is listed before codex in PLATFORM_ENV_VARS, so its signal
+  // wins when both are present.
+  it("CLAUDE beats CODEX when both envs are set (registry order)", () => {
     process.env.CLAUDE_PROJECT_DIR = "/p";
-    process.env.GEMINI_CLI = "1";
+    process.env.CODEX_CI = "1";
     expect(detectPlatform().platform).toBe("claude-code");
-  });
-
-  it("GEMINI beats OPENCLAW when both envs are set", () => {
-    process.env.GEMINI_CLI = "1";
-    process.env.OPENCLAW_HOME = "/h";
-    expect(detectPlatform().platform).toBe("gemini-cli");
-  });
-
-  // KILO + OPENCODE: Kilo is an OpenCode fork and sets BOTH KILO_PID and
-  // OPENCODE=1. PLATFORM_ENV_VARS lists `kilo` BEFORE `opencode` so the more
-  // specific signal wins.
-  it("KILO beats OPENCODE when both envs are set (fork-collision)", () => {
-    process.env.KILO_PID = "12345";
-    process.env.OPENCODE = "1";
-    expect(detectPlatform().platform).toBe("kilo");
-  });
-
-  // CURSOR + VSCODE: Cursor is a VSCode fork — listed before vscode-copilot.
-  it("CURSOR beats VSCODE when both envs are set (fork-collision)", () => {
-    process.env.CURSOR_TRACE_ID = "trace-abc";
-    process.env.VSCODE_PID = "99";
-    expect(detectPlatform().platform).toBe("cursor");
-  });
-
-  // ANTIGRAVITY + VSCODE: Antigravity is an Electron/VSCode fork — same pattern.
-  it("ANTIGRAVITY beats VSCODE when both envs are set (fork-collision)", () => {
-    process.env.ANTIGRAVITY_CLI_ALIAS = "agtg";
-    process.env.VSCODE_PID = "99";
-    expect(detectPlatform().platform).toBe("antigravity");
-  });
-
-  // CURSOR + CODEX: cursor listed before codex — IDE-fork signal wins over
-  // CLI tooling signal.
-  it("CURSOR beats CODEX when both envs are set", () => {
-    process.env.CURSOR_TRACE_ID = "trace-abc";
-    process.env.CODEX_THREAD_ID = "t";
-    expect(detectPlatform().platform).toBe("cursor");
   });
 });

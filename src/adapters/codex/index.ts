@@ -954,7 +954,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
   /**
    * Resolve the project directory for a Codex hook input.
    * Priority: input.cwd > CODEX_PROJECT_DIR env > process.cwd().
-   * Mirrors the cursor / opencode pattern so downstream hooks always
+   * Mirrors the claude-code adapter's pattern so downstream hooks always
    * receive a defined projectDir even under worktrees or when the
    * platform omits cwd from the wire payload.
    */

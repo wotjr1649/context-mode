@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Render 3 OG preview banners at 1200x630 (X / LinkedIn / Slack / iMessage standard).
-// Usage: cd /Users/mksglu/Server/Mert/context-mode/web/og && node render-og.mjs
+// Usage: cd web/og && node render-og.mjs
 
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'url';
@@ -16,28 +16,9 @@ const ASSETS = [
 ];
 
 const W = 1200, H = 630;
-const STATS_URL = 'https://raw.githubusercontent.com/mksglu/context-mode/main/stats.json';
-
-function toLongForm(short) {
-  if (!short) return null;
-  const m = String(short).match(/^([\d.]+)\s*([kKmM])?\+?$/);
-  if (!m) return short;
-  let num = parseFloat(m[1]);
-  if (m[2] && /k/i.test(m[2])) num *= 1000;
-  else if (m[2] && /m/i.test(m[2])) num *= 1000000;
-  return Math.round(num).toLocaleString('en-US') + '+';
-}
-
-// Fetch the live count once so every OG bakes the same number in
-let liveCount = null;
-try {
-  const r = await fetch(STATS_URL);
-  const d = await r.json();
-  liveCount = d.message_long || d.users_long || toLongForm(d.message);
-  console.log(`→ Live user count: ${liveCount}`);
-} catch (e) {
-  console.warn(`⚠ stats.json fetch failed (${e.message}); using HTML defaults`);
-}
+// ponytail: this fork does not track upstream stats — OG banners bake the
+// static counts already in the HTML templates (no upstream fetch, per charter).
+const liveCount = null;
 
 const browser = await chromium.launch({ headless: true });
 for (const a of ASSETS) {

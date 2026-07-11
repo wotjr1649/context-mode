@@ -1098,3 +1098,60 @@ describe("healClaudeJsonMcpArgs", () => {
     expect(updated.mcpServers.deeper_traversal.args[0]).toBe(deeperTraversalArg);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// derivePluginKey / derivePluginCacheParent — Task 3a
+//
+// Upstream hardcodes the registry key "context-mode@context-mode", which
+// silently disables every self-heal under any other marketplace name.
+// start.mjs derives it from __dirname (241a864); this promotes that
+// derivation to a shared helper other call sites adopt in the next task.
+// ─────────────────────────────────────────────────────────────────────────
+
+// @ts-expect-error — JS module, no TS declarations
+import { derivePluginKey, derivePluginCacheParent } from "../../scripts/heal-installed-plugins.mjs";
+
+describe("derivePluginKey", () => {
+  it("derives <plugin>@<marketplace> from a cache install path", () => {
+    expect(derivePluginKey("/h/.claude/plugins/cache/context-mode-js/context-mode/1.0.0"))
+      .toBe("context-mode@context-mode-js");
+  });
+
+  it("handles Windows separators", () => {
+    expect(derivePluginKey("C:\\Users\\js\\.claude\\plugins\\cache\\context-mode-js\\context-mode\\1.0.0"))
+      .toBe("context-mode@context-mode-js");
+  });
+
+  it("still yields context-mode@context-mode on the upstream layout", () => {
+    expect(derivePluginKey("/h/.claude/plugins/cache/context-mode/context-mode/1.0.169"))
+      .toBe("context-mode@context-mode");
+  });
+
+  it("returns null outside the plugin cache — never a hardcoded fallback", () => {
+    expect(derivePluginKey("/h/src/context-mode")).toBeNull();
+  });
+
+  it("returns null for a true npm-global pkgRoot (…/npm/lib/node_modules/context-mode)", () => {
+    // Pure-function pin of the null→skip contract (Task 9 fix round). Same
+    // npm-global shape postinstall-heal.test.ts's Slice 6b stages: a real
+    // `npm install -g` puts pkgRoot outside any plugins/cache tree, so the
+    // derivation MUST yield null — never the upstream literal fallback.
+    expect(derivePluginKey("/tmp/base/npm/lib/node_modules/context-mode")).toBeNull();
+    expect(derivePluginKey("C:\\Program Files\\nodejs\\node_modules\\context-mode")).toBeNull();
+  });
+
+  it("returns null for a non-string", () => {
+    expect(derivePluginKey(undefined as unknown as string)).toBeNull();
+  });
+});
+
+describe("derivePluginCacheParent", () => {
+  it("returns <cache>/<marketplace>/<plugin>", () => {
+    expect(derivePluginCacheParent("/h/.claude/plugins/cache/context-mode-js/context-mode/1.0.0"))
+      .toBe("/h/.claude/plugins/cache/context-mode-js/context-mode");
+  });
+
+  it("returns null outside the plugin cache", () => {
+    expect(derivePluginCacheParent("/h/src/context-mode")).toBeNull();
+  });
+});

@@ -750,14 +750,10 @@ describe("resolveConfigDir (#289)", () => {
     // Use a subprocess to isolate env var changes
     const code = `
       ${Object.entries(env).map(([k, v]) => `process.env[${JSON.stringify(k)}] = ${JSON.stringify(v)};`).join("\n")}
-      const { resolveConfigDir, GEMINI_OPTS, CODEX_OPTS, VSCODE_OPTS, CURSOR_OPTS, KIRO_OPTS } = await import(${JSON.stringify(pathToFileURL(HELPERS_PATH).href)});
+      const { resolveConfigDir, CODEX_OPTS } = await import(${JSON.stringify(pathToFileURL(HELPERS_PATH).href)});
       const result = {
         claude_default: resolveConfigDir(),
-        gemini_default: resolveConfigDir(GEMINI_OPTS),
         codex_default: resolveConfigDir(CODEX_OPTS),
-        vscode_default: resolveConfigDir(VSCODE_OPTS),
-        cursor_default: resolveConfigDir(CURSOR_OPTS),
-        kiro_default: resolveConfigDir(KIRO_OPTS),
       };
       process.stdout.write(JSON.stringify(result));
     `;
@@ -773,15 +769,10 @@ describe("resolveConfigDir (#289)", () => {
     const home = process.env.HOME || process.env.USERPROFILE || "";
     const result = await loadHelpers({
       CLAUDE_CONFIG_DIR: "",
-      GEMINI_CLI_HOME: "",
       CODEX_HOME: "",
     });
     expect(result.claude_default).toBe(join(home, ".claude"));
-    expect(result.gemini_default).toBe(join(home, ".gemini"));
     expect(result.codex_default).toBe(join(home, ".codex"));
-    expect(result.vscode_default).toBe(join(home, ".vscode"));
-    expect(result.cursor_default).toBe(join(home, ".cursor"));
-    expect(result.kiro_default).toBe(join(home, ".kiro"));
   });
 
   test("CLAUDE_CONFIG_DIR overrides Claude Code config path", async () => {
@@ -789,12 +780,7 @@ describe("resolveConfigDir (#289)", () => {
     expect(result.claude_default).toBe("/custom/claude-work");
     // Other platforms unaffected
     const home = process.env.HOME || process.env.USERPROFILE || "";
-    expect(result.gemini_default).toBe(join(home, ".gemini"));
-  });
-
-  test("GEMINI_CLI_HOME overrides Gemini CLI config path", async () => {
-    const result = await loadHelpers({ GEMINI_CLI_HOME: "/custom/gemini" });
-    expect(result.gemini_default).toBe("/custom/gemini");
+    expect(result.codex_default).toBe(join(home, ".codex"));
   });
 
   test("CODEX_HOME overrides Codex CLI config path", async () => {
@@ -806,15 +792,6 @@ describe("resolveConfigDir (#289)", () => {
     const home = process.env.HOME || process.env.USERPROFILE || "";
     const result = await loadHelpers({ CLAUDE_CONFIG_DIR: "~/.claude-work" });
     expect(result.claude_default).toBe(join(home, ".claude-work"));
-  });
-
-  test("platforms without configDirEnv ignore env vars", async () => {
-    const home = process.env.HOME || process.env.USERPROFILE || "";
-    // VS Code Copilot, Cursor, Kiro have no configDirEnv
-    const result = await loadHelpers({});
-    expect(result.vscode_default).toBe(join(home, ".vscode"));
-    expect(result.cursor_default).toBe(join(home, ".cursor"));
-    expect(result.kiro_default).toBe(join(home, ".kiro"));
   });
 
   test("session DB path uses resolved config dir", async () => {
@@ -1110,7 +1087,6 @@ describe("empty stdin resilience (#322)", () => {
           CLAUDE_PROJECT_DIR: fakeProject,
           GEMINI_PROJECT_DIR: fakeProject,
           VSCODE_CWD: fakeProject,
-          CURSOR_CWD: fakeProject,
           CONTEXT_MODE_SESSION_SUFFIX: "",
         },
       });
@@ -1121,14 +1097,10 @@ describe("empty stdin resilience (#322)", () => {
     }
   }
 
-  // All 6 adapters × their hook files
+  // Claude Code (top-level) + Codex hook files
   const hooks = [
     "sessionstart.mjs", "precompact.mjs", "posttooluse.mjs", "userpromptsubmit.mjs",
-    "gemini-cli/sessionstart.mjs", "gemini-cli/beforetool.mjs", "gemini-cli/aftertool.mjs", "gemini-cli/precompress.mjs",
-    "vscode-copilot/sessionstart.mjs", "vscode-copilot/pretooluse.mjs", "vscode-copilot/posttooluse.mjs", "vscode-copilot/precompact.mjs",
-    "cursor/sessionstart.mjs", "cursor/pretooluse.mjs", "cursor/posttooluse.mjs", "cursor/stop.mjs",
     "codex/sessionstart.mjs", "codex/pretooluse.mjs", "codex/posttooluse.mjs",
-    "kiro/pretooluse.mjs", "kiro/posttooluse.mjs",
   ];
 
   for (const hook of hooks) {

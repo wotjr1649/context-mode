@@ -375,12 +375,7 @@ printf '| Variable | Value |\n|----------|-------|\n'
 ADAPTER_VARS=(
   CONTEXT_MODE_PLATFORM
   CLAUDE_PROJECT_DIR CLAUDE_SESSION_ID
-  GEMINI_PROJECT_DIR GEMINI_CLI
-  OPENCLAW_HOME OPENCLAW_CLI
-  KILO KILO_PID
-  OPENCODE_CLIENT OPENCODE_TERMINAL OPENCODE OPENCODE_PID
   CODEX_CI CODEX_THREAD_ID
-  CURSOR_TRACE_ID CURSOR_CLI
   VSCODE_PID VSCODE_CWD
 )
 
@@ -394,23 +389,12 @@ for var in "${ADAPTER_VARS[@]}"; do
   fi
 done
 
-# Detection logic (mirrors context-mode adapter selection)
+# Detection logic (mirrors context-mode adapter selection — hard fork:
+# Claude Code and Codex only; VSCODE_PID alone no longer classifies)
 if [ -n "${CONTEXT_MODE_PLATFORM:-}" ]; then
   DETECTED_ADAPTER="$CONTEXT_MODE_PLATFORM (explicit)"
-elif [ -n "${CURSOR_TRACE_ID:-}${CURSOR_CLI:-}" ]; then
-  DETECTED_ADAPTER="cursor"
-elif [ -n "${VSCODE_PID:-}" ]; then
-  DETECTED_ADAPTER="vscode-copilot"
 elif [ -n "${CODEX_CI:-}${CODEX_THREAD_ID:-}" ]; then
   DETECTED_ADAPTER="codex"
-elif [ -n "${GEMINI_PROJECT_DIR:-}${GEMINI_CLI:-}" ]; then
-  DETECTED_ADAPTER="gemini-cli"
-elif [ -n "${OPENCLAW_HOME:-}${OPENCLAW_CLI:-}" ]; then
-  DETECTED_ADAPTER="openclaw"
-elif [ -n "${KILO:-}${KILO_PID:-}" ]; then
-  DETECTED_ADAPTER="kilocode"
-elif [ -n "${OPENCODE_CLIENT:-}${OPENCODE_TERMINAL:-}${OPENCODE:-}${OPENCODE_PID:-}" ]; then
-  DETECTED_ADAPTER="opencode"
 elif [ -n "${CLAUDE_SESSION_ID:-}${CLAUDE_PROJECT_DIR:-}" ]; then
   DETECTED_ADAPTER="claude-code"
 fi
@@ -422,15 +406,7 @@ kv "Active adapter (env)" "$DETECTED_ADAPTER"
 HOME_DIR_EARLY="${HOME:-$USERPROFILE}"
 INSTALLED=()
 [ -d "$HOME_DIR_EARLY/.claude" ]                && INSTALLED+=("claude-code")
-[ -d "$HOME_DIR_EARLY/.cursor" ] || [ -f ".cursor/mcp.json" ] && INSTALLED+=("cursor")
 [ -d "$HOME_DIR_EARLY/.codex" ]                 && INSTALLED+=("codex")
-[ -d "$HOME_DIR_EARLY/.gemini" ]                && INSTALLED+=("gemini-cli")
-[ -d "$HOME_DIR_EARLY/.openclaw" ]              && INSTALLED+=("openclaw")
-[ -d "$HOME_DIR_EARLY/.kiro" ]                  && INSTALLED+=("kiro")
-[ -d "$HOME_DIR_EARLY/.config/opencode" ] || [ -f "opencode.json" ] || [ -d ".opencode" ] && INSTALLED+=("opencode")
-[ -d "$HOME_DIR_EARLY/.config/kilo" ]           && INSTALLED+=("kilocode")
-[ -d "$HOME_DIR_EARLY/.config/zed" ]            && INSTALLED+=("zed")
-[ -f ".vscode/mcp.json" ]                       && INSTALLED+=("vscode-copilot")
 
 if [ ${#INSTALLED[@]} -gt 0 ]; then
   kv "Installed adapters" "${INSTALLED[*]}"
@@ -450,44 +426,9 @@ CWD="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 config_file "Claude settings.json" "$HOME_DIR/.claude/settings.json"
 config_file "Claude settings.local.json" "$HOME_DIR/.claude/settings.local.json"
 
-# Gemini CLI
-config_file "Gemini settings.json" "$HOME_DIR/.gemini/settings.json"
-
 # Codex
 config_file "Codex config.toml" "$HOME_DIR/.codex/config.toml"
 config_file "Codex hooks.json" "$HOME_DIR/.codex/hooks.json"
-
-# Cursor (project + global)
-config_file "Cursor hooks.json (project)" "$CWD/.cursor/hooks.json"
-config_file "Cursor mcp.json (project)" "$CWD/.cursor/mcp.json"
-config_file "Cursor mcp.json (global)" "$HOME_DIR/.cursor/mcp.json"
-config_file "Cursor hooks.json (global)" "$HOME_DIR/.cursor/hooks.json"
-
-# VS Code Copilot
-config_file "VS Code mcp.json (project)" "$CWD/.vscode/mcp.json"
-
-# OpenCode
-config_file "opencode.json (project)" "$CWD/opencode.json"
-config_file "opencode.json (dotdir)" "$CWD/.opencode/opencode.json"
-config_file "opencode.json (global)" "$HOME_DIR/.config/opencode/opencode.json"
-
-# KiloCode
-config_file "KiloCode settings.json" "$HOME_DIR/.config/kilo/settings.json"
-
-# OpenClaw
-config_file "OpenClaw openclaw.json" "$HOME_DIR/.openclaw/openclaw.json"
-if [ -d "$HOME_DIR/.openclaw/extensions/context-mode" ]; then
-  printf -- '- **OpenClaw extension dir**: exists (`~/.openclaw/extensions/context-mode/`)\n'
-else
-  printf -- '- **OpenClaw extension dir**: not found\n'
-fi
-
-# Kiro
-config_file "Kiro mcp.json" "$HOME_DIR/.kiro/settings/mcp.json"
-config_file "Kiro default agent" "$HOME_DIR/.kiro/agents/default.json"
-
-# Zed
-config_file "Zed settings.json" "$HOME_DIR/.config/zed/settings.json"
 
 # ─── 7. Hook Validation ──────────────────────────────────────────────────────
 
@@ -653,11 +594,7 @@ section "11. Session Databases"
 # Check session dirs for all adapters
 SESSION_DIRS=(
   "$HOME_DIR/.claude/context-mode/sessions"
-  "$HOME_DIR/.cursor/context-mode/sessions"
   "$HOME_DIR/.codex/context-mode/sessions"
-  "$HOME_DIR/.gemini/context-mode/sessions"
-  "$HOME_DIR/.openclaw/context-mode/sessions"
-  "$HOME_DIR/.kiro/context-mode/sessions"
 )
 TOTAL_DB_COUNT=0
 for SESSION_DIR in "${SESSION_DIRS[@]}"; do

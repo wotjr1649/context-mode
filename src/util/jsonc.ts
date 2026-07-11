@@ -1,8 +1,8 @@
 /**
  * util/jsonc — string-aware JSONC comment + trailing-comma stripping and a
- * tolerant parse. Several agent CLIs ship config files as JSONC (VS Code
- * `mcp.json`, Zed `settings.json`), so a strict `JSON.parse` false-fails on a
- * perfectly valid commented file. Use `parseJsonc` whenever reading a
+ * tolerant parse. Several agent tools ship config files as JSONC (VS Code
+ * `mcp.json`, editor `settings.json`), so a strict `JSON.parse` false-fails
+ * on a perfectly valid commented file. Use `parseJsonc` whenever reading a
  * platform config we did not write ourselves.
  */
 

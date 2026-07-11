@@ -134,11 +134,13 @@ await runHook(async () => {
     const { resolveConfigDir } = await import("./session-helpers.mjs");
 
     // Read the version this MCP boot is running under. PLUGIN_ROOT
-    // points at ~/.claude/plugins/cache/context-mode/context-mode/<vX>/.
+    // points at ~/.claude/plugins/cache/<marketplace>/context-mode/<vX>/ —
+    // it is also the trust anchor rewriteShellSnapshots derives the
+    // cache/<marketplace>/<plugin>/ prefix from, so pass it straight through.
+    const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT
+      ?? resolve(HOOK_DIR, "..");
     let currentVersion = null;
     try {
-      const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT
-        ?? resolve(HOOK_DIR, "..");
       const manifestPath = resolve(pluginRoot, ".claude-plugin", "plugin.json");
       const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
       if (typeof manifest?.version === "string" && manifest.version) {
@@ -148,18 +150,7 @@ await runHook(async () => {
 
     if (currentVersion) {
       const snapshotsDir = resolve(resolveConfigDir(), "shell-snapshots");
-      const pluginCacheRoot = resolve(
-        resolveConfigDir(),
-        "plugins",
-        "cache",
-        "context-mode",
-        "context-mode",
-      );
-      selfHealShellSnapshots({
-        snapshotsDir,
-        pluginCacheRoot,
-        currentVersion,
-      });
+      selfHealShellSnapshots({ snapshotsDir, pluginRoot, currentVersion });
     }
   } catch { /* best effort, never block session start */ }
 
@@ -251,8 +242,8 @@ await runHook(async () => {
 
       // Emit lifecycle anchor BEFORE close — engine joins on
       // category='session_start' to compute per-session aggregates.
-      // Cross-platform projectDir via getInputProjectDir (covers cursor's
-      // workspace_roots[], codex/gemini/qwen's *_PROJECT_DIR env vars,
+      // Cross-platform projectDir via getInputProjectDir (covers hosts'
+      // workspace_roots[] and *_PROJECT_DIR env vars,
       // CC's CLAUDE_PROJECT_DIR, falls back to input.cwd and process.cwd).
       const projectDirCompact = getInputProjectDir(input);
       await emitSessionStartLifecycle(db, sessionId, "compact", projectDirCompact, input);
@@ -278,8 +269,8 @@ await runHook(async () => {
       } else if (sessionId) {
         // 2) Snapshot fallback (#413). /resume hands us a *new* active session
         //    id whose live event table is empty; the prior conversation lives
-        //    in `session_resume.snapshot`. Mirrors the OpenCode/OpenClaw resume
-        //    injection path (opencode-plugin.ts:454). claimLatestUnconsumedResume
+        //    in `session_resume.snapshot`. Mirrors the upstream-era resume
+        //    injection path. claimLatestUnconsumedResume
         //    excludes the current id, so we surface the latest unconsumed
         //    snapshot from any prior session in this project.
         const row = db.claimLatestUnconsumedResume(sessionId);

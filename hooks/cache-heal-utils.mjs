@@ -232,10 +232,14 @@ export function selfHealCacheHealHook({
  *
  * This helper rewrites the version segment of every context-mode PATH
  * entry in every snapshot under `snapshotsDir` to `currentVersion`.
- * Anchored on the doubled `context-mode/context-mode/` segment so sibling
- * plugins (`pm-skills/pm-toolkit`, `claude-adhd/claude-adhd`, …) and
- * shape-spoofing entries (`evil-owner/context-mode/1.0.146`) are
- * untouched.
+ * Anchored on the `cache/<marketplace>/<plugin>/` prefix derived from
+ * `pluginRoot` (the tree we actually installed into), so sibling plugins
+ * (`pm-skills/pm-toolkit`, `claude-adhd/claude-adhd`, …) and shape-spoofing
+ * entries (`evil-owner/context-mode/1.0.146`) are untouched. Upstream got
+ * the same property from the doubled literal `context-mode/context-mode/`,
+ * but that breaks under this fork's `context-mode-js/context-mode/` rename;
+ * a wildcard would drop it (evil-owner and context-mode-js are the same
+ * shape). No `pluginRoot`, or the wrong depth → no-op (F52).
  *
  * Layered like cache-heal-utils' brew-node fix:
  *   Layer 1 — /ctx-upgrade calls this after install (cli.ts) so the
@@ -259,13 +263,12 @@ export function selfHealCacheHealHook({
  *     writes paths using whatever shell wrote them, so all three
  *     shapes can appear depending on the user's shell environment.
  */
-export function rewriteShellSnapshots({ snapshotsDir, currentVersion }) {
+export function rewriteShellSnapshots({ snapshotsDir, currentVersion, pluginRoot }) {
   const out = { rewritten: [] };
   if (
-    !snapshotsDir ||
-    typeof snapshotsDir !== "string" ||
-    !currentVersion ||
-    typeof currentVersion !== "string"
+    !snapshotsDir || typeof snapshotsDir !== "string" ||
+    !currentVersion || typeof currentVersion !== "string" ||
+    !pluginRoot || typeof pluginRoot !== "string"
   ) {
     return out;
   }
@@ -277,19 +280,25 @@ export function rewriteShellSnapshots({ snapshotsDir, currentVersion }) {
     return out;
   }
 
-  // Match the version segment of any PATH entry of the form
-  //   …/plugins/cache/context-mode/context-mode/<VERSION>/bin
-  // across all three path shapes (`/`, `\`, mixed). The doubled
-  // `context-mode/context-mode/` is the trust anchor — it prevents
-  // shape-spoofing from another owner.
-  //
-  // Captures:
-  //   $1 — separator-tolerant prefix up to and including the second
-  //        `context-mode` segment + its trailing separator
-  //   $2 — version segment (no separators)
-  //   $3 — trailing separator + `bin`
-  const versionSegmentRe =
-    /(context-mode[/\\]context-mode[/\\])([^/\\]+)([/\\]bin)/g;
+  // Trust anchor. pluginRoot is `…/cache/<marketplace>/<plugin>/<version>`.
+  // The segments read off the anchor in the SAME order they appear — there is
+  // no inversion step, which sidesteps the F42/F54 bug class entirely.
+  // Upstream got the same property from the doubled `context-mode/context-mode/`
+  // literal, but that breaks under a marketplace rename. Opening the match to a
+  // wildcard would also match `cache/evil-owner/context-mode/` and re-point dead
+  // PATH entries at an attacker directory — pinned by the anti-spoofing test at
+  // shell-snapshot-heal.test.ts:270.
+  const parts = pluginRoot.split(/[/\\]/).filter(Boolean);
+  const marketplace = parts[parts.length - 3];
+  const plugin = parts[parts.length - 2];
+  if (!marketplace || !plugin || parts[parts.length - 4] !== "cache") return out;
+
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // $1 — `cache/<marketplace>/<plugin>/`  $2 — version  $3 — separator + `bin`
+  const versionSegmentRe = new RegExp(
+    `(cache[/\\\\]${esc(marketplace)}[/\\\\]${esc(plugin)}[/\\\\])([^/\\\\]+)([/\\\\]bin)`,
+    "g",
+  );
 
   for (const name of entries) {
     if (!name.endsWith(".sh")) continue;
@@ -342,19 +351,15 @@ export function rewriteShellSnapshots({ snapshotsDir, currentVersion }) {
  * environment (or accepts explicit overrides for tests) and delegates to
  * `rewriteShellSnapshots`. Wrap-and-swallow; never throws.
  *
- * `pluginCacheRoot` is accepted to match the cache-heal-utils precedent
- * surface but not yet used (the version segment alone is sufficient for
- * the regex match — we don't need to walk the cache to know the right
- * answer; the cli passes the version it just installed). Kept in the
- * shape for forward-compat if a future heal pass needs to cross-check
- * the on-disk symlink target.
+ * `pluginRoot` (`…/cache/<marketplace>/<plugin>/<version>`) is the trust
+ * anchor: `rewriteShellSnapshots` derives the `cache/<marketplace>/<plugin>/`
+ * prefix from it and only rewrites PATH entries under that exact tree.
+ * Passed straight through — never `resolve(pluginRoot, "..")`; the wrong
+ * depth trips the guard and silently no-ops (which is exactly the dead-heal
+ * state F52 fixes).
  */
-export function selfHealShellSnapshots({
-  snapshotsDir,
-  pluginCacheRoot: _pluginCacheRoot,
-  currentVersion,
-}) {
-  return rewriteShellSnapshots({ snapshotsDir, currentVersion });
+export function selfHealShellSnapshots({ snapshotsDir, pluginRoot, currentVersion }) {
+  return rewriteShellSnapshots({ snapshotsDir, currentVersion, pluginRoot });
 }
 
 /**

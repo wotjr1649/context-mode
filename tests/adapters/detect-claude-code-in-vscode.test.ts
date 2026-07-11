@@ -154,32 +154,6 @@ describe("Issue #539 — Claude Code inside VS Code disambiguation", () => {
     }
   });
 
-  // ── Slice 3: regression guard for genuine vscode-copilot ────
-  //
-  // Plain VS Code Copilot (no Claude Code in the picture) MUST still
-  // resolve to vscode-copilot. The slice-1 env-var additions and the
-  // slice-2 installed_plugins.json fallback must not over-correct away
-  // from the genuine vscode-copilot case.
-
-  it("STILL returns vscode-copilot when ONLY VSCODE_PID/VSCODE_CWD set (no CC markers, no plugin file)", () => {
-    // Pin homedir to a fresh empty dir so the slice-2 plugin-file lookup
-    // resolves to ENOENT and the env-var loop returns vscode-copilot.
-    const fakeHome = mkdtempSync(join(tmpdir(), "ctx-mode-539-empty-"));
-    try {
-      homedirMock.current = fakeHome;
-      __resetClaudeCodePluginCacheForTests();
-
-      process.env.VSCODE_PID = "12345";
-      process.env.VSCODE_CWD = "/Users/me/project";
-
-      const signal = detectPlatform();
-      expect(signal.platform).toBe("vscode-copilot");
-      expect(signal.confidence).toBe("high");
-    } finally {
-      rmSync(fakeHome, { recursive: true, force: true });
-    }
-  });
-
   // ── Slice 4: MCP clientInfo highest-priority path ─────────
   //
   // When the MCP `initialize` handshake reports clientInfo.name as
