@@ -166,7 +166,15 @@ if (isDirectRun()) {
   } catch { /* never block session start */ }
 
   if (DRY_RUN) {
-    process.stdout.write(`scanned=${result.scanned} would-reap=${result.killed.length} pids=[${result.killed.join(",")}]\n`);
+    // Log to file, not stdout: a SessionStart hook's stdout is injected into the
+    // model's context, and this is a context-frugality plugin — a dry-run summary
+    // must not spend context on every Windows session. (matches deps-heal.)
+    try {
+      appendFileSync(
+        LOG_PATH,
+        `${new Date().toISOString()} dry-run scanned=${result.scanned} would-reap=${result.killed.length} pids=[${result.killed.join(",")}]\n`,
+      );
+    } catch { /* best effort */ }
   }
 
   // Explicit exit: the very bug this hook cleans up (nodejs/node#22999) would

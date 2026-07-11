@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateSpec, resolveModuleDir } from "../../hooks/deps-heal.mjs";
+import { validateSpec, resolveModuleDir, installInvocation } from "../../hooks/deps-heal.mjs";
 import { resolve } from "node:path";
 
 describe("deps-heal spec validation (defect #1 — shell injection)", () => {
@@ -36,5 +36,22 @@ describe("deps-heal module dir resolution (defect #3 — path traversal)", () =>
   it("returns null when the name escapes node_modules", () => {
     expect(resolveModuleDir(root, "../../../etc")).toBeNull();
     expect(resolveModuleDir(root, "..")).toBeNull();
+  });
+});
+
+describe("deps-heal install invocation (defect #1 — node, never a .cmd shim)", () => {
+  it("invokes node (process.execPath) with npm-cli.js — not npm.cmd/npm", () => {
+    const { file, args } = installInvocation(
+      "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js",
+      "turndown@^7.2.0",
+      "/root",
+    );
+    expect(file).toBe(process.execPath); // node — going through cmd.exe is the CVE-2024-27980 vector
+    expect(file).not.toMatch(/\.cmd$/i);
+    expect(args[0]).toMatch(/npm-cli\.js$/); // npm's JS entry, run directly
+    expect(args[1]).toBe("install");
+    expect(args).toContain("turndown@^7.2.0");
+    expect(args).toContain("--ignore-scripts");
+    expect(args.some((a: string) => /\.cmd$/i.test(a))).toBe(false); // no .cmd anywhere in argv
   });
 });

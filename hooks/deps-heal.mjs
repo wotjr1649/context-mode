@@ -35,18 +35,19 @@ function log(msg) {
   }
 }
 
-// defect #1 (shell injection): validate name + range against a charset whitelist
-// BEFORE any exec. On Windows, execFileSync(shell:false) on a .cmd (npm.cmd) does
-// NOT fully escape arguments (CVE-2024-27980), so execFileSync alone is not a
-// defense — this whitelist is load-bearing and MUST gate the exec.
+// defect #1 (shell injection): npm is spawned as `node <npm-cli.js> …` (see
+// npmCliPath below), NEVER through the npm.cmd/npm shim. Going through the .cmd
+// shim under execFileSync is both unsafe on unpatched Node (CVE-2024-27980
+// under-escapes .cmd arguments) and outright broken on patched Node (>=18.20.2/
+// 20.12.2/21.7.3 throw EINVAL for a .cmd unless shell:true). Invoking node
+// directly bypasses cmd.exe entirely, so any range metacharacter (| > < ^)
+// reaches npm as an inert argv element, not shell syntax. The whitelist below is
+// defense-in-depth on top of that — not the sole barrier.
 const SAFE_NAME = /^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/i;
-// First char also allows semver leading operators (^ ~ > < = *) so ranges like
-// "^7.2.0" pass; the rest of the class stays tight. A literal space (not \s) is
-// the only whitespace a real range needs ("&gt;=1 &lt;2") — newlines and tabs are
-// excluded so this control does not lean on execFileSync's newline handling.
-// `|` stays for the semver OR (`1||2`); it is the one residual metacharacter the
-// whitelist cannot exclude, so on an unpatched Node it is neutralized by
-// execFileSync(shell:false) instead — the two layers are co-dependent for `|`.
+// Allows exactly what a real semver range needs: a leading operator (^ ~ > < = *),
+// digits/dots, `|` for the OR (`1||2`), `-` for prereleases / hyphen-ranges, and a
+// literal space (not \s, so newlines and tabs stay excluded) for compound ranges
+// like ">=1 <2".
 const SAFE_RANGE = /^[a-z0-9^~><=*][a-z0-9.^~><=|* +-]*$/i;
 
 export function validateSpec(name, range) {
@@ -65,6 +66,35 @@ export function resolveModuleDir(root, name) {
   const base = resolve(root, "node_modules") + sep;
   if (!dir.startsWith(base)) return null;
   return dir;
+}
+
+// Resolve npm's own CLI entry (npm-cli.js) so the install runs as `node <cli> …`
+// instead of the npm.cmd/npm shim (see the defect #1 note above). npm ships
+// bundled with node, so it lives next to the running node binary. Returns null
+// if it can't be located — the caller then heals (and deletes) nothing, which is
+// strictly safer than deleting a partial install it can't reinstall.
+function npmCliPath() {
+  const nodeDir = dirname(process.execPath);
+  const candidates = [
+    join(nodeDir, "node_modules", "npm", "bin", "npm-cli.js"), // Windows / standard node layout
+    join(nodeDir, "..", "lib", "node_modules", "npm", "bin", "npm-cli.js"), // POSIX prefix layout
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return null;
+}
+
+// Build the (file, args) for one heal install. Pure + exported so a test can pin
+// that we invoke node with npm-cli.js — never a .cmd shim (defect #1).
+export function installInvocation(npmCli, spec, root) {
+  return {
+    file: process.execPath,
+    args: [
+      npmCli, "install", spec, "--prefix", root, "--ignore-scripts",
+      "--no-save", "--no-package-lock", "--no-audit", "--no-fund", "--loglevel=error",
+    ],
+  };
 }
 
 // Only pure-JS dependencies that are require()d from node_modules at runtime.
@@ -145,7 +175,11 @@ if (isDirectRun()) {
     }
     if (!broken.length) process.exit(0);
 
-    const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+    // Spawn npm as `node <npm-cli.js>` — never the .cmd/npm shim (defect #1). If
+    // npm-cli.js can't be located, heal and delete NOTHING: doing nothing beats
+    // deleting a partial install we then can't reinstall.
+    const npmCli = npmCliPath();
+    if (!npmCli) { log("skipped all: npm-cli.js not found next to node — cannot reinstall safely"); process.exit(0); }
     log(`partial install detected: ${broken.map((b) => b[0]).join(", ")} — healing (tens of seconds on first run)...`);
     for (const [name, range] of broken) {
       // defect #1: never touch anything whose name/range fails the whitelist.
@@ -156,15 +190,8 @@ if (isDirectRun()) {
       try { rmSync(dir, { recursive: true, force: true }); } catch {} // clear partial-install remnants before reinstall
       const spec = `${name}@${range}`;
       try {
-        // execFileSync(shell:false) + the validateSpec whitelist above. On Windows
-        // the .cmd escaping is incomplete (CVE-2024-27980), so the whitelist — not
-        // this call — is the real injection defense.
-        execFileSync(
-          npm,
-          ["install", spec, "--prefix", root, "--ignore-scripts", "--no-save",
-            "--no-package-lock", "--no-audit", "--no-fund", "--loglevel=error"],
-          { stdio: "ignore", timeout: 180000, shell: false },
-        );
+        const { file, args } = installInvocation(npmCli, spec, root);
+        execFileSync(file, args, { stdio: "ignore", timeout: 180000, shell: false });
         log(`healed: ${spec}`);
       } catch (e) {
         log(`heal failed: ${spec} — ${String((e && e.message) || e).split("\n")[0]}`);
