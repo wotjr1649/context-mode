@@ -11,7 +11,7 @@ Prefix a command with `! ` in the Claude Code prompt to run it in-session
 
 ## Preconditions (all must hold before you start)
 
-- `origin/main` == local `HEAD` (phase-1/2 branches pushed, plus the 1.0.1 bump commit from phase-6a Task 5).
+- Local `HEAD` is the 1.0.1 tree and is **ahead** of `origin/main` by the phase-5/6 prep commits (plan, verify-deploy, runbook, 1.0.1 bump) — all unpushed; Step 1 pushes them. (Phases 1–4 were already pushed.)
 - `git ls-remote --tags origin` shows exactly `v1.0.0` (phase 5 gate).
 - `git tag` locally shows exactly `v1.0.0`.
 - Working tree clean; full capped suite failures ⊆ the 6 pre-existing environmental (executor×3 Python-absent, integration×2 node-e-deny, run-hook×1).
