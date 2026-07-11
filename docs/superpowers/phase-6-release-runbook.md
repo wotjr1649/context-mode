@@ -54,9 +54,9 @@ codex plugin marketplace upgrade context-mode
 node scripts/verify-deploy.mjs 1.0.1
 ```
 
-- **PASS (exit 0):** `installed_plugins.json`'s active `installPath` points at `.../context-mode-js/context-mode/1.0.1/`. **I1 confirmed** — the version string reinstall-keyed the deploy. Every future release is a bump + push + `/plugin update`.
-- **FAIL (exit 1):** the tree still points at `1.0.0`. **I1 refuted** — a version bump alone does NOT trigger reinstall under the renamed marketplace. Do NOT keep bumping; the reinstall mechanism must be redesigned (a full cutover like phase 2, or a cache-dir intervention). Record the observation and stop.
-- **FATAL (exit 2):** `installed_plugins.json` unreadable — check `CLAUDE_CONFIG_DIR` / that Claude Code has run at least once since the update.
+- **PASS (exit 0):** the DEPLOYED tree at the active `installPath` reports `1.0.1` in its own `package.json` (verify-deploy reads the deployed code, not just the directory name — a stale/empty `1.0.1/` dir does not fool it). **I1 confirmed** — the version string reinstall-keyed the deploy. Every future release is a bump + push + `/plugin update`.
+- **FAIL (exit 1):** the deployed tree still reports `1.0.0`, or the `1.0.1` dir is empty/half-installed (no readable `package.json`). **I1 refuted** (or the reinstall was incomplete) — a version bump alone did NOT land the new code under the renamed marketplace. Do NOT keep bumping; the reinstall mechanism must be redesigned (a full cutover like phase 2, or a cache-dir intervention). Record the observation and stop.
+- **FATAL (exit 2):** `installed_plugins.json` unreadable, or no `<expectedVersion>` argument given — check `CLAUDE_CONFIG_DIR` / that Claude Code has run at least once since the update.
 
 ## Step 5 — smoke test (both adapters)
 

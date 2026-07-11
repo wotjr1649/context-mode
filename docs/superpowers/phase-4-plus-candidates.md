@@ -103,3 +103,34 @@ The other user-level heal hooks were out of scope:
 - product-copy DEFERRED tier (~712 mentions) — **closed** in the 2026-07-11
   product-copy pass (`121300f`); only `tests/fixtures/playwright-snapshot.txt`
   remains as a captured external fixture.
+
+## I. Adversarial pre-deploy review (2026-07-11) — deferred Minors
+
+The pre-deploy adversarial panel (verify-deploy / runbook / tree-integrity /
+hook-security) fixed 1 Blocker + 2 Important + 1 Minor in `eb31539`. These
+lower-severity items were judged out of scope for the deploy and deferred:
+
+- **verify-deploy CLI integration tests.** The unit tests now pin the false-PASS,
+  empty-dir, and multi-entry cases, but the CLI wrapper (exit codes 0/1/2, FATAL on
+  missing/malformed installed_plugins.json, `CLAUDE_CONFIG_DIR` resolution) is still
+  only covered by the manual pre-flight, not spawn-the-script tests. Add process-level
+  tests with a temp `CLAUDE_CONFIG_DIR`.
+- **orphan-reaper `isReapable` is a full-command-line substring test.** A dead-parent,
+  >60s, cache-root-referencing process (an editor/grep/tail with the cache path in its
+  args) would match and be killed — plus a TOCTOU window (the 20s-old snapshot's PIDs
+  are killed without re-validating identity; Windows recycles PIDs). Gated behind
+  `CONTEXT_MODE_REAPER_ARMED=1` (default OFF), so it ships inert; harden by re-confirming
+  the target before kill and matching the executable under the cache root, not any
+  substring. (Extends item D.)
+- **deps-heal internal timeout (180s × N) exceeds the host hook budget (~60s).** No
+  `timeout` override in the hook manifests, so the host's default hook timeout can kill a
+  genuinely slow heal mid-install. Fail-safe (bounded), but drop the per-call timeout
+  under the host budget and/or heal out-of-band.
+- **mksglu upstream links in scripts.** `scripts/postinstall.mjs:69` and
+  `scripts/heal-better-sqlite3.mjs:31-32` reference `github.com/mksglu/context-mode/issues/*`
+  in comments/diagnostics — not invoked by any runbook command and not infra calls, but
+  they funnel issues upstream, against the D9 charter. Repoint at this fork or drop.
+- **Release plan doc footgun.** `docs/superpowers/plans/2026-07-11-phase-5-6-tags-release.md`
+  carries a gratuitous `git push origin refs/tags/v1.0.0 --force` in its rollback prose
+  (a no-op now; would clobber if refs ever diverged). The operative runbook is clean and
+  supersedes it; remove or annotate the plan-doc line.
