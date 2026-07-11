@@ -41,8 +41,13 @@ function log(msg) {
 // defense — this whitelist is load-bearing and MUST gate the exec.
 const SAFE_NAME = /^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/i;
 // First char also allows semver leading operators (^ ~ > < = *) so ranges like
-// "^7.2.0" pass; the rest of the class stays tight (no shell metacharacters).
-const SAFE_RANGE = /^[a-z0-9^~><=*][a-z0-9.^~><=\s|*+-]*$/i;
+// "^7.2.0" pass; the rest of the class stays tight. A literal space (not \s) is
+// the only whitespace a real range needs ("&gt;=1 &lt;2") — newlines and tabs are
+// excluded so this control does not lean on execFileSync's newline handling.
+// `|` stays for the semver OR (`1||2`); it is the one residual metacharacter the
+// whitelist cannot exclude, so on an unpatched Node it is neutralized by
+// execFileSync(shell:false) instead — the two layers are co-dependent for `|`.
+const SAFE_RANGE = /^[a-z0-9^~><=*][a-z0-9.^~><=|* +-]*$/i;
 
 export function validateSpec(name, range) {
   if (typeof name !== "string" || typeof range !== "string") return false;

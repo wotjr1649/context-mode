@@ -12,6 +12,15 @@ describe("deps-heal spec validation (defect #1 — shell injection)", () => {
     expect(validateSpec("turndown", "$(rm -rf /)")).toBe(false);
     expect(validateSpec("turndown", "7`whoami`")).toBe(false);
   });
+  it("rejects newlines and tabs in a range (only a literal space is allowed)", () => {
+    // A real semver range needs at most a single space (">=1 <2"); newlines
+    // and tabs never occur in one. Excluding them keeps this whitelist from
+    // leaning on execFileSync's newline handling on unpatched Node.
+    expect(validateSpec("turndown", "7\n rm x")).toBe(false);
+    expect(validateSpec("turndown", "7\ttab")).toBe(false);
+    expect(validateSpec("turndown", "7\r\n x")).toBe(false);
+    expect(validateSpec("turndown", ">=1 <2")).toBe(true); // legitimate space survives
+  });
   it("rejects a name with shell metacharacters or traversal", () => {
     expect(validateSpec("turndown; rm x", "1.0.0")).toBe(false);
     expect(validateSpec("../../evil", "1.0.0")).toBe(false);
