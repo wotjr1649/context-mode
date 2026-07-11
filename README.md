@@ -30,7 +30,8 @@ Codex**.
   `src/adapters/client-map.ts` raises an explicit error for a removed client
   rather than silently degrading it to Claude Code.
 - **No upstream infrastructure is called.** No CDN purge, no shared status
-  badges, no links funnelling issues or sponsorship to the upstream project.
+  badges, no automated links or sponsorship funnels to the upstream project.
+  (Editorial pointers back to the original project are kept, by policy — see below.)
 - **`private: true`.** This fork is not published to npm; it installs from this
   repository through the plugin marketplaces below.
 
@@ -70,6 +71,7 @@ Enable the plugin hooks in `~/.codex/config.toml`:
 ```toml
 [features]
 hooks = true
+# Some Codex builds also require the line below for plugin-provided hooks:
 plugin_hooks = true
 ```
 
