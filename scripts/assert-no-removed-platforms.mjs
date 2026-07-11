@@ -7,7 +7,7 @@
  *
  *   GATED (hard-fail, TOTAL RESIDUE must be 0):
  *     src/, hooks/, scripts/, tests/, configs/, .claude-plugin/,
- *     .codex-plugin/, package.json — everywhere residue can route code,
+ *     .codex-plugin/, package.json, start.mjs — everywhere residue can route code,
  *     resurrect an adapter, or steer kept-platform behavior. The 2026-07-11
  *     product-copy pass promoted the rewritten outward-facing surfaces into
  *     this tier too: README.md, CONTRIBUTING.md, .github/, .gitignore,
@@ -50,6 +50,9 @@ const EXCLUDE = /^(docs\/superpowers\/|\.superpowers\/|refs\/|scripts\/assert-no
 const GATED = [
   /^src\//, /^hooks\//, /^scripts\//, /^tests\//, /^configs\//,
   /^\.claude-plugin\//, /^\.codex-plugin\//, /^package\.json$/,
+  // start.mjs is the plugin entrypoint (registry + forward heal) — it routes
+  // code on every boot, so removed-platform residue there is load-bearing.
+  /^start\.mjs$/,
   // Promoted by the 2026-07-11 product-copy pass — rewritten fork-honest copy.
   /^README\.md$/, /^CONTRIBUTING\.md$/, /^\.github\//, /^\.gitignore$/,
   /^skills\//, /^docs\/adr\//,
@@ -66,6 +69,13 @@ const ALLOW = [
   // names must be recognized to raise UnsupportedClientError instead of
   // silently degrading a removed client to claude-code.
   { file: "src/adapters/client-map.ts", needle: /.*/, reason: "REMOVED_CLIENT_NAMES fail-fast denylist — the literals are the guard" },
+
+  // Deleted-adapter entry-point regression test: the removed ids ARE the
+  // DELETED_ADAPTER regex fixture (+ the doc comment naming them). It pins
+  // package.json main/exports off any deleted-adapter build path — same
+  // "the literals are the guard" rationale as client-map.ts above. Landed in
+  // 97f82c0 without a scan pass, so this gate had been red at base since.
+  { file: "tests/core/package-exports.test.ts", needle: /.*/, reason: "deleted-adapter entry-point regression pins — the removed ids ARE the DELETED_ADAPTER regex fixture" },
 
   // English word "cursor" as the JSONL/DB high-water-mark concept
   // (usage_cursor column, extract cursors) — unrelated to the Cursor IDE.

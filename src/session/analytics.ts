@@ -1946,13 +1946,9 @@ export function renderCostExample(
   const lifetimeUsd = lifetimeTokens * pricePerToken();
   const usdStr  = (n: number, dp: number = 2): string => n.toFixed(dp);
 
-  // Comparison units — kept locally so they're easy to tune without touching
-  // the renderer logic. Cursor Pro & Claude Max are public list prices; the
-  // weekend constant is an intentional approximation calibrated to make
-  // $1399.73 → "19 weekends" line up with the demo target.
+  // Comparison unit — kept local so it's easy to tune without touching the
+  // renderer logic. Cursor Pro is a public list price.
   const cursorMonths     = Math.round(lifetimeUsd / 20);
-  const claudeMaxMonths  = (lifetimeUsd / 200).toFixed(1);
-  const weekendCount     = Math.round(lifetimeUsd / 73.67);
   const teamUsd          = Math.round(lifetimeUsd * 10);
   const teamYearUsd      = lifetimeDays > 0
     ? Math.round((lifetimeUsd * 10) / lifetimeDays * 365)
@@ -2633,61 +2629,6 @@ function renderBottomLine(sessionTokensSaved: number, lifetime: LifetimeStats | 
  * Kept in lockstep with `bin/statusline.mjs`'s persisted lifetime conversion.
  */
 const TOKENS_PER_EVENT = 256;
-
-/**
- * Render the LIFETIME Without/With hero — the screenshottable receipt.
- *
- * Why lifetime and not session: the "$X saved this session" framing is
- * arbitrary (a fresh PID can show $0 even while the user has weeks of work
- * banked). Lifetime is real, accumulating, and the number worth screenshotting.
- * The current conversation's contribution still shows below as a sub-block.
- */
-function renderHero(args: {
-  lifetimeTokensWithout: number;
-  lifetimeTokensWith: number;
-  lifetimeUsd: string;
-  lifetimeWithUsd: string;
-  savedPct: number;
-  totalConversations: number;
-  firstDate?: string;
-}): string[] {
-  const { lifetimeTokensWithout, lifetimeTokensWith, lifetimeUsd, lifetimeWithUsd, savedPct, totalConversations, firstDate } = args;
-  const out: string[] = [];
-  const since = firstDate ? `  ·  since ${firstDate}` : "";
-  out.push(`  ${lifetimeUsd} saved with context-mode  ·  ${savedPct.toFixed(1)}% reduction${since}`);
-  out.push("");
-  const withoutBar = dataBar(lifetimeTokensWithout, lifetimeTokensWithout, 32);
-  const withBar = dataBar(lifetimeTokensWith, lifetimeTokensWithout, 32);
-  out.push(`  Without context-mode  ${fmtNum(lifetimeTokensWithout).padStart(7)} tokens  ${withoutBar}   ${lifetimeUsd}`);
-  out.push(`  With context-mode     ${fmtNum(lifetimeTokensWith).padStart(7)} tokens  ${withBar}   ${lifetimeWithUsd}`);
-  const kept = lifetimeTokensWithout - lifetimeTokensWith;
-  out.push(`                        ${fmtNum(kept).padStart(7)} tokens kept out  ·  across ${totalConversations.toLocaleString("en-US")} conversations`);
-  return out;
-}
-
-/**
- * Render the current conversation as a contribution narrative — not a hero.
- * Highlights the slice of lifetime savings this chat earned + concrete proof
- * (events, days alive, compact rescues).
- */
-function renderConversation(c: ConversationStats, conversationUsd: string, contribPct: number): string[] {
-  const out: string[] = [];
-  const daysStr = c.daysAlive >= 1 ? `${c.daysAlive.toFixed(1)} days` : `${Math.max(1, Math.round(c.daysAlive * 24))} hr`;
-  const pctStr = contribPct >= 1 ? `${contribPct.toFixed(0)}% of all-time` : `<1% of all-time`;
-  out.push(`  This conversation contributed ${conversationUsd}  ·  ${pctStr}`);
-  out.push(`  ${c.events.toLocaleString("en-US")} events  ·  ${daysStr} alive`);
-  if (c.snapshotsConsumed > 0 && c.snapshotBytes > 0) {
-    const rescuedTokens = Math.round(c.snapshotBytes / 4);
-    out.push(`  ${c.snapshotsConsumed} compact weathered  ·  ${fmtNum(rescuedTokens)} tokens rescued from a ${(c.snapshotBytes / 1024).toFixed(0)} KB snapshot`);
-  }
-  out.push("");
-  if (c.byCategory.length === 0) return out;
-  const max = c.byCategory[0].count || 1;
-  for (const cat of c.byCategory) {
-    out.push(`    ${cat.label.padEnd(26)} ${String(cat.count).padStart(5)}   ${dataBar(cat.count, max, 28)}`);
-  }
-  return out;
-}
 
 /**
  * B3b Slice 3.2/3.3 — render the "Where it came from" sub-block from a

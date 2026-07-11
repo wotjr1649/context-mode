@@ -5,6 +5,7 @@ packages/*/dist/
 .DS_Store
 /tmp/
 tmp.*/
+*.tmp
 *.db
 server.bundle.mjs
 cli.bundle.mjs
