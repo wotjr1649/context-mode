@@ -24,9 +24,9 @@
   },
   "homepage": "https://github.com/wotjr1649/context-mode#readme",
   "bugs": "https://github.com/wotjr1649/context-mode/issues",
-  "main": "./build/adapters/opencode/plugin.js",
+  "main": "./server.bundle.mjs",
   "exports": {
-    ".": "./build/adapters/opencode/plugin.js",
+    ".": "./server.bundle.mjs",
     "./cli": "./cli.bundle.mjs"
   },
   "bin": {
