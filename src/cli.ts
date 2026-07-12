@@ -18,7 +18,6 @@ import * as p from "@clack/prompts";
 import color from "picocolors";
 import { execFileSync, execSync, execFile as nodeExecFile, type ExecSyncOptions } from "node:child_process";
 import { readFileSync, writeFileSync, cpSync, accessSync, existsSync, readdirSync, rmSync, closeSync, openSync, chmodSync, mkdirSync, lstatSync, realpathSync, statSync, constants } from "node:fs";
-import { request as httpsRequest } from "node:https";
 import { resolve, dirname, join, sep, basename, isAbsolute } from "node:path";
 import { tmpdir, devNull, homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -297,33 +296,6 @@ function getLocalVersion(): string {
   } catch {
     return "unknown";
   }
-}
-
-async function fetchLatestVersion(): Promise<string> {
-  // Use node:https instead of global fetch to avoid a Windows libuv assertion
-  // (UV_HANDLE_CLOSING) caused by undici's connection-pool background threads
-  // racing with process.exit() teardown on Node.js v24+.
-  return new Promise((resolve) => {
-    const req = httpsRequest(
-      "https://registry.npmjs.org/context-mode/latest",
-      { headers: { Connection: "close" } },
-      (res) => {
-        let raw = "";
-        res.on("data", (chunk: Buffer) => { raw += chunk; });
-        res.on("end", () => {
-          try {
-            const data = JSON.parse(raw) as { version?: string };
-            resolve(data.version ?? "unknown");
-          } catch {
-            resolve("unknown");
-          }
-        });
-      },
-    );
-    req.on("error", () => resolve("unknown"));
-    req.setTimeout(5000, () => { req.destroy(); resolve("unknown"); });
-    req.end();
-  });
 }
 
 /* -------------------------------------------------------
@@ -955,26 +927,9 @@ async function doctor(): Promise<number> {
   // Version check — adapter-aware
   p.log.step("Checking versions...");
   const localVersion = getLocalVersion();
-  const latestVersion = await fetchLatestVersion();
   const installedVersion = adapter.getInstalledVersion();
 
-  if (latestVersion === "unknown") {
-    p.log.warn(
-      color.yellow("npm (MCP): WARN") +
-        ` — local v${localVersion}, could not reach npm registry`,
-    );
-  } else if (localVersion === latestVersion) {
-    p.log.success(
-      color.green("npm (MCP): PASS") +
-        ` — v${localVersion}`,
-    );
-  } else {
-    p.log.warn(
-      color.yellow("npm (MCP): WARN") +
-        ` — local v${localVersion}, latest v${latestVersion}` +
-        color.dim("\n  Run: /context-mode:ctx-upgrade"),
-    );
-  }
+  p.log.success(color.green("npm (MCP): PASS") + ` — v${localVersion}`);
 
   if (installedVersion === "standalone") {
     p.log.info(
@@ -986,22 +941,8 @@ async function doctor(): Promise<number> {
       color.dim(`${adapter.name}: not installed`) +
         " — using standalone MCP mode",
     );
-  } else if (latestVersion !== "unknown" && installedVersion === latestVersion) {
-    p.log.success(
-      color.green(`${adapter.name}: PASS`) +
-        ` — v${installedVersion}`,
-    );
-  } else if (latestVersion !== "unknown") {
-    p.log.warn(
-      color.yellow(`${adapter.name}: WARN`) +
-        ` — v${installedVersion}, latest v${latestVersion}` +
-        color.dim("\n  Run: /context-mode:ctx-upgrade"),
-    );
   } else {
-    p.log.info(
-      `${adapter.name}: v${installedVersion}` +
-        color.dim(" — could not verify against npm registry"),
-    );
+    p.log.success(color.green(`${adapter.name}: PASS`) + ` — v${installedVersion}`);
   }
 
   // Summary

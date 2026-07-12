@@ -925,10 +925,10 @@ for pvar in HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY; do
 done
 [ "$PROXY_SET" = "false" ] && printf -- '- No proxy environment variables detected\n'
 
-# HTTPS connectivity
+# HTTPS connectivity — probe registry root only (fork is private; no package path)
 NPM_TLS="$(timed 10 node -e "
   const https = require('https');
-  const req = https.get('https://registry.npmjs.org/context-mode', { timeout: 5000 }, (res) => {
+  const req = https.get('https://registry.npmjs.org/', { timeout: 5000 }, (res) => {
     console.log('PASS: HTTP ' + res.statusCode);
     req.destroy();
   });
