@@ -1,6 +1,6 @@
 {
   "name": "context-mode",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "type": "module",
   "description": "MCP plugin that saves 98% of your context window. Works with Claude Code and Codex CLI (hard fork). Sandboxed code execution, FTS5 knowledge base, and intent-driven search.",
