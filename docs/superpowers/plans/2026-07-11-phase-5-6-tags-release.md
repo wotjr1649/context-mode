@@ -250,12 +250,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 사용자가 6b에서 따를 정확한 절차. 실측 명령으로:
 
 1. **전제:** `main` push 완료(origin = HEAD), 로컬 태그 = `v1.0.0` 하나, 작업트리 깨끗, 전체 스위트 ⊆ 6건.
-2. **버전 상향(6a, 이미 커밋됨):** `package.json` `1.0.1` + version-sync로 매니페스트 동기화(Task 5). 
+2. **버전 상향(6a, 이미 커밋됨):** `package.json` `1.0.1` + version-sync로 매니페스트 동기화(Task 5).
 3. **push:** `git push origin main` + `git push origin refs/tags/v1.0.1` (단일 refspec — `--tags` 아님).
 4. **커토버(경량):** Claude — `/plugin marketplace update context-mode-js` 다음 `/plugin update context-mode@context-mode-js`. Codex — `codex plugin marketplace upgrade context-mode`.
 5. **검증:** `node scripts/verify-deploy.mjs 1.0.1` → PASS 면 `installed_plugins.json`이 1.0.1을 가리킴 = **I1 확인**(버전 문자열이 재설치 키). FAIL 이면 I1 반증 — 재설치가 버전 게이트를 안 탄다.
 6. **스모크:** Claude·Codex 각 세션에서 `ctx_execute`·`ctx_search`·`ctx_fetch_and_index` 각 1회 성공(단계 3·4 코드가 실제로 돎).
-7. **1.0.0 복귀(실패 시):** `package.json` `1.0.0`으로 되돌림 + version-sync + `git push origin main` + `git push origin refs/tags/v1.0.0 --force`(같은 이름 재부착이 아니라 이미 있음) → `/plugin update`. **주의:** `installed_plugins.json`의 캐시는 약 7일 롤백 창(F48). 그 후엔 고아 캐시 자동 정리로 복귀가 재설치가 된다.
+7. **1.0.0 복귀(실패 시):** `package.json` `1.0.0`으로 되돌림 + version-sync + `git push origin main` → `/plugin update` → `verify-deploy 1.0.0`. **v1.0.0 태그는 이미 원격에 있으므로 다시 push하지 않는다**(`--force` 불필요; 운영 절차는 런북을 따른다). **주의:** `installed_plugins.json`의 캐시는 약 7일 롤백 창(F48). 그 후엔 고아 캐시 자동 정리로 복귀가 재설치가 된다.
 
 > 런북은 **사용자가 실행**한다. 이 문서는 명령을 정확히 담되, 실행하지 않는다.
 

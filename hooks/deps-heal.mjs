@@ -18,7 +18,7 @@
 //
 // Pure Node.js built-ins only, so it loads even when node_modules is broken.
 // Best-effort: a failure never blocks session start.
-import { existsSync, readFileSync, realpathSync, rmSync, appendFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, rmSync, renameSync, appendFileSync } from "node:fs";
 import { resolve, join, sep, dirname } from "node:path";
 import { homedir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -81,6 +81,27 @@ function npmCliPath() {
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
+  }
+  // Fallback for layouts where node is not co-located with npm (nvm/fnm/volta/
+  // scoop): locate the npm shim on PATH and derive its bundled npm-cli.js. This
+  // only LOCATES npm (where/which) — the install still runs via `node <cli>`,
+  // never the shim, so cmd.exe is never involved.
+  try {
+    const locator = process.platform === "win32" ? "where" : "which";
+    const out = execFileSync(locator, ["npm"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000, shell: false });
+    const shim = String(out).split(/\r?\n/).map((s) => s.trim()).find(Boolean);
+    if (shim) {
+      const shimDir = dirname(shim);
+      const derived = [
+        join(shimDir, "node_modules", "npm", "bin", "npm-cli.js"), // shim sibling (Windows)
+        join(shimDir, "..", "lib", "node_modules", "npm", "bin", "npm-cli.js"), // bin/npm -> ../lib (POSIX)
+      ];
+      for (const c of derived) {
+        if (existsSync(c)) return c;
+      }
+    }
+  } catch {
+    /* PATH lookup failed — fall through to null */
   }
   return null;
 }
@@ -187,14 +208,25 @@ if (isDirectRun()) {
       // defect #3: only delete a path that provably stays under root/node_modules.
       const dir = resolveModuleDir(root, name);
       if (!dir) { log(`skipped (path escapes node_modules): ${name}`); continue; }
-      try { rmSync(dir, { recursive: true, force: true }); } catch {} // clear partial-install remnants before reinstall
       const spec = `${name}@${range}`;
+      // Move the partial aside rather than deleting it outright, so a failed
+      // reinstall (network / permission / timeout) restores it instead of
+      // leaving the module gone — a worse state than the partial it started as.
+      const bak = dir + ".context-mode-heal-bak";
+      try { rmSync(bak, { recursive: true, force: true }); } catch {}
+      let movedAside = false;
+      try { if (existsSync(dir)) { renameSync(dir, bak); movedAside = true; } } catch {}
       try {
         const { file, args } = installInvocation(npmCli, spec, root);
         execFileSync(file, args, { stdio: "ignore", timeout: 180000, shell: false });
+        if (movedAside) { try { rmSync(bak, { recursive: true, force: true }); } catch {} } // success: drop backup
         log(`healed: ${spec}`);
       } catch (e) {
-        log(`heal failed: ${spec} — ${String((e && e.message) || e).split("\n")[0]}`);
+        // restore the partial we moved aside so a transient failure is not destructive
+        if (movedAside) {
+          try { rmSync(dir, { recursive: true, force: true }); renameSync(bak, dir); } catch {}
+        }
+        log(`heal failed${movedAside ? " (partial restored)" : ""}: ${spec} — ${String((e && e.message) || e).split("\n")[0]}`);
       }
     }
   } catch {}

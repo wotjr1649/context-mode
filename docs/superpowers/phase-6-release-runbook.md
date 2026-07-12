@@ -27,7 +27,7 @@ git push origin refs/tags/v1.0.1
 
 - `v1.0.1` is created HERE (not in phase-6a) and points at the 1.0.1 bump commit — the tree that actually ships.
 - `git push origin refs/tags/v1.0.1` pushes **only** that tag. **Never `git push origin --tags`** — it would re-flood the 198 upstream tags you just removed.
-- Verify: `git ls-remote --tags origin` → exactly `v1.0.0` and `v1.0.1`, nothing else.
+- Verify: `git ls-remote --tags origin` → tag names `v1.0.0` and `v1.0.1`, and no others. (Annotated tags each also print a peeled `refs/tags/vX^{}` line, so expect up to 4 rows total — that is normal, not an extra tag.)
 
 ## Step 2 — lightweight cutover (Claude Code)
 
