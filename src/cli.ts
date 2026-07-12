@@ -72,7 +72,7 @@ import { detectPlatform, getAdapter } from "./adapters/detect.js";
 // FORK (wotjr1649/context-mode)? Accepts https + ssh, with/without .git or trailing
 // slash. Charter D9: the sync must never hard-reset a clone pointed elsewhere.
 export function isForkOrigin(originUrl: string): boolean {
-  return /(?:github\.com[/:])wotjr1649\/context-mode(?:\.git)?\/?$/i.test(
+  return /(?:^|\/\/|@)github\.com[/:]wotjr1649\/context-mode(?:\.git)?\/?$/i.test(
     String(originUrl ?? "").trim(),
   );
 }
