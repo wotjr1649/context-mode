@@ -21,7 +21,7 @@ const WHITELIST = [
   /mksglu\\?\/context-mode/i,               // upstream attribution + D9 needle (D9's own NEEDLES regex literal renders this escaped: mksglu\/context-mode)
   /registry\\?\.npmjs\\?\.org\\?\/context-mode/i, // upstream npm needle (ditto, escaped form in D9's NEEDLES)
   /context-mode-ops/,                    // credits skill name
-  /\.context-mode\b/,                    // legacy home dot-dir ~/.context-mode (NOT the data-dir "context-mode/")
+  /(?<![A-Za-z0-9_])\.context-mode\b/,   // legacy home dot-dir ~/.context-mode (NOT the data-dir "context-mode/"; lookbehind excludes dotted keys like mcp_servers.context-mode)
   /context-mode-cache-heal/,             // N1: start.mjs legitimately retains the OLD hook name to clean it up
 ];
 // Whole files that are pure attribution / generated — never scanned.
