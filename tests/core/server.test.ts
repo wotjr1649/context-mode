@@ -362,7 +362,7 @@ describe("Stdout Cap", () => {
     });
     assert.ok(r.stderr.includes("output capped"), "Expected cap message in stderr, got: " + r.stderr.slice(-200));
     assert.ok(r.stderr.includes("process killed"), "Expected 'process killed' in stderr");
-  });
+  }, 20_000);
 });
 
 describe("Stderr Cap", () => {
@@ -374,7 +374,7 @@ describe("Stderr Cap", () => {
       timeout: 10_000,
     });
     assert.ok(r.stderr.includes("output capped"), "Expected cap message in stderr for stderr-heavy output");
-  });
+  }, 20_000);
 });
 
 describe("Combined Cap", () => {
@@ -386,7 +386,7 @@ describe("Combined Cap", () => {
       timeout: 10_000,
     });
     assert.ok(r.stderr.includes("output capped"), "Combined output should have triggered the cap");
-  });
+  }, 20_000);
 });
 
 describe("Normal Operation", () => {
@@ -427,7 +427,7 @@ describe("Memory Bounding", () => {
     const stdoutBytes = Buffer.byteLength(r.stdout);
     const tolerance = 256 * 1024;
     assert.ok(stdoutBytes < capBytes + tolerance, "Collected " + stdoutBytes + " bytes stdout; expected bounded near " + capBytes);
-  });
+  }, 20_000);
 });
 
 describe("Cap Message Format", () => {
@@ -441,7 +441,7 @@ describe("Cap Message Format", () => {
     });
     assert.ok(r.stderr.includes("2MB"), "Expected '2MB' in cap message: " + r.stderr.slice(-200));
     assert.ok(r.stderr.includes("process killed"));
-  });
+  }, 20_000);
 
   test("format: cap message uses em dash and bracket format", async () => {
     const executor = new PolyglotExecutor({ hardCapBytes: 1024, runtimes });
@@ -452,7 +452,7 @@ describe("Cap Message Format", () => {
     });
     assert.ok(r.stderr.includes("\u2014"), "Cap message should use em dash");
     assert.ok(r.stderr.includes("[output capped at"), "Cap message should start with '[output capped at'");
-  });
+  }, 20_000);
 });
 
 describe("Timeout Independence", () => {

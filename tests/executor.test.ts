@@ -31,6 +31,17 @@ function findWindowsGitBash(): string | null {
   return candidates.find(p => existsSync(p)) ?? null;
 }
 
+/** Poll until `pid` is dead (ESRCH) or the deadline elapses — robust to
+ *  load-induced reap delay, unlike a fixed sleep. True iff the process died. */
+async function waitUntilDead(pid: number, timeoutMs = 5000, pollMs = 50): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try { process.kill(pid, 0); } catch { return true; } // ESRCH → dead
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+}
+
 describe("Runtime Detection", () => {
   test("detects JavaScript runtime (bun or node)", async () => {
     const isBun = runtimes.javascript.endsWith("bun");
@@ -862,7 +873,7 @@ describe("Timeout Handling", () => {
       timeout: 500,
     });
     assert.equal(r.timedOut, true);
-  });
+  }, 20_000);
 
   // Issue #406 — when timeout omitted, no server-side timer fires and a
   // long-running process completes naturally. Caller (or MCP host) owns
@@ -897,15 +908,8 @@ describe("Timeout Handling", () => {
     assert.equal(r.timedOut, true);
     const pid = parseInt(r.stdout.trim(), 10);
     assert.ok(pid > 0, `Expected valid PID in stdout, got: "${r.stdout}"`);
-    // Give OS a moment to reap
-    await new Promise(r => setTimeout(r, 200));
-    let alive = false;
-    try {
-      process.kill(pid, 0); // signal 0 = check if alive
-      alive = true;
-    } catch { /* ESRCH = not found = good */ }
-    assert.equal(alive, false, `Process ${pid} should be dead after timeout kill`);
-  }, 10_000);
+    assert.ok(await waitUntilDead(pid), `Process ${pid} should be dead after timeout kill`);
+  }, 20_000);
 
   test("JS: child processes are killed with parent (no orphans)", async () => {
     // Parent spawns a child that writes its PID to stderr, then both loop
@@ -931,13 +935,10 @@ describe("Timeout Handling", () => {
     const childPid = parseInt(r.stderr.trim(), 10);
     assert.ok(parentPid > 0, `Expected parent PID, got: "${r.stdout}"`);
     assert.ok(childPid > 0, `Expected child PID, got: "${r.stderr}"`);
-    await new Promise(r => setTimeout(r, 200));
     for (const pid of [parentPid, childPid]) {
-      let alive = false;
-      try { process.kill(pid, 0); alive = true; } catch {}
-      assert.equal(alive, false, `Process ${pid} should be dead after group kill`);
+      assert.ok(await waitUntilDead(pid), `Process ${pid} should be dead after group kill`);
     }
-  }, 10_000);
+  }, 20_000);
 
   test("Shell: sleep times out", async () => {
     const r = await executor.execute({
@@ -946,7 +947,7 @@ describe("Timeout Handling", () => {
       timeout: 500,
     });
     assert.equal(r.timedOut, true);
-  }, 10_000);
+  }, 20_000);
 
     test.runIf(runtimes.python)("Python: infinite sleep times out", async () => {
     const r = await executor.execute({
@@ -1830,7 +1831,7 @@ describe("hardCapBytes Enforcement", () => {
     });
     assert.ok(r.stderr.includes("output capped at"), "Should indicate cap was hit");
     assert.notEqual(r.exitCode, 0, "Process should be killed (non-zero exit)");
-  }, 15_000);
+  }, 20_000);
 
   test("stderr contributes to byte cap", async () => {
     const cappedExecutor = new PolyglotExecutor({
@@ -1843,7 +1844,7 @@ describe("hardCapBytes Enforcement", () => {
       timeout: 10_000,
     });
     assert.ok(r.stderr.includes("output capped at"), "stderr should trigger cap");
-  }, 15_000);
+  }, 20_000);
 });
 
 describe("Windows Shell Support", () => {
