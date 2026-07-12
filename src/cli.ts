@@ -68,6 +68,15 @@ function browserOpenArgv(
 // ── Adapter imports ──────────────────────────────────────
 import { detectPlatform, getAdapter } from "./adapters/detect.js";
 
+// Pure + exported for tests: does a marketplace clone's origin URL point at the
+// FORK (wotjr1649/context-mode)? Accepts https + ssh, with/without .git or trailing
+// slash. Charter D9: the sync must never hard-reset a clone pointed elsewhere.
+export function isForkOrigin(originUrl: string): boolean {
+  return /(?:github\.com[/:])wotjr1649\/context-mode(?:\.git)?\/?$/i.test(
+    String(originUrl ?? "").trim(),
+  );
+}
+
 /* -------------------------------------------------------
  * Hook dispatcher — `context-mode hook <platform> <event>`
  * ------------------------------------------------------- */
@@ -1031,16 +1040,24 @@ async function upgrade(opts?: { platform?: string }) {
           color.dim(`  Run manually: git -C "${marketplaceDir}" stash && git pull --ff-only`),
         );
       } else {
-        execFileSync(
-          "git", ["-C", marketplaceDir, "fetch", "--tags", "origin"],
-          { stdio: "pipe", timeout: 30000 },
-        );
-        execFileSync(
-          "git", ["-C", marketplaceDir, "reset", "--hard", "origin/HEAD"],
-          { stdio: "pipe", timeout: 10000 },
-        );
-        s.stop(color.green("Marketplace clone synced"));
-        changes.push("Marketplace clone updated to upstream");
+        let originUrl = "";
+        try {
+          originUrl = execFileSync(
+            "git", ["-C", marketplaceDir, "remote", "get-url", "origin"],
+            { stdio: "pipe", encoding: "utf-8", timeout: 5000 },
+          ).trim();
+        } catch { /* no origin resolvable → treated as non-fork below */ }
+        if (!isForkOrigin(originUrl)) {
+          // Charter D9: never hard-reset a marketplace clone pointed off the fork.
+          s.stop(color.yellow("Marketplace sync skipped — origin is not the fork"));
+          p.log.info(color.dim(`  origin: ${originUrl || "(none)"}`));
+        } else {
+          // Fetch WITHOUT --tags (never flood the fork tag namespace with upstream's).
+          execFileSync("git", ["-C", marketplaceDir, "fetch", "origin"], { stdio: "pipe", timeout: 30000 });
+          execFileSync("git", ["-C", marketplaceDir, "reset", "--hard", "origin/HEAD"], { stdio: "pipe", timeout: 10000 });
+          s.stop(color.green("Marketplace clone synced"));
+          changes.push("Marketplace clone updated");
+        }
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1057,7 +1074,7 @@ async function upgrade(opts?: { platform?: string }) {
 
   // Charter D9: clone the FORK, never upstream mksglu — cloning upstream would
   // overwrite this hard fork with upstream code on `ctx upgrade`. (The version
-  // check + marketplace --tags/origin repoint are tracked as P0 for 1.0.3.)
+  // check removal + marketplace --tags/origin repoint landed in 1.0.3.)
   s.start("Cloning wotjr1649/context-mode");
   try {
     execFileSync(
@@ -1419,7 +1436,7 @@ async function upgrade(opts?: { platform?: string }) {
                 ` — ${marketplaceDir} reports "${mpj?.version}" but expected "${newVersion}"`,
             );
             p.log.info(
-              color.dim(`  Run manually: git -C "${marketplaceDir}" fetch --tags origin && git -C "${marketplaceDir}" reset --hard origin/HEAD`),
+              color.dim(`  Run manually: git -C "${marketplaceDir}" fetch origin && git -C "${marketplaceDir}" reset --hard origin/HEAD`),
             );
           }
         }
