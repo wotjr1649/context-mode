@@ -1,6 +1,6 @@
 {
-  "name": "context-mode",
-  "version": "1.0.3",
+  "name": "ctxscribe",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "MCP plugin that saves 98% of your context window. Works with Claude Code and Codex CLI (hard fork). Sandboxed code execution, FTS5 knowledge base, and intent-driven search.",
@@ -20,17 +20,17 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/wotjr1649/context-mode"
+    "url": "https://github.com/wotjr1649/ctxscribe"
   },
-  "homepage": "https://github.com/wotjr1649/context-mode#readme",
-  "bugs": "https://github.com/wotjr1649/context-mode/issues",
+  "homepage": "https://github.com/wotjr1649/ctxscribe#readme",
+  "bugs": "https://github.com/wotjr1649/ctxscribe/issues",
   "main": "./server.bundle.mjs",
   "exports": {
     ".": "./server.bundle.mjs",
     "./cli": "./cli.bundle.mjs"
   },
   "bin": {
-    "context-mode": "./cli.bundle.mjs"
+    "ctxscribe": "./cli.bundle.mjs"
   },
   "files": [
     "build",

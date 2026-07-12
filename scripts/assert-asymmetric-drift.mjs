@@ -26,7 +26,7 @@
 //
 // Contract:
 //   - Read `.mcp.json.example` and `.claude-plugin/plugin.json` from --root.
-//   - Extract mcpServers["context-mode"].args[0] from each.
+//   - Extract mcpServers["mcp"].args[0] from each.
 //   - Assert both equal the literal `${CLAUDE_PLUGIN_ROOT}/start.mjs`.
 //   - Assert the two values are equal (the explicit drift check).
 //   - If a `.mcp.json` exists (contributor's local copy), check it too —
@@ -42,7 +42,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PLACEHOLDER = "${CLAUDE_PLUGIN_ROOT}/start.mjs";
-const PLUGIN_KEY = "context-mode";
+const PLUGIN_KEY = "mcp";
 const SKILLS_PATH = "./skills/";
 const REQUIRED_PLUGIN_RUNTIME_FILES = [
   "start.mjs",
