@@ -2801,45 +2801,28 @@ describe("ContentStore purge behavior", () => {
   });
 });
 
-// ─── Version outdated warning ────────────────────────────────────────────────
+// ─── Version outdated warning removed (1.0.3, Charter D9) ────────────────────
 
-describe("Version outdated warning in trackResponse", () => {
+describe("Version outdated warning removed (upstream npm check)", () => {
   const serverSrc = readFileSync(
     resolve(__dirname, "../../src/server.ts"),
     "utf-8",
   );
 
-  test("fetchLatestVersion function exists and uses npm registry", () => {
-    expect(serverSrc).toContain("function fetchLatestVersion");
-    expect(serverSrc).toContain("registry.npmjs.org/context-mode");
+  // 1.0.3: the upstream npm version-check + per-tool-call nag banner are gone.
+  // A private single-maintainer fork has no npm "latest"; users update via the
+  // marketplace /plugin update. These assert the surface stays removed.
+  test("no upstream npm version-check remains", () => {
+    expect(serverSrc).not.toContain("fetchLatestVersion");
+    expect(serverSrc).not.toContain("registry.npmjs.org/context-mode");
+    expect(serverSrc).not.toContain("_latestVersion");
   });
 
-  test("version check fires in main() after server.connect", () => {
-    const mainFn = serverSrc.slice(serverSrc.indexOf("async function main"));
-    expect(mainFn).toContain("fetchLatestVersion");
-  });
-
-  test("trackResponse prepends warning when outdated", () => {
-    const trackFn = serverSrc.slice(
-      serverSrc.indexOf("function trackResponse"),
-      serverSrc.indexOf("function trackIndexed"),
-    );
-    expect(trackFn).toContain("_latestVersion");
-    expect(trackFn).toContain("outdated");
-  });
-
-  test("warning uses burst cadence (3 calls then silent)", () => {
-    expect(serverSrc).toContain("VERSION_BURST_SIZE");
-    expect(serverSrc).toContain("VERSION_SILENT_MS");
-    expect(serverSrc).toContain("_warningBurstCount");
-  });
-
-  test("getUpgradeHint returns platform-specific command", () => {
-    expect(serverSrc).toContain("function getUpgradeHint");
-    // Claude Code gets slash command
-    expect(serverSrc).toMatch(/claude.code.*ctx.upgrade|ctx.upgrade.*claude.code/i);
-    // npm platforms get npm update
-    expect(serverSrc).toContain("npm update -g context-mode");
+  test("no nag banner or burst state remains", () => {
+    expect(serverSrc).not.toContain("shouldShowVersionWarning");
+    expect(serverSrc).not.toContain("getUpgradeHint");
+    expect(serverSrc).not.toContain("VERSION_BURST_SIZE");
+    expect(serverSrc).not.toContain("_warningBurstCount");
   });
 });
 
