@@ -210,7 +210,6 @@ export function toUnixPath(p: string): string {
  * Windows-safe npm execution. On Windows:
  * - "npm" → "npm.cmd" (Node won't resolve via PATHEXT in execFile)
  * - shell: true required (Node v20+ CVE-2024-27980 mitigation)
- * See: https://github.com/mksglu/context-mode/issues/344
  */
 const isWin = process.platform === "win32";
 
@@ -644,9 +643,8 @@ async function doctor(): Promise<number> {
   // which WILL crash. engines.node + a hard-fail postinstall guard this
   // at install time, but doctor() surfaces it for already-installed users
   // (and for adapters whose MCP host swallows stderr during install).
-  // Refs:
+  // Ref:
   //   - https://github.com/nodejs/node/issues/62515
-  //   - https://github.com/mksglu/context-mode/issues/564
   {
     const { hasModernSqlite } = await import("./db-base.js");
     if (
@@ -661,8 +659,7 @@ async function doctor(): Promise<number> {
           color.dim(
             "\n  context-mode requires Node.js >= 22.5 (or Bun) on Linux to avoid the" +
             "\n  V8 madvise(MADV_DONTNEED) SIGSEGV in better-sqlite3 (1-4/hour)." +
-            "\n  Refs: https://github.com/nodejs/node/issues/62515" +
-            "\n        https://github.com/mksglu/context-mode/issues/564" +
+            "\n  Ref: https://github.com/nodejs/node/issues/62515" +
             "\n  Fix:  nvm install 22.5 && nvm use 22.5 && npm install -g context-mode" +
             "\n  Or:   curl -fsSL https://bun.sh/install | bash && bun add -g context-mode",
           ),
@@ -873,8 +870,7 @@ async function doctor(): Promise<number> {
             color.dim(
               "\n  These are harmless but should be cleaned up so they cannot confuse Claude Code after an auto-update." +
               `\n  Versions affected: ${staleVersions.join(", ")}${staleCount > staleVersions.length ? ", ..." : ""}` +
-              "\n  Fix: run /context-mode:ctx-upgrade — it sweeps these files automatically on the next run." +
-              "\n  Details: https://github.com/mksglu/context-mode/issues/609",
+              "\n  Fix: run /context-mode:ctx-upgrade — it sweeps these files automatically on the next run.",
             ),
         );
       }
@@ -1118,10 +1114,13 @@ async function upgrade(opts?: { platform?: string }) {
   const localVersion = getLocalVersion();
   const tmpDir = join(tmpdir(), `context-mode-upgrade-${Date.now()}`);
 
-  s.start("Cloning mksglu/context-mode");
+  // Charter D9: clone the FORK, never upstream mksglu — cloning upstream would
+  // overwrite this hard fork with upstream code on `ctx upgrade`. (The version
+  // check + marketplace --tags/origin repoint are tracked as P0 for 1.0.3.)
+  s.start("Cloning wotjr1649/context-mode");
   try {
     execFileSync(
-      "git", ["clone", "--depth", "1", "https://github.com/mksglu/context-mode.git", tmpDir],
+      "git", ["clone", "--depth", "1", "https://github.com/wotjr1649/context-mode.git", tmpDir],
       { stdio: "pipe", timeout: 30000 },
     );
     s.stop("Downloaded");

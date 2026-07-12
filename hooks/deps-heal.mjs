@@ -102,6 +102,25 @@ export function installInvocation(npmCli, spec, root) {
   };
 }
 
+// Total internal budget for the heal loop, kept under the ~60s SessionStart
+// host-hook budget (hooks.json sets no per-hook override) so the internal
+// ETIMEDOUT fires (throw→caught→logged) before an abrupt host kill. deps-heal's
+// other work (registry read, externals parse) is sub-second, so ~45s leaves margin.
+const HEAL_BUDGET_MS = 45000;
+// Don't rm+start an install we almost certainly can't finish within the deadline:
+// if less than this remains, defer the package to next session (its fast-path
+// re-detects it) rather than delete a partial we then can't reinstall in time.
+const MIN_INSTALL_MS = 5000;
+
+// Pure + exported for tests: ms available for the next heal install given the
+// loop deadline and now. Returns 0 — caller stops and defers the rest — when
+// less than MIN_INSTALL_MS remains; otherwise the full remaining budget, so N
+// slow installs can't sum past the host kill.
+export function installBudgetMs(deadlineTs, nowTs) {
+  const remaining = deadlineTs - nowTs;
+  return remaining >= MIN_INSTALL_MS ? remaining : 0;
+}
+
 // Only pure-JS dependencies that are require()d from node_modules at runtime.
 // context-mode's esbuild bundle inlines most deps (zod, @modelcontextprotocol/sdk,
 // ...) into server.bundle.mjs and leaves only those marked `--external:<pkg>` in
@@ -186,17 +205,28 @@ if (isDirectRun()) {
     const npmCli = npmCliPath();
     if (!npmCli) { log("skipped all: npm-cli.js not found next to node — cannot reinstall safely"); process.exit(0); }
     log(`partial install detected: ${broken.map((b) => b[0]).join(", ")} — healing (tens of seconds on first run)...`);
+    // One shared deadline for the whole loop, kept under the ~60s SessionStart
+    // host budget (hooks.json sets no per-hook override). Each install's timeout
+    // is the REMAINING budget, so N slow packages can't sum past the host kill;
+    // when too little is left we stop and defer the rest to next session. The
+    // internal ETIMEDOUT throws → caught below (logged, predictable) instead of
+    // an abrupt host kill mid-write.
+    const healDeadline = Date.now() + HEAL_BUDGET_MS;
     for (const [name, range] of broken) {
       // defect #1: never touch anything whose name/range fails the whitelist.
       if (!validateSpec(name, range)) { log(`skipped (failed whitelist): ${name}@${range}`); continue; }
       // defect #3: only delete a path that provably stays under root/node_modules.
       const dir = resolveModuleDir(root, name);
       if (!dir) { log(`skipped (path escapes node_modules): ${name}`); continue; }
-      try { rmSync(dir, { recursive: true, force: true }); } catch {} // clear partial-install remnants before reinstall
       const spec = `${name}@${range}`;
+      // Budget check BEFORE the rm: never delete a partial we then lack time to
+      // reinstall — defer it (and the rest) to next session, which re-detects it.
+      const budget = installBudgetMs(healDeadline, Date.now());
+      if (budget <= 0) { log(`heal budget exhausted — deferring ${spec} and any remaining to next session`); break; }
+      try { rmSync(dir, { recursive: true, force: true }); } catch {} // clear partial-install remnants before reinstall
       try {
         const { file, args } = installInvocation(npmCli, spec, root);
-        execFileSync(file, args, { stdio: "ignore", timeout: 180000, shell: false });
+        execFileSync(file, args, { stdio: "ignore", timeout: budget, shell: false });
         log(`healed: ${spec}`);
       } catch (e) {
         log(`heal failed: ${spec} — ${String((e && e.message) || e).split("\n")[0]}`);

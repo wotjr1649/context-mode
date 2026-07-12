@@ -8,15 +8,11 @@
  * hook that needs native modules. Fast path: existsSync check (~0.1ms).
  * Slow path: npm install (first run only, ~5-30s).
  *
- * Also handles ABI compatibility (#148, #203): when the current Node.js
+ * Also handles ABI compatibility: when the current Node.js
  * version differs from the one better-sqlite3 was compiled against,
  * automatically swaps in a cached binary or rebuilds. This protects
  * both the MCP server AND hooks from ABI mismatch crashes when users
  * have multiple Node versions via mise/volta/fnm/nvm.
- *
- * @see https://github.com/mksglu/context-mode/issues/148
- * @see https://github.com/mksglu/context-mode/issues/172
- * @see https://github.com/mksglu/context-mode/issues/203
  */
 
 import { existsSync, copyFileSync, renameSync, unlinkSync } from "node:fs";

@@ -11,7 +11,6 @@
  * any native modules are loaded.
  *
  * Cross-platform: os.devNull → /dev/null (Unix) or \\.\NUL (Windows).
- * See: https://github.com/mksglu/context-mode/issues/68
  */
 import { closeSync, openSync } from "node:fs";
 import { devNull } from "node:os";

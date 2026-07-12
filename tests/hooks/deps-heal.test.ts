@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateSpec, resolveModuleDir, installInvocation } from "../../hooks/deps-heal.mjs";
+import { validateSpec, resolveModuleDir, installInvocation, installBudgetMs } from "../../hooks/deps-heal.mjs";
 import { resolve } from "node:path";
 
 describe("deps-heal spec validation (defect #1 — shell injection)", () => {
@@ -53,5 +53,23 @@ describe("deps-heal install invocation (defect #1 — node, never a .cmd shim)",
     expect(args).toContain("turndown@^7.2.0");
     expect(args).toContain("--ignore-scripts");
     expect(args.some((a: string) => /\.cmd$/i.test(a))).toBe(false); // no .cmd anywhere in argv
+  });
+});
+
+describe("deps-heal loop budget (major — one shared deadline < ~60s host budget, not per-package)", () => {
+  it("gives the full remaining budget when ample time is left, shrinking across installs", () => {
+    // deadline 45s out, now = base → the first install may use the whole 45s.
+    expect(installBudgetMs(1_000_000 + 45_000, 1_000_000)).toBe(45_000);
+    // after 20s already spent, only ~25s remains — the NEXT install is capped to
+    // what's left, so N slow installs can't sum past the ~60s host kill.
+    expect(installBudgetMs(1_000_000 + 45_000, 1_000_000 + 20_000)).toBe(25_000);
+  });
+  it("returns 0 (stop + defer to next session) once less than the min-install floor remains", () => {
+    // 4s left (< 5s floor) → 0 → caller breaks BEFORE the rm, so it never deletes
+    // a partial it then lacks time to reinstall.
+    expect(installBudgetMs(1_000_000 + 4_000, 1_000_000)).toBe(0);
+    // exactly at / past the deadline → 0.
+    expect(installBudgetMs(1_000_000, 1_000_000)).toBe(0);
+    expect(installBudgetMs(1_000_000, 1_000_001)).toBe(0);
   });
 });

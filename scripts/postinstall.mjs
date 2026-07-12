@@ -66,7 +66,6 @@ const PLUGIN_KEY = derivePluginKey(pkgRoot);
       "  context-mode requires Node.js >= 22.5 (or Bun) on Linux to avoid the\n" +
       "  V8 madvise(MADV_DONTNEED) SIGSEGV affecting better-sqlite3 (1-4/hour).\n" +
       "  Tracking: https://github.com/nodejs/node/issues/62515\n" +
-      "           https://github.com/mksglu/context-mode/issues/564\n" +
       "\n" +
       "  Fix: upgrade Node (recommended)\n" +
       "    nvm install 22.5 && nvm use 22.5\n" +

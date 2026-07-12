@@ -22,14 +22,11 @@
  *   A. Spawn prebuild-install via process.execPath — bypasses PATH/MSVC.
  *   B. `npm install better-sqlite3` (re-resolves tree, NOT `npm rebuild`).
  *   C. Write actionable stderr message naming `npm install better-sqlite3`
- *      and the Windows / #408 context.
+ *      and the Windows build context.
  *
  * Best-effort posture: every layer is wrapped in try/catch and the
  * function never throws. Caller will fail naturally on first DB open if
  * heal could not produce a working binding.
- *
- * @see https://github.com/mksglu/context-mode/issues/408
- * @see https://github.com/mksglu/context-mode/issues/533
  *
  * Windows VS 2026+ detection:
  *   node-gyp has a hardcoded internal-version→year map. VS 2026 (internal
