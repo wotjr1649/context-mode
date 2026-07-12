@@ -13,7 +13,9 @@ import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
 const NEEDLES = [/mksglu\/context-mode/i, /registry\.npmjs\.org\/context-mode/i];
-const INCLUDE = /^(src|hooks|scripts)\//;
+// Runtime + shipped-manifest surfaces: source dirs, the root bootstrap, and the
+// plugin manifests hosts read for homepage/repository/"report issue" affordances.
+const INCLUDE = /^(?:(?:src|hooks|scripts|\.claude-plugin|\.codex-plugin)\/|start\.mjs$)/;
 const EXCLUDE = /\.bundle\.mjs$|^scripts\/assert-no-upstream-mksglu\.mjs$/;
 
 const files = execSync("git ls-files", { encoding: "utf8" })
