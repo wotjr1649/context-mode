@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Reap orphaned context-mode plugin processes on Windows (SessionStart).
+ * Reap orphaned ctxscribe plugin processes on Windows (SessionStart).
  *
  * Why they exist: node intermittently fails to release the stdin handle on
  * Windows (nodejs/node#22999 — an explicit race), and Windows does not reap
- * children when their parent dies. Hooks, `context-mode statusline`, and the
+ * children when their parent dies. Hooks, `ctxscribe statusline`, and the
  * MCP server could all leak through this one mechanism. The upstream
  * flushAndExit fix addresses the root cause, so this reaper is a safety net.
  *
@@ -33,16 +33,16 @@ const MIN_AGE_SEC = Number(process.env.CONTEXT_MODE_REAPER_MIN_AGE_SEC || 60);
 const ARMED = process.env.CONTEXT_MODE_REAPER_ARMED === "1";
 const DRY_RUN = !ARMED;
 const LOG_PATH = process.env.CONTEXT_MODE_REAPER_LOG
-  || join(dirname(fileURLToPath(import.meta.url)), "context-mode-reaper.log");
+  || join(dirname(fileURLToPath(import.meta.url)), "ctxscribe-reaper.log");
 
 // The kill judgment: the CommandLine's script argument must sit UNDER the
-// plugin cache root (…/plugins/cache/<marketplace>/context-mode), not merely
-// mention "context-mode" anywhere. The fork's own working directory is named
-// context-mode, so a substring match would reap dev processes (vitest, npm
-// run dev). We match the cache root as a path prefix, normalized for both
-// separators. Anchoring on the cache root (not a version dir) keeps orphans
-// left by a previous version in range after a bump. The trailing separator
-// prevents a sibling like …/context-mode-js from matching …/context-mode.
+// plugin cache root (…/plugins/cache/<marketplace>/ctxscribe), not merely
+// mention "ctxscribe" anywhere. A dev checkout's working directory is usually
+// named after the plugin, so a substring match would reap dev processes
+// (vitest, npm run dev). We match the cache root as a path prefix, normalized
+// for both separators. Anchoring on the cache root (not a version dir) keeps
+// orphans left by a previous version in range after a bump. The trailing
+// separator prevents a sibling like …/ctxscribe-js from matching …/ctxscribe.
 export function isReapable(commandLine, cacheRoot) {
   if (typeof commandLine !== "string" || typeof cacheRoot !== "string") return false;
   const norm = (s) => s.replace(/\//g, "\\").toLowerCase();
@@ -102,10 +102,10 @@ function cfgDir() {
 }
 
 // Cache root = parent of the active version dir. Reuses deps-heal's
-// activeInstallPath pattern: find the `context-mode@<marketplace>` key in
+// activeInstallPath pattern: find the `ctxscribe@<marketplace>` key in
 // installed_plugins.json (marketplace name not hard-coded, so a rename does
 // not break this), take its installPath (the version dir where package.json
-// lives), and go up one level to …/cache/<marketplace>/context-mode.
+// lives), and go up one level to …/cache/<marketplace>/ctxscribe.
 // realpathSync-normalized so a junctioned cache still matches. Returns null if
 // the registry can't be read — the caller then reaps nothing.
 function pluginCacheRoot() {

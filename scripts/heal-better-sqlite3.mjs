@@ -207,7 +207,7 @@ export function detectWindowsVsYear({
       // falls back to node-gyp's own version detection.
       try {
         process.stderr.write(
-          `[context-mode] vswhere displayName reports VS year ${year} ` +
+          `[ctxscribe] vswhere displayName reports VS year ${year} ` +
           `(> ${ceiling}); ignoring as likely corrupted output. ` +
           `Falling back to node-gyp default detection.\n`,
         );
@@ -293,7 +293,7 @@ export function healBetterSqlite3Binding(pkgRoot) {
       // postinstall captured by npm logs.
       try {
         process.stderr.write(
-          `[context-mode] conda python detected on PATH — overriding with ` +
+          `[ctxscribe] conda python detected on PATH — overriding with ` +
           `PYTHON=${safePython} for better-sqlite3 build (#533).\n`,
         );
       } catch { /* stderr unavailable — proceed silently */ }
@@ -410,7 +410,7 @@ export function healBetterSqlite3Binding(pkgRoot) {
           "  Deactivate conda (`conda deactivate`) or install system python3, then retry.\n"
         : "";
       process.stderr.write(
-        "\n[context-mode] better-sqlite3 native binding could not be installed automatically.\n" +
+        "\n[ctxscribe] better-sqlite3 native binding could not be installed automatically.\n" +
         "  This is a known issue on Windows when prebuild-install is not on PATH (#408).\n" +
         condaHint +
         "  Workaround: run `npm install better-sqlite3` from the plugin directory.\n\n",

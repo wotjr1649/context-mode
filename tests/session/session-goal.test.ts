@@ -59,12 +59,12 @@ describe("capture: extractGoal", () => {
 
 describe("storage: goal survives session event eviction", () => {
   test("retains the goal when the per-session event cap evicts lower-priority events", () => {
-    const dir = mkdtempSync(join(tmpdir(), "context-mode-goal-"));
+    const dir = mkdtempSync(join(tmpdir(), "ctxscribe-goal-"));
     const db = new SessionDB({ dbPath: join(dir, "session.db") });
     const sid = "goal-eviction";
 
     try {
-      db.ensureSession(sid, "/tmp/context-mode-goal");
+      db.ensureSession(sid, "/tmp/ctxscribe-goal");
       const goal = extractUserEvents("/goal preserve this objective").find((e) => e.category === "goal");
       assert.ok(goal, "goal event should be extracted");
       db.insertEvent(sid, goal, "UserPromptSubmit");

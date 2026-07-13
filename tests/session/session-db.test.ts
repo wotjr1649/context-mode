@@ -1334,7 +1334,7 @@ describe("rejected-approach category", () => {
     db.insertEvent(sid, {
       type: "rejected",
       category: "rejected-approach",
-      data: "WebFetch: context-mode: WebFetch blocked. Use ctx_fetch_and_index instead.",
+      data: "WebFetch: ctxscribe: WebFetch blocked. Use ctx_fetch_and_index instead.",
       priority: 2,
       data_hash: "",
     }, "PreToolUse");

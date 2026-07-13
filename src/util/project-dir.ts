@@ -40,7 +40,7 @@ const LEGACY_NON_STRICT_CANDIDATES: readonly string[] = [
  *
  * Background: when Claude Code runs `/ctx-upgrade`, it kills + respawns the
  * MCP server. The respawn happens with `cwd` set to the plugin install
- * directory (`~/.claude/plugins/cache/context-mode/context-mode/<version>/`).
+ * directory (`~/.claude/plugins/cache/wotjr1649/ctxscribe/<version>/`).
  * The legacy `start.mjs` then set `CLAUDE_PROJECT_DIR = originalCwd`, which
  * poisoned every downstream `ctx_stats` / SessionDB / hash computation —
  * sessions silently re-rooted under the plugin install path.

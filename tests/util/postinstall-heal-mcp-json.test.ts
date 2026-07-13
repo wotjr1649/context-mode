@@ -19,8 +19,8 @@ import { sweepStaleMcpJson } from "../../scripts/heal-installed-plugins.mjs";
 // ─────────────────────────────────────────────────────────────────────────
 // F54 — sweepStaleMcpJson's pluginKey->path mapping was inverted. It only
 // worked pre-rename because upstream's marketplace and plugin names were
-// both "context-mode". Post-rename (marketplace "wotjr1649", plugin
-// "context-mode") the mapping built `<cacheRoot>/<plugin>/<marketplace>`
+// identical, which made the inversion invisible. Post-rename (marketplace
+// "wotjr1649", plugin "ctxscribe") the mapping built `<cacheRoot>/<plugin>/<marketplace>`
 // instead of the real `<cacheRoot>/<marketplace>/<plugin>` layout, so the
 // sweep always reported skipped:"no-plugin-dir" and never removed anything.
 // ─────────────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ describe("sweepStaleMcpJson — plugin-key mapping (F54)", () => {
   });
 
   it("rejects a bare '..' segment", () => {
-    expect(sweepStaleMcpJson({ pluginCacheRoot: root, pluginKey: "context-mode@.." }).skipped)
+    expect(sweepStaleMcpJson({ pluginCacheRoot: root, pluginKey: "ctxscribe@.." }).skipped)
       .toBe("bad-plugin-key");
   });
 });

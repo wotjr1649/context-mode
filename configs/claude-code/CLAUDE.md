@@ -1,6 +1,6 @@
-# context-mode — MANDATORY routing rules
+# ctxscribe — MANDATORY routing rules
 
-context-mode MCP tools available. Rules protect context window from flooding. One unrouted command dumps 56 KB into context.
+ctxscribe MCP tools available. Rules protect context window from flooding. One unrouted command dumps 56 KB into context.
 
 ## Think in Code — MANDATORY
 

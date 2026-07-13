@@ -5,11 +5,11 @@
  *   1. Per-entry `version` drifted from the actual cache directory's
  *      `plugin.json` version.
  *   2. The top-level `enabledPlugins[<key>]` was emptied (or never set)
- *      so Claude Code's plugin loader skipped context-mode → MCP died.
+ *      so Claude Code's plugin loader skipped ctxscribe → MCP died.
  *
  * Single source of truth shared by:
  *   - `start.mjs` HEAL 3+4 (every MCP boot)
- *   - `scripts/postinstall.mjs` (every `npm install -g context-mode`)
+ *   - `scripts/postinstall.mjs` (every `npm install -g ctxscribe`)
  *
  * Pure Node.js (built-ins only). Best-effort: never throws, always
  * returns a plain result object so callers can log a one-liner.
@@ -23,7 +23,7 @@ import { dirname, resolve, sep } from "node:path";
 // Derive the registry key from `<…>/plugins/cache/<marketplace>/<plugin>/<version>`.
 // Capture order: $1 = marketplace, $2 = plugin. The key reverses them.
 // Forgetting the reversal passes every test on the upstream layout, where both
-// names are the literal `context-mode` — the F42/F54 bug class. Cross-check
+// names are the literal `ctxscribe` — the F42/F54 bug class. Cross-check
 // against start.mjs:149-152.
 const CACHE_PATH_RE = /[/\\]plugins[/\\]cache[/\\]([^/\\]+)[/\\]([^/\\]+)[/\\][^/\\]+[/\\]?$/;
 
@@ -207,10 +207,10 @@ export function healSettingsEnabledPlugins({ settingsPath, pluginKey }) {
 // /ctx-upgrade in v1.0.118 wrote `.mcp.json` with the literal
 // `${CLAUDE_PLUGIN_ROOT}` placeholder (#411) but did NOT touch
 // `.claude-plugin/plugin.json`. On Windows, start.mjs's `normalizeHooksOnStartup`
-// (#378) rewrites that file's `mcpServers["context-mode"].args[0]` to an
+// (#378) rewrites that file's `mcpServers["ctxscribe"].args[0]` to an
 // absolute path. If `pluginRoot` happens to be the upgrade tmpdir at the time
 // of normalization (or an earlier upgrade left absolute paths in place), the
-// resulting plugin.json carries a `<tmpdir>/context-mode-upgrade-<epoch>/start.mjs`
+// resulting plugin.json carries a `<tmpdir>/ctxscribe-upgrade-<epoch>/start.mjs`
 // path. After Node tmpdir cleanup, MCP fails to spawn with ENOENT and the user
 // has no /ctx-upgrade escape hatch.
 //
@@ -222,7 +222,7 @@ export function healSettingsEnabledPlugins({ settingsPath, pluginKey }) {
 //
 // Single source of truth shared by:
 //   - `start.mjs` HEAL 5b (every MCP boot)
-//   - `scripts/postinstall.mjs` (every `npm install -g context-mode`)
+//   - `scripts/postinstall.mjs` (every `npm install -g ctxscribe`)
 //   - `src/cli.ts` upgrade() (post-bump)
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -288,7 +288,7 @@ export function healPluginJsonMcpServers({ pluginRoot, pluginCacheRoot, pluginKe
     // Already the placeholder — nothing to heal.
     if (a === PLACEHOLDER_ARG) return a;
     // Issue #711: any absolute path ending in start.mjs should be the
-    // placeholder. Catches tmpdir paths (context-mode-upgrade-<digits>)
+    // placeholder. Catches tmpdir paths (ctxscribe-upgrade-<digits>)
     // AND stale versioned cache-dir paths (.../1.0.103/start.mjs) that
     // normalizeHooksOnStartup baked in during a prior upgrade.
     if (/[/\\]start\.mjs$/.test(a)) {
@@ -330,7 +330,7 @@ export function healPluginJsonMcpServers({ pluginRoot, pluginCacheRoot, pluginKe
 //
 // Single source of truth shared by:
 //   - `start.mjs` HEAL 5b (every MCP boot)
-//   - `scripts/postinstall.mjs` (every `npm install -g context-mode`)
+//   - `scripts/postinstall.mjs` (every `npm install -g ctxscribe`)
 //   - `src/cli.ts` upgrade() (post-bump)
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -339,7 +339,7 @@ export function healPluginJsonMcpServers({ pluginRoot, pluginCacheRoot, pluginKe
  *
  * Detects two drift shapes:
  *   1. Bare relative `./start.mjs` (#253 regression — fresh-install class).
- *   2. Tmpdir-prefixed `<...>/context-mode-upgrade-<digits>/start.mjs`
+ *   2. Tmpdir-prefixed `<...>/ctxscribe-upgrade-<digits>/start.mjs`
  *      (mirrors healPluginJsonMcpServers's #523 tmpdir class).
  * Both rewrite to the literal `${CLAUDE_PLUGIN_ROOT}/start.mjs` placeholder
  * Claude Code resolves at load-time.
@@ -429,7 +429,7 @@ export function healMcpJsonArgs({ pluginRoot, pluginCacheRoot, pluginKey }) {
 
 /**
  * Heal user-level ~/.claude.json MCP server registrations that point to an
- * old context-mode version dir in the plugin cache.
+ * old ctxscribe version dir in the plugin cache.
  *
  * Users who work around the Claude Code plugin MCP tool-exposure bug
  * (anthropics/claude-code#59310) by running `claude mcp add --scope user`
@@ -535,7 +535,7 @@ export function healClaudeJsonMcpArgs({ dotClaudeJsonPath, pluginCacheParent, ne
 //
 // Single source of truth shared by:
 //   - `start.mjs` HEAL 5c (every MCP boot)
-//   - `scripts/postinstall.mjs` (every `npm install -g context-mode`)
+//   - `scripts/postinstall.mjs` (every `npm install -g ctxscribe`)
 //   - `src/cli.ts` upgrade() (post-bump)
 //
 // Safety contracts:
@@ -557,7 +557,7 @@ export function healClaudeJsonMcpArgs({ dotClaudeJsonPath, pluginCacheParent, ne
  * `<pluginCacheRoot>/<marketplace>/<plugin>/<X.Y.Z>/`.
  *
  * @param {{ pluginCacheRoot: string, pluginKey: string }} opts
- *   pluginKey is the "<plugin>@<marketplace>" form (e.g. "context-mode@context-mode-js").
+ *   pluginKey is the "<plugin>@<marketplace>" form (e.g. "ctxscribe@wotjr1649").
  * @returns {SweepResult}
  */
 export function sweepStaleMcpJson({ pluginCacheRoot, pluginKey }) {
@@ -583,7 +583,7 @@ export function sweepStaleMcpJson({ pluginCacheRoot, pluginKey }) {
   }
   const [pluginSegment, marketplaceSegment] = segments;
   // Validate the segments themselves. The root guard alone is not enough —
-  // `../victim@context-mode-js` normalizes to `<cacheRoot>/victim`, which
+  // `../victim@wotjr1649` normalizes to `<cacheRoot>/victim`, which
   // PASSES `startsWith(cacheRoot + sep)`. (Codex review Important 2)
   const SAFE_SEGMENT = /^[A-Za-z0-9._-]+$/;
   if (!SAFE_SEGMENT.test(pluginSegment) || !SAFE_SEGMENT.test(marketplaceSegment)

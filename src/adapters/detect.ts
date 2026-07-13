@@ -25,7 +25,7 @@ import { CLIENT_NAME_TO_PLATFORM, REMOVED_CLIENT_NAMES, UnsupportedClientError }
  * Issue #539 — VS Code host disambiguator. A VS Code-hosted terminal exports
  * VSCODE_PID/VSCODE_CWD into every spawned child — an ambiguous signal on its
  * own. When one is present, we look at ~/.claude/plugins/installed_plugins.json:
- * if that file lists context-mode as an installed plugin, the runtime MUST be
+ * if that file lists ctxscribe as an installed plugin, the runtime MUST be
  * Claude Code (only Claude Code has a concept of Claude plugins), so detection
  * resolves to claude-code instead of falling through to a lower-confidence
  * config-directory tier. Memoized per-process: the file is read at most once,
@@ -66,9 +66,9 @@ export function __resetClaudeCodePluginCacheForTests(): void {
 
 /**
  * Test-only: pretend installed_plugins.json does not exist (or has no
- * context-mode entry). Lets tests that exercise the VSCODE_PID env-var
+ * ctxscribe entry). Lets tests that exercise the VSCODE_PID env-var
  * disambiguation path (#539) run on a developer machine that actually has
- * context-mode installed as a Claude Code plugin.
+ * ctxscribe installed as a Claude Code plugin.
  */
 export function __seedClaudeCodePluginCacheMissForTests(): void {
   claudeCodePluginCache = "miss";
@@ -88,10 +88,10 @@ export function __seedClaudeCodePluginCacheMissForTests(): void {
  * vars) sets from a single registry, keeping every adapter on equal rules.
  *
  * Issue #561 — FOREIGN identification vars MUST be scrubbed when spawning a
- * context-mode child under a different host (a bridge parent must scrub
+ * ctxscribe child under a different host (a bridge parent must scrub
  * Claude Code identification vars CLAUDE_CODE_ENTRYPOINT / CLAUDE_PLUGIN_ROOT
  * to prevent detectPlatform() in the child from misidentifying the host as
- * claude-code and writing the host's data into ~/.claude/context-mode/).
+ * claude-code and writing the host's data into ~/.claude/ctxscribe/).
  */
 export type EnvVarRole = "workspace" | "identification";
 export interface PlatformEnvEntry {
@@ -243,7 +243,7 @@ export function detectPlatform(clientInfo?: { name: string; version?: string }):
   // markers (Microsoft's `code` exports VSCODE_PID/VSCODE_CWD into every
   // child process) — the CLAUDE_* vars handled by the loop above may not
   // have propagated yet on an MCP-server-only boot. If this machine's
-  // ~/.claude/plugins/installed_plugins.json lists context-mode, that is
+  // ~/.claude/plugins/installed_plugins.json lists ctxscribe, that is
   // Claude Code running in a VS Code terminal — keep high confidence
   // instead of falling through to the config-dir tier.
   if (
@@ -254,7 +254,7 @@ export function detectPlatform(clientInfo?: { name: string; version?: string }):
       platform: "claude-code",
       confidence: "high",
       reason:
-        "VSCODE_PID set but ~/.claude/plugins/installed_plugins.json lists context-mode (issue #539 fallback)",
+        "VSCODE_PID set but ~/.claude/plugins/installed_plugins.json lists ctxscribe (issue #539 fallback)",
     };
   }
 

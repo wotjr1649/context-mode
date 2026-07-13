@@ -30,7 +30,7 @@ import { extractSnippet, formatBatchQueryResults, positionsFromHighlight } from 
 function createStore(): ContentStore {
   const path = join(
     tmpdir(),
-    `context-mode-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+    `ctxscribe-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
   );
   return new ContentStore(path);
 }
@@ -3119,9 +3119,9 @@ describe("searchAutoMemory", () => {
     );
 
     const memoryFiles: Array<[string, string]> = [
-      ["analytics_separation.md", "Analytics must be separate project, not inside context-mode. Datadog model."],
+      ["analytics_separation.md", "Analytics must be separate project, not inside ctxscribe. Datadog model."],
       ["push_to_next.md", "Always push to next branch, never feature branches."],
-      ["npm_token.md", "npm publish token location for context-mode releases."],
+      ["npm_token.md", "npm publish token location for ctxscribe releases."],
       ["user_identity.md", "User name is Alice. Speaks English and French."],
     ];
     for (const [name, body] of memoryFiles) {

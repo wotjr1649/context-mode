@@ -1727,7 +1727,7 @@ describe("MCP Events", () => {
   test("gracefully handles missing tool_response (regression)", () => {
     // Pre-existing behavior: when tool_response is absent, no response suffix.
     const input = {
-      tool_name: "mcp__context-mode__ctx_stats",
+      tool_name: "mcp__ctxscribe__ctx_stats",
       tool_input: {},
       // tool_response omitted
     };
@@ -1741,7 +1741,7 @@ describe("MCP Events", () => {
 
   test("gracefully handles empty tool_response", () => {
     const input = {
-      tool_name: "mcp__context-mode__ctx_stats",
+      tool_name: "mcp__ctxscribe__ctx_stats",
       tool_input: {},
       tool_response: "",
     };
@@ -1755,7 +1755,7 @@ describe("MCP Events", () => {
   test("emits mcp_tool_call category for mcp__* events with truncated params", () => {
     // Small payload — no truncation, params parsed verbatim
     const small = extractEvents({
-      tool_name: "mcp__context-mode__ctx_batch_execute",
+      tool_name: "mcp__ctxscribe__ctx_batch_execute",
       tool_input: { commands: [{ label: "x", command: "ls" }], concurrency: 6 },
     });
     const smallCall = small.find(e => e.category === "mcp_tool_call");
@@ -1763,7 +1763,7 @@ describe("MCP Events", () => {
     assert.equal(smallCall!.type, "mcp_tool_call");
     assert.equal(smallCall!.priority, 4);
     const smallPayload = JSON.parse(smallCall!.data);
-    assert.equal(smallPayload.tool_name, "mcp__context-mode__ctx_batch_execute");
+    assert.equal(smallPayload.tool_name, "mcp__ctxscribe__ctx_batch_execute");
     assert.equal(smallPayload.params.concurrency, 6);
     assert.equal(smallPayload.truncated, undefined);
 
@@ -1773,7 +1773,7 @@ describe("MCP Events", () => {
       command: "echo " + "x".repeat(50),
     }));
     const big = extractEvents({
-      tool_name: "mcp__context-mode__ctx_batch_execute",
+      tool_name: "mcp__ctxscribe__ctx_batch_execute",
       tool_input: { commands: bigCommands, concurrency: 8 },
     });
     const bigCall = big.find(e => e.category === "mcp_tool_call");
@@ -1783,7 +1783,7 @@ describe("MCP Events", () => {
     const bigPayload = JSON.parse(bigCall!.data);
     assert.equal(bigPayload.truncated, true, "truncation sentinel must be set");
     assert.equal(typeof bigPayload.params_raw, "string", "raw substring preserved");
-    assert.equal(bigPayload.tool_name, "mcp__context-mode__ctx_batch_execute");
+    assert.equal(bigPayload.tool_name, "mcp__ctxscribe__ctx_batch_execute");
   });
 
   test("UTF-8-aware truncation: never lands mid-codepoint (review F3)", () => {
@@ -1798,7 +1798,7 @@ describe("MCP Events", () => {
     const cjkChunk = "中文测试".repeat(200); // 4 × 3 bytes × 200 = 2400 bytes raw
     const symbolChunk = "𝕏".repeat(100);     // 1 × 4 bytes × 100 = 400 bytes raw
     const big = extractEvents({
-      tool_name: "mcp__context-mode__ctx_batch_execute",
+      tool_name: "mcp__ctxscribe__ctx_batch_execute",
       tool_input: { mixed: cjkChunk + symbolChunk, concurrency: 4 },
     });
     const call = big.find(e => e.category === "mcp_tool_call");
@@ -2243,7 +2243,7 @@ describe("Category 28 — Permission (architectural limitation)", () => {
   test("PreToolUse deny is already captured as rejected-approach (Phase 1)", () => {
     // When PreToolUse returns action: "deny", the pretooluse.mjs hook already
     // writes a rejected-approach event. This is the closest we get to permission
-    // tracking: we know when context-mode itself denies a tool, but NOT when
+    // tracking: we know when ctxscribe itself denies a tool, but NOT when
     // the user denies a tool.
     //
     // This test documents that rejected-approach covers the hook-level deny case.

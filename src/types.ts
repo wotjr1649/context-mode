@@ -1,5 +1,5 @@
 /**
- * types — Shared type definitions for context-mode packages.
+ * types — Shared type definitions for ctxscribe packages.
  *
  * Contains interfaces that are genuinely shared between the core (ContentStore,
  * PolyglotExecutor) and the session domain (SessionDB, event extraction).

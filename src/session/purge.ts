@@ -54,14 +54,14 @@ export interface PurgeOpts {
    */
   projectDir: string;
   /**
-   * Adapter-specific session directory (e.g. `~/.claude/context-mode/sessions`).
+   * Adapter-specific session directory (e.g. `~/.claude/ctxscribe/sessions`).
    * Holds: `<hash><suffix>.db`, `<hash><suffix>-events.md`,
    * `<hash><suffix>.cleanup`.
    */
   sessionsDir: string;
   /**
    * Absolute path to the per-project FTS5 knowledge-base DB
-   * (e.g. `~/.claude/context-mode/content/<hash>.db`). When omitted no
+   * (e.g. `~/.claude/ctxscribe/content/<hash>.db`). When omitted no
    * FTS5 wipe runs. Caller is responsible for closing any open handle
    * BEFORE invoking purgeSession (Windows file locks).
    *
@@ -73,7 +73,7 @@ export interface PurgeOpts {
   storePath?: string;
   /**
    * Per-platform FTS5 content directory (e.g.
-   * `~/.claude/context-mode/content`). When provided, purgeSession sweeps
+   * `~/.claude/ctxscribe/content`). When provided, purgeSession sweeps
    * BOTH the canonical and legacy raw-casing hash variants of the FTS5
    * store inside this directory plus their `-wal` / `-shm` sidecars. This
    * is the recommended input — covers a partial upgrade where the user

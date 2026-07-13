@@ -96,7 +96,7 @@ describe("isPathInsideProject — issue #852 containment", () => {
 
   it("containment ALLOWS an out-of-project path matched by a host Read(...) allow rule", () => {
     // The user opts a specific out-of-project path back in via the SAME host
-    // permissions.allow mechanism Claude Code uses — not a context-mode env.
+    // permissions.allow mechanism Claude Code uses — not a ctxscribe env.
     const allowGlobs = [[join(outside, "**")]];
     const v = evaluateProjectContainment(join(outside, "secret.txt"), project, allowGlobs);
     expect(v).toEqual({ allowed: true, reason: "allow-rule" });
@@ -159,7 +159,7 @@ describe("ctx_execute_file: project-boundary guard wiring (#852)", () => {
 
   test("escape hatch reuses host permissions.allow Read rules — NO bespoke opt-out env", () => {
     // Principled escape hatch: read the host's existing allow rules, not a
-    // context-mode-specific env that would become dead code.
+    // ctxscribe-specific env that would become dead code.
     const body = extractBlock(serverSrc, "function checkProjectBoundary")!;
     expect(body).toContain('readToolPermissionPatterns("Read", "allow"');
     // The dead-code env flag must NOT exist anywhere in server.ts.

@@ -130,7 +130,7 @@ describe("ClaudeCodeAdapter", () => {
       });
       expect(result).toEqual({
         permissionDecision: "deny",
-        reason: "Blocked by context-mode hook",
+        reason: "Blocked by ctxscribe hook",
       });
     });
 
@@ -229,7 +229,7 @@ describe("ClaudeCodeAdapter", () => {
     it("creates session dirs under fake HOME instead of the contributor real HOME", () => {
       const sessionDir = adapter.getSessionDir();
       expect(sessionDir.startsWith(fakeHome)).toBe(true);
-      expect(sessionDir.startsWith(join(realHome, ".claude", "context-mode"))).toBe(false);
+      expect(sessionDir.startsWith(join(realHome, ".claude", "ctxscribe"))).toBe(false);
     });
 
     // C2 narrowing: per-project DB path is composed by callers via
@@ -295,7 +295,7 @@ describe("ClaudeCodeAdapter", () => {
       process.env.CLAUDE_CONFIG_DIR = customDir;
       // No settings.json exists under customDir → readSettings() returns null
       // → validateHooks emits the failure entry. Pin: the message must surface
-      // the resolved settings path so users see where context-mode is
+      // the resolved settings path so users see where ctxscribe is
       // actually looking, not a stale "~/.claude/settings.json" string.
       const pluginRoot = mkdtempSync(join(tmpdir(), "plugin-root-validate-"));
       try {
@@ -569,7 +569,7 @@ describe("ClaudeCodeAdapter", () => {
         }),
       );
 
-      // settings.json starts empty but marks context-mode as a plugin install
+      // settings.json starts empty but marks ctxscribe as a plugin install
       writeFileSync(join(tempDir, "settings.json"), JSON.stringify({ enabledPlugins: { "ctxscribe": {} } }));
 
       const changes = adapter.configureAllHooks(pluginRoot);
@@ -653,7 +653,7 @@ describe("ClaudeCodeAdapter", () => {
       expect(command).toContain("sessionstart.mjs");
     });
 
-    it("preserves co-located user hooks when removing duplicate context-mode entries (#415)", () => {
+    it("preserves co-located user hooks when removing duplicate ctxscribe entries (#415)", () => {
       // Plugin hooks.json covers all required hooks → triggers the "allCovered" branch
       writeFileSync(
         join(pluginRoot, "hooks", "hooks.json"),
@@ -699,7 +699,7 @@ describe("ClaudeCodeAdapter", () => {
       expect(sessionEntries[0].hooks).not.toContainEqual(ctxModeHook);
     });
 
-    it("removes context-mode entries that are alone in their matcher entry (#415 regression)", () => {
+    it("removes ctxscribe entries that are alone in their matcher entry (#415 regression)", () => {
       // Plugin hooks.json covers all required hooks → triggers the "allCovered" branch
       writeFileSync(
         join(pluginRoot, "hooks", "hooks.json"),
@@ -791,11 +791,11 @@ describe("ClaudeCodeAdapter", () => {
     });
 
     it("EXTERNAL_MCP_MATCHER_PATTERN is the literal `mcp__` substring (#529, #547 hotfix)", () => {
-      // v1.0.124 used `mcp__(?!plugin_context-mode_)` — the same hooks.json
-      // is bundled to Codex CLI whose Rust `regex` crate rejects look-around
+      // v1.0.124 used a plugin-prefixed negative-lookahead matcher — the same
+      // hooks.json is bundled to Codex CLI whose Rust `regex` crate rejects look-around
       // at boot. v1.0.125 drops the lookaround on both adapters; the hook
       // BODY (`isExternalMcpTool()` in hooks/core/routing.mjs) filters
-      // context-mode's own MCP tools, so semantics are preserved.
+      // ctxscribe's own MCP tools, so semantics are preserved.
       expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__");
       expect(EXTERNAL_MCP_MATCHER_PATTERN).toMatch(/^[A-Za-z0-9_|]+$/);
 
@@ -830,7 +830,7 @@ describe("ClaudeCodeAdapter", () => {
       // forward slashes (#369, #372). Compare against the normalized
       // pluginRoot so the assertion holds on Windows wire shapes too.
       const { extractHookScriptPath } = await import("../../src/util/hook-config.js");
-      const pluginRoot = "C:\\Users\\High Ground Services\\AppData\\Roaming\\npm\\node_modules\\context-mode";
+      const pluginRoot = "C:\\Users\\High Ground Services\\AppData\\Roaming\\npm\\node_modules\\ctxscribe";
       const normalizedRoot = pluginRoot.replace(/\\/g, "/");
       const config = adapter.generateHookConfig(pluginRoot) as Record<
         string,
@@ -869,8 +869,8 @@ describe("ClaudeCodeAdapter", () => {
       );
 
       const cases = [
-        "/usr/local/bin/context-mode/hooks/pretooluse.mjs",
-        "C:/Users/High Ground Services/AppData/Roaming/npm/node_modules/context-mode/hooks/sessionstart.mjs",
+        "/usr/local/bin/ctxscribe/hooks/pretooluse.mjs",
+        "C:/Users/High Ground Services/AppData/Roaming/npm/node_modules/ctxscribe/hooks/sessionstart.mjs",
         "/path with spaces/and-symbols!@#$%/hooks/posttooluse.mjs",
       ];
       for (const scriptPath of cases) {
@@ -888,7 +888,7 @@ describe("ClaudeCodeAdapter", () => {
       // spaces. buildNodeCommand could NEVER produce this (it always
       // double-quotes both args), so parseNodeCommand MUST refuse it.
       const ambiguous =
-        "node C:/Users/High Ground Services/AppData/Roaming/npm/node_modules/context-mode/hooks/pretooluse.mjs";
+        "node C:/Users/High Ground Services/AppData/Roaming/npm/node_modules/ctxscribe/hooks/pretooluse.mjs";
       expect(parseNodeCommand(ambiguous)).toBeNull();
     });
 
@@ -917,7 +917,7 @@ describe("ClaudeCodeAdapter", () => {
       // bug). null lets the doctor fall through to direct existsSync
       // (Algo-D1) instead of trusting the regex.
       const ambiguous =
-        "node C:/Users/High Ground Services/AppData/Roaming/npm/node_modules/context-mode/hooks/pretooluse.mjs";
+        "node C:/Users/High Ground Services/AppData/Roaming/npm/node_modules/ctxscribe/hooks/pretooluse.mjs";
       expect(extractHookScriptPath(ambiguous)).toBeNull();
     });
 
@@ -933,7 +933,7 @@ describe("ClaudeCodeAdapter", () => {
       // Same ambiguous shape — both twin definitions must agree post-D2
       // so doctor + cleanup callers behave identically.
       const ambiguous =
-        "node C:/Users/High Ground Services/AppData/Roaming/npm/node_modules/context-mode/hooks/pretooluse.mjs";
+        "node C:/Users/High Ground Services/AppData/Roaming/npm/node_modules/ctxscribe/hooks/pretooluse.mjs";
       expect(extractInHooks(ambiguous)).toBeNull();
     });
 

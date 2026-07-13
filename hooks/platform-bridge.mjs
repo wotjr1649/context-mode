@@ -41,7 +41,7 @@ export function configPath() {
 function warn(msg) {
   if (_warned) return;
   _warned = true;
-  process.stderr.write(`[context-mode] ${msg}\n`);
+  process.stderr.write(`[ctxscribe] ${msg}\n`);
 }
 
 // v1 events_url + token alias kept for Upgrade Lag (PRD §5.3).

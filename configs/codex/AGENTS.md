@@ -1,6 +1,6 @@
-# context-mode — MANDATORY routing rules
+# ctxscribe — MANDATORY routing rules
 
-context-mode MCP tools available. Rules protect context window from flooding. One unrouted command dumps 56 KB into context. Codex CLI hooks provide runtime enforcement when `[features].hooks = true`; these instructions remain mandatory model-side enforcement. Follow strictly.
+ctxscribe MCP tools available. Rules protect context window from flooding. One unrouted command dumps 56 KB into context. Codex CLI hooks provide runtime enforcement when `[features].hooks = true`; these instructions remain mandatory model-side enforcement. Follow strictly.
 
 ## Think in Code — MANDATORY
 

@@ -1,5 +1,5 @@
 /**
- * truncate — Pure string truncation and escaping utilities for context-mode.
+ * truncate — Pure string truncation and escaping utilities for ctxscribe.
  *
  * These helpers are used by the core ContentStore (chunking) and
  * SessionDB (snapshot building). They are extracted here so any

@@ -8,7 +8,7 @@
  *
  * #840 — `## Data References` inlines EVERY captured tool-output verbatim into
  *        the SessionStart directive (~10K tokens on long sessions), defeating
- *        context-mode's own raw-bytes-stay-out principle. Large outputs must be
+ *        ctxscribe's own raw-bytes-stay-out principle. Large outputs must be
  *        REFERENCED (size + ctx_search pointer), not inlined; only a small
  *        recent window of small captures stays inline.
  *

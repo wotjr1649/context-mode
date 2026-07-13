@@ -165,7 +165,7 @@ describe("standalone MCP server fatal exception handling (#830)", () => {
     writeFileSync(preload, `
 const originalWrite = process.stderr.write.bind(process.stderr);
 process.stderr.write = (chunk, ...args) => {
-  if (String(chunk).includes("[context-mode] uncaughtException")) return true;
+  if (String(chunk).includes("[ctxscribe] uncaughtException")) return true;
   return true;
 };
 

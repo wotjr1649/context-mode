@@ -23,6 +23,23 @@ const WHITELIST = [
   /context-mode-ops/,                    // credits skill name
   /(?<![A-Za-z0-9_])\.context-mode\b/,   // legacy home dot-dir ~/.context-mode (NOT the data-dir "context-mode/"; lookbehind excludes dotted keys like mcp_servers.context-mode)
   /context-mode-cache-heal/,             // N1: start.mjs legitimately retains the OLD hook name to clean it up
+  /context-mode-platform/,               // SEPARATE external companion project (the hosted Insight analytics
+                                         // platform) — not this plugin's identity. Renaming it would misname
+                                         // someone else's repo in the comments/log prefix that cite it.
+  // Task 10a. Both entries below are FILE-SCOPED on purpose: the gate tests each
+  // regex against the whole `path:lineno:content` line, so these cannot leak out
+  // and false-clean a real target in another file.
+  /tests[/\\]core[/\\]cli-fork-origin\.test\.ts:/,
+  //   isForkOrigin's REJECT fixtures. A reject-assertion must literally contain the
+  //   token it rejects: `github.com/wotjr1649/context-mode.git` (+ attacker/ and
+  //   host-spoof variants) must stay OLD-identity. Renaming them to `…/ctxscribe.git`
+  //   would turn the fixture into the REAL fork origin and invert `.toBe(false)`.
+  //   The accept-cases in the same file already assert the new `wotjr1649/ctxscribe`.
+  /tests[/\\]hooks[/\\]cache-heal-version-segment\.test\.ts:.*context-mode["/\\, ]+context-mode/,
+  //   ANTI-SPOOFING fixtures: the DOUBLED upstream cache shape `context-mode/context-mode`
+  //   (and its `pluginRootFor("context-mode", "context-mode")` anchor form). These pin that
+  //   the fork still heals — and never rewrites — an un-renamed upstream cache tree. Scoped to
+  //   the doubled shape, so a lone `context-mode` in that same file is still caught.
 ];
 // Whole files that are pure attribution / generated — never scanned.
 const SKIP_FILE = /(UPSTREAM-CREDITS\.md|\.bundle\.mjs$|assert-identity-clean\.mjs$|bun\.lock$)/;

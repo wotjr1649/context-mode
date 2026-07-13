@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * UserPromptSubmit hook for context-mode session continuity.
+ * UserPromptSubmit hook for ctxscribe session continuity.
  *
  * Captures every user prompt so the LLM can continue from the exact
  * point where the user left off after compact or session restart.

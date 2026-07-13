@@ -62,7 +62,7 @@ describe("formatReport", () => {
       const report = makeReport();
       const output = formatReport(report, "1.0.71");
 
-      expect(output).toContain("context-mode");
+      expect(output).toContain("ctxscribe");
       expect(output).toContain("0 calls");
       expect(output).toContain("No tool calls yet");
       expect(output).toContain("v1.0.71");
@@ -87,7 +87,7 @@ describe("formatReport", () => {
       expect(output).toContain("0 tokens saved");
       // Should NOT show the hero metric line or bars
       expect(output).not.toContain("tokens saved  ·");
-      expect(output).not.toContain("Without context-mode");
+      expect(output).not.toContain("Without ctxscribe");
     });
 
     it("does not show fake percentages for fresh session", () => {
@@ -145,13 +145,13 @@ describe("formatReport", () => {
       });
       const output = formatReport(report);
 
-      expect(output).toContain("Without context-mode");
-      expect(output).toContain("With context-mode");
+      expect(output).toContain("Without ctxscribe");
+      expect(output).toContain("With ctxscribe");
       // Bars should contain unicode block characters
       expect(output).toMatch(/[█░]/);
       // The "Without" bar should be longer than "With" bar
       const withoutLine = output.split("\n").find((l: string) => l.includes("Without"));
-      const withLine = output.split("\n").find((l: string) => l.includes("With context-mode"));
+      const withLine = output.split("\n").find((l: string) => l.includes("With ctxscribe"));
       expect(withoutLine).toBeDefined();
       expect(withLine).toBeDefined();
       const withoutFilled = (withoutLine!.match(/█/g) || []).length;
@@ -498,10 +498,10 @@ describe("formatReport", () => {
       expect(output).toContain("v1.0.71");
     });
 
-    it("falls back to 'context-mode' when version not provided", () => {
+    it("falls back to 'ctxscribe' when version not provided", () => {
       const report = makeReport();
       const output = formatReport(report);
-      expect(output).toContain("context-mode");
+      expect(output).toContain("ctxscribe");
     });
   });
 
@@ -578,8 +578,8 @@ describe("formatReport", () => {
       expect(output).toContain("5h 6m");
 
       // Before/After bars
-      expect(output).toContain("Without context-mode");
-      expect(output).toContain("With context-mode");
+      expect(output).toContain("Without ctxscribe");
+      expect(output).toContain("With ctxscribe");
 
       // Per-tool breakdown
       expect(output).toContain("ctx_batch_execute");
@@ -656,8 +656,8 @@ describe("formatReport", () => {
       expect(lines[0]).toMatch(/tokens saved\s+·\s+.*reduction\s+·\s+5h 6m/);
 
       // Lines 2-3: Before/After bars
-      expect(lines[2]).toMatch(/Without context-mode\s+\|█+\|\s+\d/);
-      expect(lines[3]).toMatch(/With context-mode\s+\|█+░+\|\s+\d/);
+      expect(lines[2]).toMatch(/Without ctxscribe\s+\|█+\|\s+\d/);
+      expect(lines[3]).toMatch(/With ctxscribe\s+\|█+░+\|\s+\d/);
 
       // "kept out" value statement
       expect(output).toContain("kept out of your conversation");
@@ -742,8 +742,8 @@ describe("v1.0.148 Bug G — Section 1 bar uses strict-compression formula", () 
 
     // No Without/With bar should render — instead an honest hint line.
     expect(output).toMatch(/No measurable redirect activity captured yet/i);
-    expect(output).not.toMatch(/Without context-mode\s+\d+/);
-    expect(output).not.toMatch(/With context-mode\s+\d+/);
+    expect(output).not.toMatch(/Without ctxscribe\s+\d+/);
+    expect(output).not.toMatch(/With ctxscribe\s+\d+/);
   });
 
   it("mixed case: 60% kept out when bytesAvoided=6KB, bytesReturned=4KB (eventDataBytes ignored)", () => {

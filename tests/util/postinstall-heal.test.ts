@@ -2,9 +2,9 @@
  * scripts/postinstall.mjs — installed_plugins.json self-heal contract.
  *
  * v1.0.114 hotfix for users broken by v1.0.113's `/ctx-upgrade`. Their
- * Claude Code plugin loader rejects context-mode → MCP gone → they
+ * Claude Code plugin loader rejects ctxscribe → MCP gone → they
  * can't run `/ctx-upgrade` to recover. The escape hatch is `npm install
- * -g context-mode@1.0.114` whose postinstall MUST repair their registry.
+ * -g ctxscribe@1.0.114` whose postinstall MUST repair their registry.
  *
  * These integration tests spawn `node scripts/postinstall.mjs` in a
  * subprocess with isolated HOME and assert end-to-end behavior:
@@ -50,9 +50,10 @@ const KEY = "ctxscribe@wotjr1649";
  * heal (by design) when pkgRoot isn't inside a plugin cache. A real `npm
  * install -g` from the npm registry can't happen for this "private": true
  * fork; the realistic case this fixture stands in for is "deps-heal" — npm
- * reinstalling INSIDE an already-installed plugin cache directory. Using the
- * literal marketplace/plugin segment "context-mode" (upstream layout) keeps
- * the derived key equal to the `KEY` constant below — no other change needed.
+ * reinstalling INSIDE an already-installed plugin cache directory. Staging the
+ * cache layout under the fork's own `wotjr1649/ctxscribe` marketplace/plugin
+ * segments keeps the derived key equal to the `KEY` constant below — no other
+ * change needed.
  *
  * Pass layout "npm-global" to stage the true `npm install -g` shape instead
  * (outside any plugins/cache) — used by the Task 3b null→skip contract pin.
@@ -67,7 +68,7 @@ function stagePostinstallPackage(layout: "cache" | "npm-global" = "cache"): {
   // scans four ancestors; this prevents ambient markers like /tmp/.git from
   // making the staged global-install fixture look like a contributor checkout.
   const root = layout === "npm-global"
-    ? join(base, "npm", "lib", "node_modules", "context-mode")
+    ? join(base, "npm", "lib", "node_modules", "ctxscribe")
     : join(base, "plugins", "cache", "wotjr1649", "ctxscribe", "1.0.0");
   const scriptsDir = join(root, "scripts");
   const hooksDir = join(root, "hooks");
@@ -111,7 +112,7 @@ interface FakeHome {
 
 /**
  * Lay out a fake HOME with `~/.claude/plugins/installed_plugins.json`
- * + a context-mode cache dir whose plugin.json declares `cacheVersion`.
+ * + a ctxscribe cache dir whose plugin.json declares `cacheVersion`.
  */
 function buildFakeHome(opts: {
   entryVersion: string;
@@ -124,7 +125,7 @@ function buildFakeHome(opts: {
   mkdirSync(resolve(cacheDir, ".claude-plugin"), { recursive: true });
   writeFileSync(
     resolve(cacheDir, ".claude-plugin", "plugin.json"),
-    JSON.stringify({ name: "context-mode", version: opts.cacheVersion }, null, 2),
+    JSON.stringify({ name: "ctxscribe", version: opts.cacheVersion }, null, 2),
   );
   const registry: Record<string, unknown> = {
     version: 2,
@@ -197,7 +198,7 @@ describe("postinstall — non-global install (contributor `npm install`)", () =>
 // ─────────────────────────────────────────────────────────────────────────
 // Slice 6b — Task 3b null→skip contract pin (re-armed in Task 9's fix round).
 //
-// A TRUE npm-global layout (`…/npm/lib/node_modules/context-mode`, outside
+// A TRUE npm-global layout (`…/npm/lib/node_modules/ctxscribe`, outside
 // any plugins/cache tree) makes derivePluginKey(pkgRoot) return null, and
 // postinstall MUST then skip every PLUGIN_KEY-gated action — never fall back
 // to the hardcoded upstream key.
@@ -268,7 +269,7 @@ describe("postinstall — Task 3b: npm-global layout (outside plugin cache) skip
 // ─────────────────────────────────────────────────────────────────────────
 // Slice 7b — running from an /ctx-upgrade tmpdir staging path MUST NOT
 // normalize hooks.json. /ctx-upgrade clones the repo to
-// `<tmpdir>/context-mode-upgrade-<epoch>/` and runs `npm install` there
+// `<tmpdir>/ctxscribe-upgrade-<epoch>/` and runs `npm install` there
 // before `cpSync`-ing into the real pluginRoot. If postinstall normalized
 // hooks.json here, the absolute tmpdir paths would get baked in and then
 // copied to the real plugin dir — every subsequent hook fire would fail
@@ -276,10 +277,10 @@ describe("postinstall — Task 3b: npm-global layout (outside plugin cache) skip
 // ─────────────────────────────────────────────────────────────────────────
 
 describe("postinstall — /ctx-upgrade tmpdir staging guard", () => {
-  it("does NOT mutate hooks.json when pkgRoot matches context-mode-upgrade-<digits>", { timeout: 90_000 }, () => {
+  it("does NOT mutate hooks.json when pkgRoot matches ctxscribe-upgrade-<digits>", { timeout: 90_000 }, () => {
     // Lay out a package dir with the exact name shape /ctx-upgrade uses.
     const parent = makeTmp("ctx-postinstall-tmproot-");
-    const packageDir = join(parent, `context-mode-upgrade-${Date.now()}`);
+    const packageDir = join(parent, `ctxscribe-upgrade-${Date.now()}`);
     const scriptsDir = join(packageDir, "scripts");
     const hooksDir = join(packageDir, "hooks");
     mkdirSync(scriptsDir, { recursive: true });
@@ -390,7 +391,7 @@ describe("normalize-hooks — /ctx-upgrade post-cpSync sequence (issue #528)", (
     // Placeholder must be gone — the rewrite happened.
     expect(after).not.toContain("${CLAUDE_PLUGIN_ROOT}");
     // No tmpdir-shaped poison sneaked in via the wrong pluginRoot.
-    expect(after).not.toMatch(/[/\\]context-mode-upgrade-\d+[/\\]/);
+    expect(after).not.toMatch(/[/\\]ctxscribe-upgrade-\d+[/\\]/);
   });
 
   it("self-heals a legacy-poisoned hooks.json by cpSync-overwrite then renormalize", async () => {
@@ -430,7 +431,7 @@ describe("normalize-hooks — /ctx-upgrade post-cpSync sequence (issue #528)", (
     // upgrade where postinstall's tmpdir normalize baked an old epoch path.
     const poisonedTmp = join(
       tmpdir(),
-      "context-mode-upgrade-1700000000000",
+      "ctxscribe-upgrade-1700000000000",
     );
     const poisonedFwd = poisonedTmp.replace(/\\/g, "/");
     const hooksJsonPath = join(realHooksDir, "hooks.json");
@@ -478,7 +479,7 @@ describe("normalize-hooks — /ctx-upgrade post-cpSync sequence (issue #528)", (
     // Legacy poison MUST NOT survive — both the literal epoch path and
     // the generic tmpdir-upgrade shape.
     expect(after).not.toContain(poisonedFwd);
-    expect(after).not.toMatch(/[/\\]context-mode-upgrade-1700000000000[/\\]/);
+    expect(after).not.toMatch(/[/\\]ctxscribe-upgrade-1700000000000[/\\]/);
   });
 });
 

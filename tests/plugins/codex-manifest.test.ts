@@ -44,7 +44,7 @@ describe(".codex-plugin/mcp.json", () => {
     expect(mcp).not.toHaveProperty("mcp_servers");
   });
 
-  it("declares the context-mode server entry", () => {
+  it("declares the ctxscribe server entry", () => {
     const servers = mcp.mcpServers as Record<string, unknown>;
     expect(servers).toBeTypeOf("object");
     expect(servers).toHaveProperty("mcp");

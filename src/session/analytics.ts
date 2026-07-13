@@ -591,12 +591,12 @@ export class AnalyticsEngine {
 // ─────────────────────────────────────────────────────────
 
 /**
- * Where one adapter stores its context-mode sidecars on disk. Mirrors the
+ * Where one adapter stores its ctxscribe sidecars on disk. Mirrors the
  * map in `src/adapters/detect.ts:92-111` (`getSessionDirSegments`) so we
  * never go out of sync as a single source of truth.
  *
- * `sessionsDir` = `<home>/<segments>/context-mode/sessions`
- * `contentDir`  = `<home>/<segments>/context-mode/content`
+ * `sessionsDir` = `<home>/<segments>/ctxscribe/sessions`
+ * `contentDir`  = `<home>/<segments>/ctxscribe/content`
  *
  * Why duplicated here: `getSessionDirSegments` returns segments relative to
  * `homedir()`; analytics needs the absolute joined paths for both `sessions`
@@ -606,9 +606,9 @@ export class AnalyticsEngine {
 export interface AdapterDirEntry {
   /** Adapter id matching `src/adapters/detect.ts` PlatformId. */
   name: string;
-  /** Absolute path to `<home>/<segments>/context-mode/sessions`. */
+  /** Absolute path to `<home>/<segments>/ctxscribe/sessions`. */
   sessionsDir: string;
-  /** Absolute path to `<home>/<segments>/context-mode/content`. */
+  /** Absolute path to `<home>/<segments>/ctxscribe/content`. */
   contentDir: string;
 }
 
@@ -673,7 +673,7 @@ export interface LifetimeStats {
   /**
    * Distinct project_dir count across every DB. Different from
    * `autoMemoryProjects` (which only counts dirs with auto-memory files).
-   * Captures every cwd context-mode has ever seen events for. Optional.
+   * Captures every cwd ctxscribe has ever seen events for. Optional.
    */
   distinctProjects?: number;
 }
@@ -1260,7 +1260,7 @@ export function getRealBytesStats(opts: {
             if (snap?.bytes) snapshotBytes += Number(snap.bytes);
           } catch { /* old schema */ }
           try {
-            // "With context-mode" = the bytes the model paid to ACCESS the
+            // "With ctxscribe" = the bytes the model paid to ACCESS the
             // kept-out content: ctx_search (query the index) + ctx_fetch_and_index
             // (fetch + index a URL). Sandbox compute (ctx_execute/batch/file) is
             // work-output the model would see regardless — NOT redirect savings —
@@ -1385,7 +1385,7 @@ export function getRealBytesStats(opts: {
  * reading now. So the live-window savings bar must split the worktree by
  * which retrieval actually landed in the user's window:
  *
- *   bytesReturned ("With context-mode")  = THIS session's retrieval only —
+ *   bytesReturned ("With ctxscribe")  = THIS session's retrieval only —
  *       what genuinely entered the live window.
  *   bytesAvoided  ("kept out")           = everything the whole worktree moved
  *       (avoided + every session's retrieval) MINUS what landed in your window.
@@ -1417,7 +1417,7 @@ export function getConversationWindowStats(opts: {
 
   const windowReturned = mine.bytesReturned;
   const movedTotal = pool.bytesAvoided + pool.bytesReturned;
-  // What context-mode kept OUT of the live window = everything moved across the
+  // What ctxscribe kept OUT of the live window = everything moved across the
   // worktree minus the slice that actually entered this window. Clamp at 0 so a
   // stale/edge DB can never produce a negative bar.
   const keptOut = Math.max(0, movedTotal - windowReturned);
@@ -1975,7 +1975,7 @@ export function renderCostExample(
   );
 
   out.push(
-    `  context-mode kept ${kb(lifetimeBytes)} out of context — that's ${cursorMonths} months of Cursor Pro paid for itself.`,
+    `  ctxscribe kept ${kb(lifetimeBytes)} out of context — that's ${cursorMonths} months of Cursor Pro paid for itself.`,
   );
   if (teamUsd > 0 && teamYearUsd > 0) {
     out.push("");
@@ -2002,7 +2002,7 @@ export function renderCostExample(
  *   Section 2 — What this chat captured      (per-category bars)
  *   Section 3 — The receipt — getting wider  (this conv vs all-work)
  *   Section 4 — For example: what would that cost?
- *   Section 5 — What context-mode learned about how you work (auto-memory)
+ *   Section 5 — What ctxscribe learned about how you work (auto-memory)
  *   Footer
  *
  * Pure renderer: every input arrives via the args object so this
@@ -2090,7 +2090,7 @@ function renderNarrative5Section(args: {
   // Daily-average sub-line — never tease users with a tiny number when the
   // average is sub-MB (still informative); fall back to KB display.
   const dailyBytes = lifetimeDays > 0 ? lifetimeBytes / lifetimeDays : 0;
-  out.push(`  context-mode kept ${kb(lifetimeBytes)} out of your context window — about ${kb(dailyBytes)} every single day.`);
+  out.push(`  ctxscribe kept ${kb(lifetimeBytes)} out of your context window — about ${kb(dailyBytes)} every single day.`);
   out.push("");
   out.push("");
 
@@ -2123,10 +2123,10 @@ function renderNarrative5Section(args: {
   // Without/With bars — strict compression (v1.0.148, Bug G / ADR-0004).
   //
   // Honest definitions:
-  //   Without = bytes the model WOULD have re-seen if context-mode
+  //   Without = bytes the model WOULD have re-seen if ctxscribe
   //             had not diverted them
   //           = bytesAvoided + bytesReturned
-  //   With    = bytes the model ACTUALLY re-saw after context-mode
+  //   With    = bytes the model ACTUALLY re-saw after ctxscribe
   //           = max(1, bytesReturned)
   //
   // Why eventDataBytes is excluded from this ratio:
@@ -2153,7 +2153,7 @@ function renderNarrative5Section(args: {
   if (measuredAvoided + measuredReturned === 0) {
     // No measurable redirect activity yet — captures may exist, but
     // nothing has been diverted from the model context window.
-    out.push("  No measurable redirect activity captured yet — bars will appear once context-mode diverts its first payload.");
+    out.push("  No measurable redirect activity captured yet — bars will appear once ctxscribe diverts its first payload.");
     out.push("");
   } else {
     const convBytesWithout  = measuredAvoided + measuredReturned;
@@ -2164,8 +2164,8 @@ function renderNarrative5Section(args: {
     const withBar    = dataBar(convTokensWith,    convTokensWithout, 32);
     const convPct    = (1 - convTokensWith / convTokensWithout) * 100;
     const convMult   = Math.max(1, Math.round(convTokensWithout / convTokensWith));
-    out.push(`  Without context-mode  ${kb(convBytesWithout).padStart(8)}  ${withoutBar}   ${fmtNum(convTokensWithout).padStart(7)} tokens`);
-    out.push(`  With context-mode     ${kb(convBytesWith).padStart(8)}  ${withBar}   ${fmtNum(convTokensWith).padStart(7)} tokens`);
+    out.push(`  Without ctxscribe  ${kb(convBytesWithout).padStart(8)}  ${withoutBar}   ${fmtNum(convTokensWithout).padStart(7)} tokens`);
+    out.push(`  With ctxscribe     ${kb(convBytesWith).padStart(8)}  ${withBar}   ${fmtNum(convTokensWith).padStart(7)} tokens`);
     out.push(`                          ${convPct.toFixed(1)}% kept out of context · your AI ran ${convMult}× longer before /compact fired`);
     out.push("");
   }
@@ -2232,8 +2232,8 @@ function renderNarrative5Section(args: {
   out.push("");
   out.push("");
 
-  // ── Section 5 — What context-mode learned about how you work.
-  out.push("  ─── 5. What context-mode learned about how you work ───");
+  // ── Section 5 — What ctxscribe learned about how you work.
+  out.push("  ─── 5. What ctxscribe learned about how you work ───");
   out.push("");
   if (lifetime && lifetime.autoMemoryCount > 0) {
     out.push(`  ${lifetime.autoMemoryCount} preferences picked up across ${lifetime.autoMemoryProjects} project${lifetime.autoMemoryProjects === 1 ? "" : "s"}:`);
@@ -2244,7 +2244,7 @@ function renderNarrative5Section(args: {
       out.push(`    ${label.padEnd(26)} ${String(count).padStart(2)}   ${dataBar(count, maxAm, 20)}`);
     }
   } else {
-    out.push("  No preferences learned yet — context-mode picks them up automatically.");
+    out.push("  No preferences learned yet — ctxscribe picks them up automatically.");
   }
   out.push("");
   out.push("");
@@ -2253,7 +2253,7 @@ function renderNarrative5Section(args: {
   out.push("  Your AI talks less, remembers more, costs less.");
   out.push(`  Locale ${locale} · timezone ${tz} · pricing examples for illustration only.`);
   out.push("");
-  const versionStr = version ? `v${version}` : "context-mode";
+  const versionStr = version ? `v${version}` : "ctxscribe";
   out.push(`  ${versionStr}`);
   if (version && latestVersion && latestVersion !== "unknown" && semverNewer(latestVersion, version)) {
     out.push(`  Update available: v${version} -> v${latestVersion}  |  ctx_upgrade`);
@@ -2807,7 +2807,7 @@ export function formatReport(
   //      2. What this chat captured      (per-category bars)
   //      3. The receipt — getting wider
   //      4. For example: what would that cost?
-  //      5. What context-mode learned about how you work
+  //      5. What ctxscribe learned about how you work
   //      Footer
   //    The opener block above (lines 1989-2005) is suppressed because
   //    renderNarrative5Section emits its own.
@@ -2840,7 +2840,7 @@ export function formatReport(
 
   // ── Fresh session: no savings yet ──
   if (totalKeptOut === 0) {
-    lines.push(`context-mode  ${duration}  ${totalCalls} calls`);
+    lines.push(`ctxscribe  ${duration}  ${totalCalls} calls`);
     lines.push("");
 
     if (totalCalls === 0) {
@@ -2857,7 +2857,7 @@ export function formatReport(
 
     // Footer
     lines.push("");
-    const versionStr = version ? `v${version}` : "context-mode";
+    const versionStr = version ? `v${version}` : "ctxscribe";
     lines.push(versionStr);
     if (version && latestVersion && latestVersion !== "unknown" && semverNewer(latestVersion, version)) {
       lines.push(`Update available: v${version} -> v${latestVersion}  |  ctx_upgrade`);
@@ -2875,8 +2875,8 @@ export function formatReport(
   lines.push("");
 
   // Lines 2-3: Before/After comparison bars — the visual proof
-  lines.push(`Without context-mode  |${dataBar(grandTotal, grandTotal)}| ${kb(grandTotal)}`);
-  lines.push(`With context-mode     |${dataBar(totalReturned, grandTotal)}| ${kb(totalReturned)}`);
+  lines.push(`Without ctxscribe  |${dataBar(grandTotal, grandTotal)}| ${kb(grandTotal)}`);
+  lines.push(`With ctxscribe     |${dataBar(totalReturned, grandTotal)}| ${kb(totalReturned)}`);
   lines.push("");
 
   // Value statement — the line people share
@@ -2955,7 +2955,7 @@ export function formatReport(
 
   // ── Footer ──
   lines.push("");
-  const versionStr = version ? `v${version}` : "context-mode";
+  const versionStr = version ? `v${version}` : "ctxscribe";
   lines.push(versionStr);
   if (version && latestVersion && latestVersion !== "unknown" && latestVersion !== version) {
     lines.push(`Update available: v${version} -> v${latestVersion}  |  ctx_upgrade`);

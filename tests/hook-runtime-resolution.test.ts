@@ -235,7 +235,7 @@ describe("resolveHookRuntime — auto-detect bun ≥1.0, fall back to node (#738
 // (e.g. ~/.local/share/mise/installs/node/20.1.0/bin/node). `mise upgrade
 // node` (also asdf/nvm) installs 20.1.1 and removes the 20.1.0 dir. The MCP
 // server caches the now-dangling 20.1.0 path; every baked hook command then
-// fails with spawn ENOENT and context-mode silently dies for that user.
+// fails with spawn ENOENT and ctxscribe silently dies for that user.
 //
 // Extends the #800/#803 liveness-guard pattern (resolveJavascriptRuntime,
 // Homebrew Cellar ENOENT) to the HOOK runtime path: use the pinned execPath

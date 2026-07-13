@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// context-mode runtime JS dependency self-heal (SessionStart).
+// ctxscribe runtime JS dependency self-heal (SessionStart).
 //
 // Problem: on plugin auto-update, pure-JS external packages under the cache's
 //   node_modules get partially installed — only a subset (e.g. test/) survives,
@@ -8,7 +8,7 @@
 //   every WebFetch redirect errors. Reproduced across 6 cache versions = an
 //   install-time defect.
 //
-// context-mode's ensure-deps.mjs heals only better-sqlite3 (native) and checks
+// ctxscribe's ensure-deps.mjs heals only better-sqlite3 (native) and checks
 //   folder existence alone, so it misses partial installs. This hook reads the
 //   active version's package.json dependencies, checks each pure-JS external's
 //   integrity by "is its package.json present?", and reinstalls only the broken
@@ -26,10 +26,10 @@ import { fileURLToPath } from "node:url";
 
 // Claude reads a hook's stderr as failure, so every diagnostic goes to a log file
 // next to this hook (same pattern as orphan-reaper) — never to stderr. (defect #4)
-const LOG_PATH = join(dirname(fileURLToPath(import.meta.url)), "context-mode-deps-heal.log");
+const LOG_PATH = join(dirname(fileURLToPath(import.meta.url)), "ctxscribe-deps-heal.log");
 function log(msg) {
   try {
-    appendFileSync(LOG_PATH, `${new Date().toISOString()} [context-mode-deps-heal] ${msg}\n`);
+    appendFileSync(LOG_PATH, `${new Date().toISOString()} [ctxscribe-deps-heal] ${msg}\n`);
   } catch {
     /* best effort */
   }
@@ -122,7 +122,7 @@ export function installBudgetMs(deadlineTs, nowTs) {
 }
 
 // Only pure-JS dependencies that are require()d from node_modules at runtime.
-// context-mode's esbuild bundle inlines most deps (zod, @modelcontextprotocol/sdk,
+// ctxscribe's esbuild bundle inlines most deps (zod, @modelcontextprotocol/sdk,
 // ...) into server.bundle.mjs and leaves only those marked `--external:<pkg>` in
 // the bundle script as runtime requires. Read that list dynamically (so future
 // externals are covered) and drop better-sqlite3 (native -> ensure-deps' job).
@@ -147,7 +147,7 @@ function cfgDir() {
   return resolve(homedir(), ".claude");
 }
 
-// Active install path: find the `context-mode@<marketplace>` key in
+// Active install path: find the `ctxscribe@<marketplace>` key in
 // installed_plugins.json. The marketplace name is not hard-coded, so a rename
 // does not break this. If the registry can't be read we heal nothing — doing
 // nothing is safer than repairing the wrong tree.

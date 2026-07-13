@@ -124,12 +124,12 @@ describe("getConversationWindowStats (v1.0.169 live-window framing)", () => {
 
     const r = getConversationWindowStats({ sessionId: main, worktreeHash: hash, sessionsDir: dir });
 
-    // "With context-mode" = ONLY what entered the live window (main's retrieval).
+    // "With ctxscribe" = ONLY what entered the live window (main's retrieval).
     expect(r.bytesReturned).toBe(10_000);
     // "kept out" = whole worktree moved (600k+1.9M avoided + 510k retrieval)
     //              minus the 10k that landed in the live window = 3,000,000.
     expect(r.bytesAvoided).toBe(3_000_000);
-    // The bar's "Without context-mode" = avoided + returned = total worktree
+    // The bar's "Without ctxscribe" = avoided + returned = total worktree
     // bytes moved = 3,010,000. Sub-agent retrieval is credited as kept-out,
     // not charged to the user's window.
     expect(r.bytesAvoided + r.bytesReturned).toBe(3_010_000);
@@ -183,8 +183,8 @@ describe("getRealBytesStats (Phase 8 renderer source-of-truth)", () => {
     expect(r.totalSavedTokens).toBeGreaterThan(9_000); // ≈ 9_500
   });
 
-  test("8.1b conversation tier: 'With context-mode' folds ONLY retrieval tool returns, not sandbox work-output", () => {
-    // "With context-mode" = the bytes the model paid to ACCESS kept-out content
+  test("8.1b conversation tier: 'With ctxscribe' folds ONLY retrieval tool returns, not sandbox work-output", () => {
+    // "With ctxscribe" = the bytes the model paid to ACCESS kept-out content
     // (ctx_search / ctx_fetch_and_index), via the tool_calls counter — NOT
     // session_events.bytes_returned (snapshot-replay only, ~0). Sandbox compute
     // (ctx_execute) is work-output the model would see regardless, so it is
@@ -208,7 +208,7 @@ describe("getRealBytesStats (Phase 8 renderer source-of-truth)", () => {
     const r = getRealBytesStats({ sessionId: sid, sessionsDir: dir });
 
     // Only the two retrieval tools (2_000 + 1_500); the 800 KB ctx_execute
-    // work-output is NOT redirect savings and must not enter "With context-mode".
+    // work-output is NOT redirect savings and must not enter "With ctxscribe".
     expect(r.bytesReturned).toBe(3_500);
     expect(r.bytesAvoided).toBe(90_000);
   });
@@ -835,8 +835,8 @@ describe("v1.0.148 Bug G — strict-compression formula (Section 1 Without/With)
     expect(pct).toBeLessThanOrEqual(96);
 
     // Without / With bars: bytes labels are formatted via kb().
-    const withoutLine = lines.find((l) => /Without context-mode/.test(l));
-    const withLine    = lines.find((l) => /With context-mode/.test(l));
+    const withoutLine = lines.find((l) => /Without ctxscribe/.test(l));
+    const withLine    = lines.find((l) => /With ctxscribe/.test(l));
     expect(withoutLine, `Without line missing:\n${text}`).toBeDefined();
     expect(withLine,    `With line missing:\n${text}`).toBeDefined();
 
@@ -874,9 +874,9 @@ describe("v1.0.148 Bug G — empty-state branch (no degenerate bar)", () => {
     const lines = text.split("\n");
 
     // No Without/With bars in this empty state.
-    expect(lines.find((l) => /Without context-mode/.test(l)),
+    expect(lines.find((l) => /Without ctxscribe/.test(l)),
       `Without bar should NOT render in empty state:\n${text}`).toBeUndefined();
-    expect(lines.find((l) => /With context-mode/.test(l)),
+    expect(lines.find((l) => /With ctxscribe/.test(l)),
       `With bar should NOT render in empty state:\n${text}`).toBeUndefined();
 
     // And no "0% kept out" or "100% kept out" degenerate ratio line.

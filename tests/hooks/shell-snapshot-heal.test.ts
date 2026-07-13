@@ -7,7 +7,7 @@
  *     ~/.claude/shell-snapshots/snapshot-<shell>-<ts>-<rand>.sh
  *   Every Bash tool call `source`s that snapshot to reproduce the user env.
  *   The snapshot contains `export PATH='…'` baked at session start, including
- *   any context-mode `bin/` for the then-current cache version. When
+ *   any ctxscribe `bin/` for the then-current cache version. When
  *   /ctx-upgrade deletes the old version dir mid-session, the stale PATH
  *   entry causes "Plugin directory does not exist" errors on every Bash
  *   call until the session restarts.
@@ -17,15 +17,16 @@
  *     Layer 2 — SessionStart hook re-heals if upgrade missed any
  *
  *   Both layers go through `rewriteShellSnapshots` in cache-heal-utils.mjs.
- *   The regex anchors exclusively on `context-mode/context-mode/` — sibling
- *   plugins under the same `plugins/cache/` tree must never be touched.
+ *   The regex anchors exclusively on the `cache/<marketplace>/<plugin>/` prefix
+ *   derived from the supplied pluginRoot — sibling plugins under the same
+ *   `plugins/cache/` tree must never be touched.
  *
  *   Constraints:
  *     - Atomic writes (tmp + rename) — snapshots may be `source`d concurrently.
  *     - Best-effort — never throws.
  *     - Cross-platform: handles `/c/Users/…` (Cygwin/Git Bash) AND `C:\Users\…`
  *       (native Windows) path separator variants.
- *     - Only touches the version-segment of the context-mode PATH entry; the
+ *     - Only touches the version-segment of the ctxscribe PATH entry; the
  *       rest of the PATH line is byte-identical.
  */
 
@@ -46,8 +47,8 @@ import { rewriteShellSnapshots } from "../../hooks/cache-heal-utils.mjs";
 
 // The trust anchor: rewriteShellSnapshots derives the
 // `cache/<marketplace>/<plugin>/` prefix from pluginRoot. Every snapshot
-// fixture in this file uses the upstream `context-mode/context-mode/`
-// layout, so the real installed-tree pluginRoot names that same anchor.
+// fixture in this file uses the fork's `wotjr1649/ctxscribe/` layout, so the
+// real installed-tree pluginRoot names that same anchor.
 const PLUGIN_ROOT =
   "/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.151";
 
@@ -101,7 +102,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     );
   });
 
-  test("multiple sibling plugins on same PATH — only context-mode segment rewritten", () => {
+  test("multiple sibling plugins on same PATH — only ctxscribe segment rewritten", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-1.sh");
     const original =
@@ -111,7 +112,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     const after = readFileSync(file, "utf-8");
-    // context-mode bumped, siblings untouched
+    // ctxscribe bumped, siblings untouched
     expect(after).toContain(
       "/cache/wotjr1649/ctxscribe/1.0.151/bin",
     );
@@ -120,7 +121,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     expect(after).not.toContain("wotjr1649/ctxscribe/1.0.146");
   });
 
-  test("snapshot without context-mode entry — no-op, byte-identical", () => {
+  test("snapshot without ctxscribe entry — no-op, byte-identical", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-clean.sh");
     const original =
@@ -247,14 +248,14 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     );
     writeFileSync(
       other,
-      "context-mode/context-mode/1.0.146 — do not touch",
+      "wotjr1649/ctxscribe/1.0.146 — do not touch",
       "utf-8",
     );
 
     rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     expect(readFileSync(other, "utf-8")).toBe(
-      "context-mode/context-mode/1.0.146 — do not touch",
+      "wotjr1649/ctxscribe/1.0.146 — do not touch",
     );
     expect(readFileSync(sh, "utf-8")).toContain(
       "wotjr1649/ctxscribe/1.0.151/bin",
@@ -279,18 +280,18 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     ]);
   });
 
-  test("never touches paths that look like context-mode but are scoped under another owner", () => {
+  test("never touches paths that look like ctxscribe but are scoped under another owner", () => {
     // Defensive: a malicious plugin manifest could create
-    // `.../cache/evil-owner/context-mode/1.0.146/bin`. Even with the
+    // `.../cache/evil-owner/ctxscribe/1.0.146/bin`. Even with the
     // legit anchor explicitly supplied (PLUGIN_ROOT names
     // `cache/wotjr1649/ctxscribe/`), the derived prefix must not
-    // match `evil-owner/context-mode/...` — the entry stays byte-identical.
+    // match `evil-owner/ctxscribe/...` — the entry stays byte-identical.
     // `evil-owner` and the fork's `wotjr1649` are the same shape; the
     // heal only rewrites the tree pluginRoot actually names.
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-spoof.sh");
     const original =
-      `export PATH='/Users/x/.claude/plugins/cache/evil-owner/context-mode/1.0.146/bin:/usr/bin'\n`;
+      `export PATH='/Users/x/.claude/plugins/cache/evil-owner/ctxscribe/1.0.146/bin:/usr/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
     rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });

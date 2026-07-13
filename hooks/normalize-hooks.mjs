@@ -18,7 +18,7 @@ import { resolve } from "node:path";
 
 const PLACEHOLDER = "${CLAUDE_PLUGIN_ROOT}";
 
-// #604: matches a cache path segment `context-mode/context-mode/<version>`.
+// #604: matches a cache path segment `wotjr1649/ctxscribe/<version>`.
 // Capture group is the X.Y.Z version. Used to detect command paths frozen on a
 // previous-version dir that Claude Code's native plugin manager has since
 // cleaned up. `/g` so a single content blob with multiple stale references is
@@ -32,9 +32,9 @@ function fwd(p) {
 }
 
 /**
- * Extract the X.Y.Z version segment from a pluginRoot under the context-mode
+ * Extract the X.Y.Z version segment from a pluginRoot under the ctxscribe
  * cache layout. Returns null when running from npm-global, a dev checkout, or
- * any layout that does not match the `<…>/context-mode/context-mode/<v>(/…)?`
+ * any layout that does not match the `<…>/wotjr1649/ctxscribe/<v>(/…)?`
  * pattern — callers must treat null as "no stale-path check is possible".
  */
 function pluginRootVersion(pluginRoot) {
@@ -47,7 +47,7 @@ function pluginRootVersion(pluginRoot) {
 }
 
 /**
- * Does `content` reference any context-mode cache version segment that differs
+ * Does `content` reference any ctxscribe cache version segment that differs
  * from `currentVersion`? Detects the #604 ratchet: already-normalized hooks.json
  * / plugin.json carrying a previous version's absolute paths forward into a
  * newer version's cache directory after Claude Code's auto-update.
@@ -70,7 +70,7 @@ function hasStaleCacheVersionSegment(content, currentVersion) {
  *   1. Fresh content still containing the `${CLAUDE_PLUGIN_ROOT}` placeholder
  *      — the original #378 first-boot path on any host.
  *   2. (#604) Already-resolved content whose absolute paths point at a
- *      different version of the context-mode cache than the current
+ *      different version of the ctxscribe cache than the current
  *      `pluginRoot`. Breaks the ratchet that previously froze stale paths
  *      after Claude Code's native plugin manager copied a previous version's
  *      hooks.json forward.
@@ -134,7 +134,7 @@ export function normalizeHooksJson(content, nodePath, pluginRoot) {
           next = next.replace(/^\s*node\s+/, `"${safeNode}" `);
         }
         if (hasStale) {
-          // Re-point every `context-mode/context-mode/<old-version>/…` segment
+          // Re-point every `wotjr1649/ctxscribe/<old-version>/…` segment
           // to the current pluginRoot's version. Operates on the forward-slash
           // form so MSYS-mangled paths heal as well.
           next = fwd(next).replace(

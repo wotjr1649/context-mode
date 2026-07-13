@@ -49,7 +49,7 @@ function readEvents(dbPath: string, sessionId: string, type: string): RawEventRo
 }
 
 const mcpSentinelDir = process.platform === "win32" ? tmpdir() : "/tmp";
-const mcpSentinel = resolve(mcpSentinelDir, `context-mode-mcp-ready-${process.pid}`);
+const mcpSentinel = resolve(mcpSentinelDir, `ctxscribe-mcp-ready-${process.pid}`);
 
 describe("D2 Phase 4 — webfetch-redirected marker pattern", () => {
   let fakeHome: string;
@@ -85,7 +85,7 @@ describe("D2 Phase 4 — webfetch-redirected marker pattern", () => {
 
   beforeEach(() => {
     writeFileSync(mcpSentinel, String(process.pid));
-    const m = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const m = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     try { unlinkSync(m); } catch {}
   });
 
@@ -125,7 +125,7 @@ describe("D2 Phase 4 — webfetch-redirected marker pattern", () => {
     const r = runPre("https://docs.example.com/long-page");
     assert.equal(r.status, 0, `pretooluse non-zero. stderr: ${r.stderr}`);
 
-    const markerPath = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     assert.ok(existsSync(markerPath), "marker file must be written");
     const content = readFileSync(markerPath, "utf-8");
     expect(content.startsWith("WebFetch:webfetch-redirected:16384:")).toBe(true);
@@ -150,7 +150,7 @@ describe("D2 Phase 4 — webfetch-redirected marker pattern", () => {
   test("4.3: long URL truncated to 200 chars in marker", () => {
     const longUrl = "https://example.com/" + "a".repeat(500);
     runPre(longUrl);
-    const markerPath = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     const content = readFileSync(markerPath, "utf-8");
     const i1 = content.indexOf(":");
     const i2 = content.indexOf(":", i1 + 1);

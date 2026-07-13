@@ -67,7 +67,7 @@ export interface IsParentAliveDeps {
  * Build a parent-liveness check that handles the npm-exec wrapper case (#311).
  *
  * A plain ppid comparison misses Claude Code sessions launched via
- * `start.mjs → npm exec → context-mode server`: when Claude Code dies,
+ * `start.mjs → npm exec → ctxscribe server`: when Claude Code dies,
  * `start.mjs` reparents to init but `npm exec` stays alive, so the server's
  * direct ppid never changes. We additionally check whether the grandparent
  * process has been reparented to init (PID 1). When the original grandparent
@@ -160,7 +160,7 @@ export function bridgeChildIdleTimeoutMs(env: NodeJS.ProcessEnv = process.env): 
  */
 export function idleReapMessage(idleMs: number): string {
   const seconds = Math.round(idleMs / 1000);
-  return `[context-mode] Released an idle MCP helper after ${seconds}s of inactivity to free memory; it reconnects automatically on next use. (#854)`;
+  return `[ctxscribe] Released an idle MCP helper after ${seconds}s of inactivity to free memory; it reconnects automatically on next use. (#854)`;
 }
 
 // #854 idle-reaper state, module-level by design: an MCP server is exactly one

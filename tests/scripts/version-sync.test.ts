@@ -153,7 +153,7 @@ describe("version-sync end-to-end", () => {
       const TEST_VERSION = "9.9.9-test";
       writeFileSync(
         join(scratch, "package.json"),
-        JSON.stringify({ name: "context-mode", version: TEST_VERSION }, null, 2),
+        JSON.stringify({ name: "ctxscribe", version: TEST_VERSION }, null, 2),
       );
 
       const result = spawnSync(process.execPath, ["scripts/version-sync.mjs"], {

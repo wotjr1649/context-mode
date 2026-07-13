@@ -12,7 +12,7 @@
  * where prewarm + DNS already eats a few seconds tipped over and the MCP
  * child was dropped with:
  *
- *   MCP client for `context-mode` timed out after 30 seconds.
+ *   MCP client for `ctxscribe` timed out after 30 seconds.
  *
  * The fix detaches those installs so they run in the background while the
  * MCP `initialize` handshake proceeds. This test pins both halves of the

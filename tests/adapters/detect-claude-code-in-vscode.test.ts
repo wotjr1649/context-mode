@@ -10,7 +10,7 @@
  * is set on every Claude Code boot (e.g., MCP server start before the hook
  * env hydrates). When those are absent and `VSCODE_PID` is present, detect
  * picks `vscode-copilot` and `getSettingsPath()` (copilot-base.ts:258)
- * writes `.github/hooks/context-mode.json` debris into the user's repo.
+ * writes `.github/hooks/ctxscribe.json` debris into the user's repo.
  *
  * Verified Claude-Code-set env vars (live `env` dump from a Claude Code
  * CLI process, 2026-05-11):
@@ -23,7 +23,7 @@
  * `CLAUDE_CODE_ENTRYPOINT` is the most stable disambiguator — set on
  * every Claude Code session regardless of plugin/project state.
  * `CLAUDE_PLUGIN_ROOT` is set whenever Claude Code is running with a
- * plugin loaded (which is the case when context-mode itself is active).
+ * plugin loaded (which is the case when ctxscribe itself is active).
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -33,7 +33,7 @@ import { join } from "node:path";
 
 // Pin homedir() so installed_plugins.json detection can be exercised against
 // a temp HOME instead of the developer's real ~/.claude (which actually does
-// have context-mode installed in this repo's environment).
+// have ctxscribe installed in this repo's environment).
 const homedirMock = vi.hoisted(() => ({ current: "" }));
 vi.mock("node:os", async () => {
   const actual = await vi.importActual<typeof import("node:os")>("node:os");
@@ -97,7 +97,7 @@ describe("Issue #539 — Claude Code inside VS Code disambiguation", () => {
 
   it("returns claude-code when VSCODE_PID set AND CLAUDE_PLUGIN_ROOT set", () => {
     // CLAUDE_PLUGIN_ROOT is set when Claude Code runs with a plugin loaded
-    // — context-mode is itself loaded as a Claude Code plugin so this var
+    // — ctxscribe is itself loaded as a Claude Code plugin so this var
     // is present whenever the issue manifests in practice.
     process.env.VSCODE_PID = "12345";
     process.env.CLAUDE_PLUGIN_ROOT =
@@ -112,14 +112,14 @@ describe("Issue #539 — Claude Code inside VS Code disambiguation", () => {
   //
   // Belt-and-suspenders: if BOTH env-var disambiguators happen to be absent
   // (a real-world MCP-server-only boot we have not observed yet) but the
-  // user has ~/.claude/plugins/installed_plugins.json with a context-mode
+  // user has ~/.claude/plugins/installed_plugins.json with a ctxscribe
   // entry, treat that as proof the runtime is Claude Code with our plugin
   // loaded. File is read once per process via memoization to keep detect()
   // hot-path cost flat.
 
-  it("returns claude-code (NOT vscode-copilot) when VSCODE_PID set AND ~/.claude/plugins/installed_plugins.json has context-mode entry", () => {
+  it("returns claude-code (NOT vscode-copilot) when VSCODE_PID set AND ~/.claude/plugins/installed_plugins.json has ctxscribe entry", () => {
     // Create a fake $HOME with an installed_plugins.json that mentions
-    // context-mode the same way the real file does.
+    // ctxscribe the same way the real file does.
     const fakeHome = mkdtempSync(join(tmpdir(), "ctx-mode-539-"));
     try {
       const pluginsDir = join(fakeHome, ".claude", "plugins");

@@ -61,9 +61,9 @@ const PLUGIN_KEY = derivePluginKey(pkgRoot);
   if (isLinux && !hasBun && !hasModernNode) {
     process.stderr.write(
       "\n" +
-      "context-mode: install aborted\n" +
+      "ctxscribe: install aborted\n" +
       "  Linux + Node " + (process.versions.node ?? "?") + " is unsupported.\n" +
-      "  context-mode requires Node.js >= 22.5 (or Bun) on Linux to avoid the\n" +
+      "  ctxscribe requires Node.js >= 22.5 (or Bun) on Linux to avoid the\n" +
       "  V8 madvise(MADV_DONTNEED) SIGSEGV affecting better-sqlite3 (1-4/hour).\n" +
       "  Tracking: https://github.com/nodejs/node/issues/62515\n" +
       "\n" +
@@ -81,7 +81,7 @@ const PLUGIN_KEY = derivePluginKey(pkgRoot);
 }
 
 /**
- * True when running as a real `npm install -g context-mode`. We use this
+ * True when running as a real `npm install -g ctxscribe`. We use this
  * to keep contributors' local `npm install` runs from rewriting their HOME's
  * Claude Code registry (would be very surprising during dev).
  *
@@ -193,13 +193,13 @@ if (process.platform === "win32" && process.env.npm_config_global === "true") {
         // Create directory junction (no admin privileges needed on Windows 10+)
         // Validate paths to prevent cmd.exe injection via shell metacharacters
         if (!isSafeWindowsPath(expectedPkgDir) || !isSafeWindowsPath(actualPkgDir)) {
-          console.warn(`  context-mode: skipping junction — path contains unsafe characters`);
+          console.warn(`  ctxscribe: skipping junction — path contains unsafe characters`);
         } else {
           execSync(`mklink /J "${expectedPkgDir}" "${actualPkgDir}"`, {
             shell: "cmd.exe",
             stdio: "pipe",
           });
-          console.log(`\n  context-mode: created junction for nvm4w compatibility`);
+          console.log(`\n  ctxscribe: created junction for nvm4w compatibility`);
           console.log(`    ${expectedPkgDir} → ${actualPkgDir}\n`);
         }
       }
@@ -219,7 +219,7 @@ if (process.platform === "win32" && process.env.npm_config_global === "true") {
             const fixed = content
               .replace(/build[\\\/]cli\.js/g, "cli.bundle.mjs");
             writeFileSync(line, fixed);
-            console.log(`  context-mode: fixed stale shim at ${line}`);
+            console.log(`  ctxscribe: fixed stale shim at ${line}`);
           }
         }
       }
@@ -247,7 +247,7 @@ try { healBetterSqlite3Binding(pkgRoot); } catch { /* best effort — don't bloc
 // here too closes the gap for the very first hook fire after a fresh install
 // (before any MCP server has run).
 //
-// Guard 1: only run on REAL `npm install -g context-mode`. A contributor's
+// Guard 1: only run on REAL `npm install -g ctxscribe`. A contributor's
 // `npm install` from a git clone (or CI checkout) must NOT mutate the
 // source-tracked `.claude-plugin/plugin.json` — doing so substitutes the
 // literal `${CLAUDE_PLUGIN_ROOT}` with an absolute path and trips

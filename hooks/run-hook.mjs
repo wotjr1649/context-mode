@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * run-hook.mjs — Universal crash-resilient wrapper for context-mode hook entries (#414).
+ * run-hook.mjs — Universal crash-resilient wrapper for ctxscribe hook entries (#414).
  *
  * Why this exists:
  *   - hooks/hooks.json declares commands as `node "${CLAUDE_PLUGIN_ROOT}/hooks/X.mjs"`.
@@ -13,7 +13,7 @@
  *     wrapper, where the handler is guaranteed to be live.
  *
  * Contract:
- *   - logs every failure to <configDir>/context-mode/hook-errors.log,
+ *   - logs every failure to <configDir>/ctxscribe/hook-errors.log,
  *     where configDir honors $CLAUDE_CONFIG_DIR (incl. leading ~) and
  *     falls back to ~/.claude — same contract as session-helpers.mjs (#453)
  *   - never propagates a non-zero exit (Claude Code surfaces non-zero as a

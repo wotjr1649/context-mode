@@ -1,5 +1,5 @@
 /**
- * ContentStore — FTS5 BM25-based knowledge base for context-mode.
+ * ContentStore — FTS5 BM25-based knowledge base for ctxscribe.
  *
  * Chunks markdown content by headings (keeping code blocks intact),
  * stores in SQLite FTS5, and retrieves via BM25-ranked search.

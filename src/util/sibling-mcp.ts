@@ -5,7 +5,7 @@
  * alive after copying new files in-place + updating npm global. The next
  * Claude Code launch spawned a fresh process from the new version, but
  * the old one kept its open stdio + DB handles. Across enough upgrades
- * users observed 5+ context-mode `start.mjs` processes pinned to RAM.
+ * users observed 5+ ctxscribe `start.mjs` processes pinned to RAM.
  *
  * This module provides two pure helpers:
  *
@@ -65,10 +65,12 @@ export interface KillReport {
   totalKilled: number;
 }
 
-// Match BOTH `~/.claude/plugins/cache/<marketplace>/context-mode/<v>/start.mjs`
-// AND `~/.claude/plugins/marketplaces/<marketplace>/start.mjs` shapes.
-// The `.*context-mode.*` wildcard below covers renamed marketplaces
-// (this fork installs under `context-mode-js/`) — do not tighten it.
+// Match BOTH `~/.claude/plugins/cache/wotjr1649/ctxscribe/<v>/start.mjs`
+// AND `~/.claude/plugins/marketplaces/wotjr1649/start.mjs` shapes.
+// The wildcard below anchors on the MARKETPLACE (`wotjr1649`), which is the
+// only segment present in BOTH shapes — the marketplaces-shape path has no
+// plugin segment at all. Do NOT re-anchor it on the plugin name (`ctxscribe`):
+// that silently stops reaping every marketplaces-shape orphan.
 // Both can be alive concurrently — VERDICT R1 dump confirmed all four
 // PIDs simultaneously across three different versions on a real Mac.
 const POSIX_PGREP_PATTERN =

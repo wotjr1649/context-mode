@@ -118,7 +118,7 @@ async function main() {
     const init = responses.find((r) => r.id === 1);
     assert(!!init, "No init response");
     assert(
-      init!.result?.serverInfo?.name === "context-mode",
+      init!.result?.serverInfo?.name === "ctxscribe",
       "Wrong server name",
     );
     assert(

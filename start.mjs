@@ -57,7 +57,7 @@ if (!process.env.CONTEXT_MODE_PROJECT_DIR && safeOriginalCwd) {
 // Routing is handled by:
 //   - Hook-capable platforms: SessionStart hook injects ROUTING_BLOCK
 //   - Non-hook platforms: server.ts writeRoutingInstructions() on MCP connect
-//   - Future: explicit `context-mode init` command
+//   - Future: explicit `ctxscribe init` command
 
 // ── Linux: re-exec with Bun to avoid better-sqlite3 SIGSEGV (#564) ──
 // server.bundle.mjs has two SQLite paths: bun:sqlite (safe) or better-sqlite3
@@ -240,12 +240,12 @@ if (cacheMatch) {
 //   HEAL 3: per-entry `version` drifts away from the actual cache dir's
 //           plugin.json `version` field. Claude Code's plugin loader then
 //           rejects the entry as a manifest mismatch and silently
-//           disconnects context-mode.
+//           disconnects ctxscribe.
 //   HEAL 4: top-level `enabledPlugins[<key>]` is missing or emptied.
 //           Claude Code skips disabled plugins, so MCP never starts and
 //           the user has no /ctx-upgrade escape hatch.
 // Logic is shared verbatim with scripts/postinstall.mjs (single source of
-// truth) so users who fix themselves via `npm install -g context-mode`
+// truth) so users who fix themselves via `npm install -g ctxscribe`
 // follow the exact same code path. Best-effort, never blocks MCP boot.
 try {
   const { healInstalledPlugins, healSettingsEnabledPlugins, healPluginJsonMcpServers, sweepStaleMcpJson } =
@@ -263,7 +263,7 @@ try {
   try { healSettingsEnabledPlugins({ settingsPath, pluginKey }); }
   catch { /* best effort */ }
   // v1.0.119 — Layer 5b (Issue #523): heal .claude-plugin/plugin.json's
-  // mcpServers["context-mode"].args[0] when /ctx-upgrade left a tmpdir-prefixed
+  // mcpServers["ctxscribe"].args[0] when /ctx-upgrade left a tmpdir-prefixed
   // path baked in. Iterates EVERY installed cache entry's installPath so
   // multi-version installs all self-recover. Each call is independently wrapped
   // because one poisoned entry must not block heals on the others. Best effort.
@@ -504,8 +504,8 @@ import "./hooks/ensure-deps.mjs";
 // (turndown + turndown-plugin-gfm + @mixmark-io/domino) blocked MCP boot
 // for ~15–25s cold. Codex's per-MCP `startup_timeout_sec` is 30s, so on
 // any host where its prewarm + DNS already eats a few seconds the timer
-// fires before context-mode replies to `initialize` and the MCP child is
-// dropped with "MCP client for `context-mode` timed out after 30 seconds".
+// fires before ctxscribe replies to `initialize` and the MCP child is
+// dropped with "MCP client for `ctxscribe` timed out after 30 seconds".
 //
 // Fix: spawn each `npm install` detached + unref'd so it runs in the
 // background while the MCP server proceeds with its handshake. The deps
@@ -553,13 +553,13 @@ import "./hooks/ensure-deps.mjs";
       // empty error handler. Surface both spawn failures and non-zero exits.
       child.on("error", (err) => {
         process.stderr.write(
-          `[context-mode] background install of ${pkg} failed to spawn: ${err?.message ?? err}\n`,
+          `[ctxscribe] background install of ${pkg} failed to spawn: ${err?.message ?? err}\n`,
         );
       });
       child.on("exit", (code) => {
         if (code) {
           process.stderr.write(
-            `[context-mode] background install of ${pkg} exited with code ${code}\n`,
+            `[ctxscribe] background install of ${pkg} exited with code ${code}\n`,
           );
         }
       });

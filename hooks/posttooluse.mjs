@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * PostToolUse hook for context-mode session continuity.
+ * PostToolUse hook for ctxscribe session continuity.
  *
  * Captures session events from tool calls (13 categories) and stores
  * them in the per-project SessionDB for later resume snapshot building.
@@ -61,7 +61,7 @@ await runHook(async () => {
 
     // ─── Category 18: Rejected-approach — read PreToolUse marker ───
     try {
-      const rejectedPath = resolve(tmpdir(), `context-mode-rejected-${sessionId}.txt`);
+      const rejectedPath = resolve(tmpdir(), `ctxscribe-rejected-${sessionId}.txt`);
       let rejectedData;
       try {
         rejectedData = readFileSync(rejectedPath, "utf-8").trim();
@@ -92,11 +92,11 @@ await runHook(async () => {
     } catch { /* best-effort */ }
 
     // ─── D2 PRD Phase 3/4: redirect marker — emit byte-accounting event ───
-    // PreToolUse wrote `context-mode-redirect-${sessionId}.txt` for tools whose
+    // PreToolUse wrote `ctxscribe-redirect-${sessionId}.txt` for tools whose
     // output we kept out of the model's context window (curl/wget, WebFetch,
     // large Read). Format: `tool:type:bytesAvoided:commandSummary` (Override C).
     try {
-      const redirectPath = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+      const redirectPath = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
       let redirectData;
       try {
         redirectData = readFileSync(redirectPath, "utf-8").trim();
@@ -147,7 +147,7 @@ await runHook(async () => {
     try {
       const toolName = input.tool_name ?? "";
       if (toolName) {
-        const markerPath = resolve(tmpdir(), `context-mode-latency-${sessionId}-${toolName}.txt`);
+        const markerPath = resolve(tmpdir(), `ctxscribe-latency-${sessionId}-${toolName}.txt`);
         let startTime;
         try {
           startTime = parseInt(readFileSync(markerPath, "utf-8").trim(), 10);
@@ -178,7 +178,7 @@ await runHook(async () => {
       }
     } catch { /* latency tracking is best-effort */ }
 
-    // ─── Retrieval bridge: emit the "With context-mode" (bytes_retrieved) row ───
+    // ─── Retrieval bridge: emit the "With ctxscribe" (bytes_retrieved) row ───
     // The MCP server appended ctx_search / ctx_fetch_and_index response bytes to
     // a marker keyed by the session DB basename (the hook NEVER fires for the
     // plugin's own MCP tools, so this is the only place that signal can enter

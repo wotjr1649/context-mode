@@ -3,7 +3,7 @@
  *
  * Recent Codex builds honor PreToolUse `permissionDecision:"allow" + updatedInput`
  * (command rewrite) and `additionalContext`. Older builds reject/ignore those
- * fields. context-mode must emit the rewrite shape ONLY when the running Codex
+ * fields. ctxscribe must emit the rewrite shape ONLY when the running Codex
  * supports it and otherwise fail closed (deny) — it must never silently pass a
  * redirect through.
  *
@@ -29,7 +29,7 @@ import { join } from "node:path";
 export const MIN_REWRITE_VERSION = [0, 141, 0];
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // re-probe at most hourly
-const CACHE_FILE = "context-mode-codex-caps.json";
+const CACHE_FILE = "ctxscribe-codex-caps.json";
 
 /** Parse a `codex --version` line ("codex-cli 0.141.0") → [major, minor, patch]. */
 export function parseCodexVersion(raw) {

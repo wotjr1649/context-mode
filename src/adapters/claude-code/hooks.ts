@@ -43,17 +43,17 @@ export type HookType = (typeof HOOK_TYPES)[keyof typeof HOOK_TYPES];
  *
  * Claude Code's hook matcher engine treats this entry as a substring match
  * (it also accepts regex, but `mcp__` alone is enough — every MCP tool
- * surfaces as `mcp__<server>__<tool>`). v1.0.124 used a negative lookahead
- * `mcp__(?!plugin_context-mode_)` to skip context-mode's own MCP tools,
+ * surfaces as `mcp__<server>__<tool>`). v1.0.124 used a plugin-prefixed
+ * negative-lookahead matcher to skip our own MCP tools,
  * but this same hooks.json is bundled to Codex CLI which uses Rust's
  * `regex` crate (no look-around support) — Codex rejected the matcher at
  * boot, breaking every Codex user (#547). Drop the lookaround on both
  * sides; the hook BODY (`isExternalMcpTool()` in hooks/core/routing.mjs)
- * already filters context-mode's own tools, so semantics are preserved.
+ * already filters ctxscribe's own tools, so semantics are preserved.
  */
 export const EXTERNAL_MCP_MATCHER_PATTERN = "mcp__";
 
-/** Tools that context-mode's PreToolUse hook intercepts. */
+/** Tools that ctxscribe's PreToolUse hook intercepts. */
 export const PRE_TOOL_USE_MATCHERS = [
   "Bash",
   "WebFetch",
@@ -77,7 +77,7 @@ export const PRE_TOOL_USE_MATCHER_PATTERN = PRE_TOOL_USE_MATCHERS.join("|");
 // ─────────────────────────────────────────────────────────
 
 /**
- * Tools that context-mode's PostToolUse hook should fire on.
+ * Tools that ctxscribe's PostToolUse hook should fire on.
  * Only tools that extractEvents() actually handles — all others
  * produce zero events and cause false "hook error" display.
  */
@@ -124,7 +124,7 @@ export const HOOK_SCRIPTS: Record<HookType, string> = {
 // Hook validation
 // ─────────────────────────────────────────────────────────
 
-/** Required hooks that must be configured for context-mode to function. */
+/** Required hooks that must be configured for ctxscribe to function. */
 export const REQUIRED_HOOKS: HookType[] = [
   HOOK_TYPES.PRE_TOOL_USE,
   HOOK_TYPES.SESSION_START,
@@ -139,9 +139,9 @@ export const OPTIONAL_HOOKS: HookType[] = [
 ];
 
 /**
- * Check if a hook entry points to a context-mode hook script.
+ * Check if a hook entry points to a ctxscribe hook script.
  * Matches both legacy format (node .../pretooluse.mjs) and
- * CLI dispatcher format (context-mode hook claude-code pretooluse).
+ * CLI dispatcher format (ctxscribe hook claude-code pretooluse).
  */
 export function isContextModeHook(
   entry: { hooks?: Array<{ command?: string }> },
@@ -197,8 +197,8 @@ export function extractHookScriptPath(command: string): string | null {
 }
 
 /**
- * Check if a hook entry is a context-mode hook (any hook type).
- * Broader than `isContextModeHook` — matches any context-mode script name
+ * Check if a hook entry is a ctxscribe hook (any hook type).
+ * Broader than `isContextModeHook` — matches any ctxscribe script name
  * without requiring a specific hookType.
  */
 export function isAnyContextModeHook(

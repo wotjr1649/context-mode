@@ -10,7 +10,7 @@ import type { ContentStore, SearchResult } from "../store.js";
 import type { SessionDB, StoredEvent } from "../session/db.js";
 import { searchAutoMemory, type AutoMemoryAdapter } from "./auto-memory.js";
 
-const DEBUG = process.env.DEBUG?.includes("context-mode");
+const DEBUG = process.env.DEBUG?.includes("ctxscribe");
 
 // ─────────────────────────────────────────────────────────
 // Types

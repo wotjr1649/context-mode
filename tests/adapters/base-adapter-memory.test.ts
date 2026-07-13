@@ -52,7 +52,7 @@ describe("BaseAdapter memory/config defaults", () => {
 // Adapters historically hardcoded their
 // storage root to `~/.<platform>/ctxscribe/sessions/` with no env-var
 // escape hatch. CI runners, dev containers, and NFS-home users need to point
-// context-mode storage at a writable volume without patching source or
+// ctxscribe storage at a writable volume without patching source or
 // changing the host platform's own config-dir variable.
 //
 // Contract for CONTEXT_MODE_DATA_DIR:
@@ -64,7 +64,7 @@ describe("BaseAdapter memory/config defaults", () => {
 //   - Tilde + relative path handling mirrors `resolveClaudeConfigDir`
 //     (~ expands to homedir, relative paths resolve against cwd).
 //   - getConfigDir() is platform-native (settings.json, hooks.json) and is
-//     NOT relocated — only context-mode-owned state moves.
+//     NOT relocated — only ctxscribe-owned state moves.
 describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
   const ENV_KEY = "CONTEXT_MODE_DATA_DIR";
   let original: string | undefined;
@@ -126,9 +126,9 @@ describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
   it("getConfigDir is NOT relocated by CONTEXT_MODE_DATA_DIR (platform-native settings stay put)", () => {
     const adapter = new TestAdapter([".acme"]);
     process.env[ENV_KEY] = "/tmp/custom-data";
-    // settings.json belongs with the platform install, not with context-mode
+    // settings.json belongs with the platform install, not with ctxscribe
     // storage — relocating it would silently fork platform behaviour from
-    // platform tooling. The override only moves context-mode-owned state.
+    // platform tooling. The override only moves ctxscribe-owned state.
     expect(adapter.getConfigDir()).toBe(join(homedir(), ".acme"));
   });
 });

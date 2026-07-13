@@ -103,7 +103,7 @@ describe("Slice 2.1 — enumerateAdapterDirs()", () => {
     expect(names).toEqual(["claude-code", "codex"].sort());
   });
 
-  test("each entry exposes sessionsDir and contentDir under <home>/<segments>/context-mode/", () => {
+  test("each entry exposes sessionsDir and contentDir under <home>/<segments>/ctxscribe/", () => {
     const home = "/HOME";
     const dirs = enumerateAdapterDirs({ home });
     // Use path.join() so the expected prefix/suffix match the platform's

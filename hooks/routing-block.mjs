@@ -1,5 +1,5 @@
 /**
- * Shared routing block for context-mode hooks.
+ * Shared routing block for ctxscribe hooks.
  * Single source of truth — imported by pretooluse.mjs and sessionstart.mjs.
  *
  * Factory functions accept a tool namer `t(bareTool) => platformSpecificName`
@@ -18,11 +18,11 @@ export function createRoutingBlock(t, options = {}) {
   return `
 <context_window_protection>
   <priority_instructions>
-    Every byte a tool returns enters your conversation memory and costs reasoning capacity for the rest of the session. The context-mode tools let you do the work in a sandbox and surface only the derived answer — the raw bytes stay out. Think-in-Code: program the analysis, do not compute it by reading raw data into your conversation.
+    Every byte a tool returns enters your conversation memory and costs reasoning capacity for the rest of the session. The ctxscribe tools let you do the work in a sandbox and surface only the derived answer — the raw bytes stay out. Think-in-Code: program the analysis, do not compute it by reading raw data into your conversation.
   </priority_instructions>
 ${toolSearchBootstrap ? `
   <deferred_tool_bootstrap>
-    The context-mode tools below may be DEFERRED in your harness — their schemas are not loaded yet, so calling them directly fails (e.g. "tool not found" / InputValidationError). Load them ONCE before your first ctx_* call:
+    The ctxscribe tools below may be DEFERRED in your harness — their schemas are not loaded yet, so calling them directly fails (e.g. "tool not found" / InputValidationError). Load them ONCE before your first ctx_* call:
     ToolSearch(query: "select:${t("ctx_batch_execute")},${t("ctx_search")},${t("ctx_execute")},${t("ctx_execute_file")},${t("ctx_fetch_and_index")}")
     After that they are callable. If any ctx_* call fails as not-found, ToolSearch it and retry — do NOT fall back to Bash/Read just because the schema was not loaded yet.
   </deferred_tool_bootstrap>
@@ -64,16 +64,16 @@ ${includeCommands ? `
     "ctx stats" | "ctx-stats" | "/ctx-stats" | context savings question
     → Call stats MCP tool, display full output verbatim.
 
-    "ctx doctor" | "ctx-doctor" | "/ctx-doctor" | diagnose context-mode
+    "ctx doctor" | "ctx-doctor" | "/ctx-doctor" | diagnose ctxscribe
     → Call doctor MCP tool, run returned shell command, display as checklist.
 
-    "ctx upgrade" | "ctx-upgrade" | "/ctx-upgrade" | update context-mode
+    "ctx upgrade" | "ctx-upgrade" | "/ctx-upgrade" | update ctxscribe
     → Call upgrade MCP tool, run returned shell command, display as checklist.
 
     "ctx purge" | "ctx-purge" | "/ctx-purge" | wipe/reset knowledge base
     → Call purge MCP tool with confirm: true. Warn: irreversible.
 
-    After /clear or /compact: knowledge base preserved. Tell user: "context-mode knowledge base preserved. Use \`ctx purge\` to start fresh."
+    After /clear or /compact: knowledge base preserved. Tell user: "ctxscribe knowledge base preserved. Use \`ctx purge\` to start fresh."
   </ctx_commands>
 ` : ''}
 </context_window_protection>`;

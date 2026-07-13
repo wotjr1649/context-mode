@@ -8,7 +8,7 @@
  *   - Session ID: transcript_path UUID > session_id > CLAUDE_SESSION_ID > ppid
  *   - Config root: $CLAUDE_CONFIG_DIR (when set) or ~/.claude
  *   - Settings: <configDir>/settings.json
- *   - Session dir: <configDir>/context-mode/sessions/
+ *   - Session dir: <configDir>/ctxscribe/sessions/
  *   - Plugin registry: <configDir>/plugins/installed_plugins.json
  */
 
@@ -102,7 +102,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
   getSessionDir(): string {
     // Issue #649: honor CONTEXT_MODE_DATA_DIR universal storage override
     // before falling back to the Claude-rooted default. The override moves
-    // ONLY context-mode-owned state; settings.json + CLAUDE_CONFIG_DIR stay
+    // ONLY ctxscribe-owned state; settings.json + CLAUDE_CONFIG_DIR stay
     // intact below.
     const override = resolveContextModeDataRoot();
     const dir = override
@@ -225,7 +225,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
         check: "PreToolUse hook",
         status: "fail",
         message: `Could not read ${this.getSettingsPath()}`,
-        fix: "context-mode upgrade",
+        fix: "ctxscribe upgrade",
       });
       return results;
     }
@@ -244,7 +244,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
       message: hasPreToolUse
         ? "PreToolUse hook configured"
         : "No PreToolUse hooks found",
-      fix: hasPreToolUse ? undefined : "context-mode upgrade",
+      fix: hasPreToolUse ? undefined : "ctxscribe upgrade",
     });
 
     // Check SessionStart (settings.json first, then plugin hooks.json fallback)
@@ -255,7 +255,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
       message: hasSessionStart
         ? "SessionStart hook configured"
         : "No SessionStart hooks found",
-      fix: hasSessionStart ? undefined : "context-mode upgrade",
+      fix: hasSessionStart ? undefined : "ctxscribe upgrade",
     });
 
     return results;
@@ -394,7 +394,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
     return {
       check: "Plugin registration",
       status: "warn",
-      message: "context-mode not in enabledPlugins (might be using standalone MCP mode)",
+      message: "ctxscribe not in enabledPlugins (might be using standalone MCP mode)",
     };
   }
 
@@ -467,7 +467,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
     const hooks = (settings.hooks ?? {}) as Record<string, unknown>;
     const changes: string[] = [];
 
-    // Remove stale context-mode hook entries across ALL hook types (fixes #187).
+    // Remove stale ctxscribe hook entries across ALL hook types (fixes #187).
     // After a marketplace auto-update or version change, settings.json may contain
     // hardcoded paths pointing to deleted version directories (e.g., .../0.9.17/hooks/...).
     // Clean these before registering fresh entries to prevent SessionStart errors.
@@ -477,7 +477,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
 
       const filtered = entries.filter((entry: Record<string, unknown>) => {
         const typedEntry = entry as { hooks?: Array<{ command?: string }> };
-        if (!isAnyContextModeHook(typedEntry)) return true; // preserve non-context-mode hooks
+        if (!isAnyContextModeHook(typedEntry)) return true; // preserve non-ctxscribe hooks
 
         // Keep CLI dispatcher entries (path-independent, never stale)
         const commands = typedEntry.hooks ?? [];
@@ -501,7 +501,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
       }
     }
 
-    // If plugin hooks.json already covers all required hooks AND context-mode is
+    // If plugin hooks.json already covers all required hooks AND ctxscribe is
     // actually installed as a Claude Code plugin (present in enabledPlugins), skip
     // settings.json registration — hooks.json with ${CLAUDE_PLUGIN_ROOT} is the
     // source of truth for plugin installs (Issue #198).
@@ -518,7 +518,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
         this.checkHookType(undefined, pluginHooks, ht),
       );
       if (allCovered) {
-        // Strip ONLY the inner context-mode hook commands from each matcher entry —
+        // Strip ONLY the inner ctxscribe hook commands from each matcher entry —
         // hooks.json is the source of truth for ctx-mode. User hooks co-located in
         // the same matcher entry MUST be preserved (#415: entry-level filter wiped
         // every co-located user hook). After stripping, prune entries whose `hooks`

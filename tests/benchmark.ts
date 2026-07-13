@@ -420,12 +420,12 @@ print(f"filtered: {len(filtered)}")
   printTable(results);
 
   // === Comparison Note ===
-  console.log("\n=== Comparison: context-mode vs raw cat/bash ===");
+  console.log("\n=== Comparison: ctxscribe vs raw cat/bash ===");
   console.log(
     "When Claude Code uses cat/head/Read to view a 50KB file, ALL 50KB enters context.",
   );
   console.log(
-    "With context-mode execute_file, only the summary (typically 100-500 bytes) enters context.",
+    "With ctxscribe execute_file, only the summary (typically 100-500 bytes) enters context.",
   );
   console.log("This means 95-99% context savings on large files.\n");
 }

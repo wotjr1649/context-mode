@@ -444,7 +444,7 @@ function logHealResult(result) {
  *   marketplaceClonePath - absolute path to the marketplace clone. Auto-derived
  *                          from pluginRoot when omitted.
  *   log                  - when true (default), appends a JSON line to
- *                          ~/.claude/context-mode/heal-partial-install.log
+ *                          ~/.claude/ctxscribe/heal-partial-install.log
  *                          on every run, including skipped ones, so an
  *                          operator can grep for evidence the hook fired.
  *

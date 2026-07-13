@@ -128,7 +128,7 @@ describe("normalizeHooksJson", () => {
     );
 
     const fakeNode = "C:\\Program Files\\nodejs\\node.exe";
-    const fakeRoot = "D:\\plugins\\context-mode\\1.0.103";
+    const fakeRoot = "D:\\plugins\\ctxscribe\\1.0.103";
 
     const out = normalizeHooksJson(input, fakeNode, fakeRoot);
     const parsed = JSON.parse(out);
@@ -140,7 +140,7 @@ describe("normalizeHooksJson", () => {
     expect(cmd).toContain('"C:/Program Files/nodejs/node.exe"');
     // root resolved (quoted)
     expect(cmd).toContain(
-      '"D:/plugins/context-mode/1.0.103/hooks/posttooluse.mjs"',
+      '"D:/plugins/ctxscribe/1.0.103/hooks/posttooluse.mjs"',
     );
     // no leftover placeholder
     expect(cmd).not.toContain("${CLAUDE_PLUGIN_ROOT}");
@@ -187,7 +187,7 @@ describe("normalizePluginJson", () => {
   test("replaces ${CLAUDE_PLUGIN_ROOT} in mcpServers args + sets command to execPath", () => {
     const input = JSON.stringify(
       {
-        name: "context-mode",
+        name: "ctxscribe",
         mcpServers: {
           "mcp": {
             command: "node",
@@ -200,7 +200,7 @@ describe("normalizePluginJson", () => {
     );
 
     const fakeNode = "C:\\Program Files\\nodejs\\node.exe";
-    const fakeRoot = "D:\\plugins\\context-mode\\1.0.103";
+    const fakeRoot = "D:\\plugins\\ctxscribe\\1.0.103";
 
     const out = normalizePluginJson(input, fakeNode, fakeRoot);
     const parsed = JSON.parse(out);
@@ -209,14 +209,14 @@ describe("normalizePluginJson", () => {
       "C:/Program Files/nodejs/node.exe",
     );
     expect(parsed.mcpServers["mcp"].args).toEqual([
-      "D:/plugins/context-mode/1.0.103/start.mjs",
+      "D:/plugins/ctxscribe/1.0.103/start.mjs",
     ]);
   });
 
   test("is idempotent for already-normalized plugin.json", () => {
     const input = JSON.stringify(
       {
-        name: "context-mode",
+        name: "ctxscribe",
         mcpServers: {
           "mcp": {
             command: "C:/Program Files/nodejs/node.exe",
@@ -323,7 +323,7 @@ describe("normalizeHooksOnStartup", () => {
     const pluginPath = join(dir, ".claude-plugin", "plugin.json");
     const original = JSON.stringify(
       {
-        name: "context-mode",
+        name: "ctxscribe",
         mcpServers: {
           "mcp": {
             command: "node",
@@ -415,7 +415,7 @@ describe("normalizeHooksOnStartup", () => {
 // and that hooks are *configured*, not that command paths point at it.
 //
 // Fix: detection + rewrite must also handle stale absolute paths whose
-// `context-mode/context-mode/<version>` segment differs from the current
+// `wotjr1649/ctxscribe/<version>` segment differs from the current
 // pluginRoot. See `hooks/cache-heal-utils.mjs` `isStaleNodePath` for the
 // precedent on stale-absolute-path repair.
 // ─────────────────────────────────────────────────────────

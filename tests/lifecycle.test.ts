@@ -281,7 +281,7 @@ describe("Lifecycle Guard", () => {
   });
 });
 
-// Regression coverage for #311 — zombie context-mode servers persist because
+// Regression coverage for #311 — zombie ctxscribe servers persist because
 // the Claude Code process tree is
 //   Claude Code → start.mjs → npm exec → server
 // and when Claude Code dies, `start.mjs` reparents to init (PID 1) but
@@ -530,7 +530,7 @@ describe("idleReapMessage — DX-friendly idle-reaper notice (#854 / #868)", () 
     assert.ok(!msg.includes("self-shutdown"), "must drop 'self-shutdown' wording");
     // still traceable
     assert.ok(msg.includes("#854"), "keeps the #854 tag for traceability");
-    assert.ok(msg.includes("[context-mode]"), "keeps the [context-mode] prefix");
+    assert.ok(msg.includes("[ctxscribe]"), "keeps the [ctxscribe] prefix");
   });
   test("rounds odd millisecond values to whole seconds", () => {
     assert.ok(idleReapMessage(5_000).includes("5s"));

@@ -269,7 +269,7 @@ describe("Analytics Metrics", () => {
           category: "mcp_tool_call",
           priority: 4,
           data: JSON.stringify({
-            tool_name: "mcp__context-mode__ctx_batch_execute",
+            tool_name: "mcp__ctxscribe__ctx_batch_execute",
             params: { commands: [], concurrency: c },
           }),
         });
@@ -281,7 +281,7 @@ describe("Analytics Metrics", () => {
         category: "mcp_tool_call",
         priority: 4,
         data: JSON.stringify({
-          tool_name: "mcp__context-mode__ctx_search",
+          tool_name: "mcp__ctxscribe__ctx_search",
           params: { queries: ["foo"] },
         }),
       });
@@ -292,7 +292,7 @@ describe("Analytics Metrics", () => {
         category: "mcp_tool_call",
         priority: 4,
         data: JSON.stringify({
-          tool_name: "mcp__context-mode__ctx_batch_execute",
+          tool_name: "mcp__ctxscribe__ctx_batch_execute",
           params_raw: '{"commands":[{"label":"x"',
           truncated: true,
         }),
@@ -300,13 +300,13 @@ describe("Analytics Metrics", () => {
 
       const usage = engine.getMcpToolUsage();
 
-      const batch = usage.find((u) => u.tool_name === "mcp__context-mode__ctx_batch_execute");
+      const batch = usage.find((u) => u.tool_name === "mcp__ctxscribe__ctx_batch_execute");
       expect(batch).toBeDefined();
       expect(batch!.calls).toBe(5); // 4 normal + 1 truncated
       expect(batch!.median_concurrency).toBe(7);
       expect(batch!.max_concurrency).toBe(8);
 
-      const search = usage.find((u) => u.tool_name === "mcp__context-mode__ctx_search");
+      const search = usage.find((u) => u.tool_name === "mcp__ctxscribe__ctx_search");
       expect(search).toBeDefined();
       expect(search!.calls).toBe(1);
       expect(search!.median_concurrency).toBeNull();

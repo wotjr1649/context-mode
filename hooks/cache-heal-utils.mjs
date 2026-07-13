@@ -221,25 +221,25 @@ export function selfHealCacheHealHook({
  * Every Bash tool call `source`s that snapshot to reproduce the user env
  * (refs/platforms/claude-code/src/utils/bash/ShellSnapshot.ts:269-336;
  * sourced before every Bash tool call at bashProvider.ts:166). The snapshot
- * bakes an `export PATH='…'` line containing the active context-mode
+ * bakes an `export PATH='…'` line containing the active ctxscribe
  * `bin/` for the then-current cache version, e.g.
- *   …/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin
+ *   …/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin
  *
  * /ctx-upgrade installs the new version and deletes the old cache dir
  * mid-session, but it never touches the snapshot — so every subsequent
  * Bash tool call fails with "Plugin directory does not exist: …/1.0.146"
  * until the session restarts.
  *
- * This helper rewrites the version segment of every context-mode PATH
+ * This helper rewrites the version segment of every ctxscribe PATH
  * entry in every snapshot under `snapshotsDir` to `currentVersion`.
  * Anchored on the `cache/<marketplace>/<plugin>/` prefix derived from
  * `pluginRoot` (the tree we actually installed into), so sibling plugins
  * (`pm-skills/pm-toolkit`, `claude-adhd/claude-adhd`, …) and shape-spoofing
- * entries (`evil-owner/context-mode/1.0.146`) are untouched. Upstream got
- * the same property from the doubled literal `context-mode/context-mode/`,
- * but that breaks under this fork's `context-mode-js/context-mode/` rename;
- * a wildcard would drop it (evil-owner and context-mode-js are the same
- * shape). No `pluginRoot`, or the wrong depth → no-op (F52).
+ * entries (`evil-owner/ctxscribe/1.0.146`) are untouched. Upstream got the
+ * same property by hard-coding its own marketplace/plugin pair as a literal,
+ * but that breaks under this fork's `wotjr1649/ctxscribe/` rename; a wildcard
+ * would drop it (evil-owner and wotjr1649 are the same shape). No
+ * `pluginRoot`, or the wrong depth → no-op (F52).
  *
  * Layered like cache-heal-utils' brew-node fix:
  *   Layer 1 — /ctx-upgrade calls this after install (cli.ts) so the
@@ -253,7 +253,7 @@ export function selfHealCacheHealHook({
  *     are `source`d concurrently; a half-written file would crash the
  *     bash subprocess mid-call.
  *   - Idempotent: a snapshot already on `currentVersion` is not
- *     re-written (mtime preserved). A snapshot with no context-mode
+ *     re-written (mtime preserved). A snapshot with no ctxscribe
  *     entry is not re-written.
  *   - Best-effort: every I/O is wrapped; never throws. Telemetry shape
  *     is `{ rewritten: string[] }` for caller logging.
@@ -283,9 +283,9 @@ export function rewriteShellSnapshots({ snapshotsDir, currentVersion, pluginRoot
   // Trust anchor. pluginRoot is `…/cache/<marketplace>/<plugin>/<version>`.
   // The segments read off the anchor in the SAME order they appear — there is
   // no inversion step, which sidesteps the F42/F54 bug class entirely.
-  // Upstream got the same property from the doubled `context-mode/context-mode/`
-  // literal, but that breaks under a marketplace rename. Opening the match to a
-  // wildcard would also match `cache/evil-owner/context-mode/` and re-point dead
+  // Upstream got the same property by hard-coding its own marketplace/plugin
+  // pair as a literal, but that breaks under a marketplace rename. Opening the
+  // match to a wildcard would also match `cache/evil-owner/ctxscribe/` and re-point dead
   // PATH entries at an attacker directory — pinned by the anti-spoofing test at
   // shell-snapshot-heal.test.ts:270.
   const parts = pluginRoot.split(/[/\\]/).filter(Boolean);

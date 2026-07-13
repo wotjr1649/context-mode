@@ -26,7 +26,9 @@
 //
 // Contract:
 //   - Read `.mcp.json.example` and `.claude-plugin/plugin.json` from --root.
-//   - Extract mcpServers["mcp"].args[0] from each.
+//   - Extract mcpServers["mcp"].args[0] from each. "mcp" is the fixed MCP
+//     SERVER key — it is NOT the plugin name (`ctxscribe`) and must never be
+//     derived from the plugin identity.
 //   - Assert both equal the literal `${CLAUDE_PLUGIN_ROOT}/start.mjs`.
 //   - Assert the two values are equal (the explicit drift check).
 //   - If a `.mcp.json` exists (contributor's local copy), check it too —
@@ -42,7 +44,10 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PLACEHOLDER = "${CLAUDE_PLUGIN_ROOT}/start.mjs";
-const PLUGIN_KEY = "mcp";
+// The MCP *server* key inside `mcpServers` — a fixed literal, deliberately
+// decoupled from the plugin name. Deriving this from the plugin identity is
+// the exact bug class this script exists to catch.
+const SERVER_KEY = "mcp";
 const SKILLS_PATH = "./skills/";
 const REQUIRED_PLUGIN_RUNTIME_FILES = [
   "start.mjs",
@@ -73,9 +78,9 @@ function readArgs0(filePath) {
   if (!servers || typeof servers !== "object") {
     return { ok: false, error: `no mcpServers in ${filePath}` };
   }
-  const ours = servers[PLUGIN_KEY];
+  const ours = servers[SERVER_KEY];
   if (!ours || typeof ours !== "object" || !Array.isArray(ours.args) || ours.args.length === 0) {
-    return { ok: false, error: `no args[] for ${PLUGIN_KEY} in ${filePath}` };
+    return { ok: false, error: `no args[] for ${SERVER_KEY} in ${filePath}` };
   }
   const a0 = ours.args[0];
   if (typeof a0 !== "string") {

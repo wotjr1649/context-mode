@@ -63,7 +63,7 @@ describe("storage path resolution", () => {
   test("uses adapter defaults when no storage override is set", () => {
     delete process.env[STORAGE_ENV_KEY];
 
-    const defaultSessionsDir = join(tmpdir(), "context-mode-default", "sessions");
+    const defaultSessionsDir = join(tmpdir(), "ctxscribe-default", "sessions");
     const defaultRoot = dirname(defaultSessionsDir);
     const session = resolveSessionStorageDir(() => defaultSessionsDir);
     const content = resolveContentStorageDir(() => defaultSessionsDir);
@@ -89,8 +89,8 @@ describe("storage path resolution", () => {
     });
   });
 
-  test("shared default session dir helper derives context-mode sessions root", () => {
-    const configRoot = join(tmpdir(), "context-mode-config-root");
+  test("shared default session dir helper derives ctxscribe sessions root", () => {
+    const configRoot = join(tmpdir(), "ctxscribe-config-root");
 
     expect(resolveDefaultSessionDir({ configDir: configRoot })).toBe(
       join(configRoot, "ctxscribe", "sessions"),
@@ -98,7 +98,7 @@ describe("storage path resolution", () => {
   });
 
   test("shared default session dir helper honors config env override", () => {
-    const configRoot = join(tmpdir(), "context-mode-env-config-root");
+    const configRoot = join(tmpdir(), "ctxscribe-env-config-root");
 
     expect(
       resolveDefaultSessionDir({
@@ -110,8 +110,8 @@ describe("storage path resolution", () => {
   });
 
   test("legacy session dir wins only inside blank or unset storage override default callback", () => {
-    const legacyDir = join(tmpdir(), "context-mode-legacy-sessions");
-    const root = resolve(tmpdir(), "context-mode-storage-root");
+    const legacyDir = join(tmpdir(), "ctxscribe-legacy-sessions");
+    const root = resolve(tmpdir(), "ctxscribe-storage-root");
     const defaultDir = () => resolveDefaultSessionDir({
       configDir: ".ignored",
       legacySessionDirEnv: "CONTEXT_MODE_TEST_SESSION_DIR",
@@ -129,7 +129,7 @@ describe("storage path resolution", () => {
   });
 
   test("uses CONTEXT_MODE_DIR as the single root for sessions, content, and stats", () => {
-    const root = resolve(tmpdir(), "context-mode-storage-root");
+    const root = resolve(tmpdir(), "ctxscribe-storage-root");
     process.env[STORAGE_ENV_KEY] = root;
 
     expect(resolveSessionStorageDir(() => "/ignored")).toEqual({
@@ -154,7 +154,7 @@ describe("storage path resolution", () => {
 
   test("treats blank CONTEXT_MODE_DIR as default and reports ignored metadata", () => {
     process.env[STORAGE_ENV_KEY] = " \t ";
-    const defaultSessionsDir = join(tmpdir(), "context-mode-default", "sessions");
+    const defaultSessionsDir = join(tmpdir(), "ctxscribe-default", "sessions");
 
     const session = resolveSessionStorageDir(() => defaultSessionsDir);
     const content = resolveContentStorageDir(() => defaultSessionsDir);
@@ -1588,7 +1588,7 @@ describe("ctx_index: Read deny-policy enforcement (#442)", () => {
       expect(indexResp.error).toBeUndefined();
       expect(indexResp.result?.isError).toBe(true);
       expect(indexResp.result?.content?.[0]?.text).toContain(
-        "context-mode content directory is not writable:",
+        "ctxscribe content directory is not writable:",
       );
       expect(indexResp.result?.content?.[0]?.text).toContain(
         "Set CONTEXT_MODE_DIR to a writable absolute path.",
@@ -4029,7 +4029,7 @@ describe("ctx_doctor — resource cleanup regression (#247)", () => {
     expect(call).toBeDefined();
     expect(call!.error).toBeUndefined();
     const text = call!.result?.content?.[0]?.text ?? "";
-    expect(text).toContain("context-mode doctor");
+    expect(text).toContain("ctxscribe doctor");
     expect(text).toMatch(/Server test:/);
     expect(text).toMatch(/FTS5 \/ SQLite:/);
   }, 30_000);
@@ -4070,7 +4070,7 @@ describe("ctx_doctor — resource cleanup regression (#247)", () => {
     for (const c of calls) {
       expect(c, "missing ctx_doctor response — server likely crashed").toBeDefined();
       expect(c!.error).toBeUndefined();
-      expect(c!.result?.content?.[0]?.text).toContain("context-mode doctor");
+      expect(c!.result?.content?.[0]?.text).toContain("ctxscribe doctor");
     }
   }, 35_000);
 });
@@ -4105,7 +4105,7 @@ describe("ctx_doctor — renderer-safe output (Z.ai compat)", () => {
     // Must use plain-text status prefixes
     expect(text).toMatch(/\[OK\]/);
     // Header is plain text, no markdown
-    expect(text).toMatch(/^context-mode doctor/m);
+    expect(text).toMatch(/^ctxscribe doctor/m);
   }, 30_000);
 });
 
@@ -4734,7 +4734,7 @@ describe("killProcessOnPort — Windows non-English locale (#441 follow-up)", ()
 // ═══════════════════════════════════════════════════════════════════════════
 // Prose-style policy (issue #482)
 // ═══════════════════════════════════════════════════════════════════════════
-// Decision: context-mode keeps raw data out of context but does not dictate
+// Decision: ctxscribe keeps raw data out of context but does not dictate
 // how the model writes its final answer. Aggressive brevity prompts have been
 // shown to degrade coding/reasoning benchmarks (Moonshot AI on kimi-k2.5).
 // Any caveman/terse-style language in shipped artifacts is a regression.

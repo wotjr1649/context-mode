@@ -102,7 +102,7 @@ const ALLOW = [
   { file: "tests/session/format-cost.test.ts", needle: /^cursor$/, reason: "pins the Cursor Pro price-anchor line (live feature)" },
 
   // Coordinator-pinned root resolution contract: `main` and exports["."]
-  // resolve require("context-mode") to the same historical build path.
+  // resolve require("ctxscribe") to the same historical build path.
   // Load-bearing resolver surface; a stale path segment, not routing.
   { file: "package.json", needle: /^opencode$/, linePattern: /"(main|\.)":\s*"\.\/build\/adapters\/opencode\/plugin\.js"/, reason: "root resolution contract pinned by Task 10 ruling (main + exports['.'])" },
 

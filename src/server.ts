@@ -129,11 +129,11 @@ function getRuntimeAwarePackageRoot(platformId?: PlatformId): string {
 // process may install them.
 if (process.env.CONTEXT_MODE_EMBEDDED_PLUGIN_TOOLS !== "1") {
   process.on("unhandledRejection", (err) => {
-    process.stderr.write(`[context-mode] unhandledRejection: ${err}\n`);
+    process.stderr.write(`[ctxscribe] unhandledRejection: ${err}\n`);
   });
   process.on("uncaughtException", (err) => {
     try {
-      writeSync(2, `[context-mode] uncaughtException: ${err?.message ?? err}\n`);
+      writeSync(2, `[ctxscribe] uncaughtException: ${err?.message ?? err}\n`);
     } finally {
       process.exit(1);
     }
@@ -363,7 +363,7 @@ export function resolveSessionIdFromSessionDB(opts?: {
 
 /**
  * Auto-index session events files written by SessionStart hook.
- * Scans ~/.claude/context-mode/sessions/ for *-events.md files.
+ * Scans ~/.claude/ctxscribe/sessions/ for *-events.md files.
  * CLAUDE_PROJECT_DIR is NOT available to MCP servers — only to hooks —
  * so we glob-scan instead of computing a specific hash.
  * Files are consumed (deleted) after indexing to prevent double-indexing.
@@ -579,9 +579,9 @@ function getSessionDbPath(): string {
  * Derives content dir from the adapter's session dir so each platform
  * has its own isolated FTS5 DB — no cross-platform data sharing.
  *
- * Layout: ~/<configDir>/context-mode/content/<hash>.db
- *   e.g.  ~/.claude/context-mode/content/87c28c41ddb64d38.db
- *         ~/.codex/context-mode/content/87c28c41ddb64d38.db
+ * Layout: ~/<configDir>/ctxscribe/content/<hash>.db
+ *   e.g.  ~/.claude/ctxscribe/content/87c28c41ddb64d38.db
+ *         ~/.codex/ctxscribe/content/87c28c41ddb64d38.db
  */
 function getStorePath(): string {
   const dir = ensureWritableStorageDir(resolveContentStorageDir(getDefaultSessionDir));
@@ -758,7 +758,7 @@ function trackResponse(toolName: string, response: ToolResult): ToolResult {
     );
   }
 
-  // Retrieval ("With context-mode") bridge — ctx_search / ctx_fetch_and_index
+  // Retrieval ("With ctxscribe") bridge — ctx_search / ctx_fetch_and_index
   // response bytes are the kept-out content the model paid to access. The
   // PostToolUse hook never fires for the plugin's OWN MCP tools, so the
   // hook-side extractMcpToolCall can never see these calls (bytes_retrieved
@@ -796,7 +796,7 @@ function trackIndexed(bytes: number, source: string = "unknown"): void {
 // ─────────────────────────────────────────────────────────
 
 const STATS_PERSIST_THROTTLE_MS = 500;
-// Schema version for the persisted stats payload (~/.claude/context-mode/sessions/stats-*.json).
+// Schema version for the persisted stats payload (~/.claude/ctxscribe/sessions/stats-*.json).
 // Bump when a field is added/renamed/removed. Statusline reads `schemaVersion ?? 0` and warns when
 // it sees a future schema, so legacy bundles degrade gracefully on upgrade rather than silently
 // rendering missing fields (PR #401 architect review P1.3).
@@ -998,7 +998,7 @@ function checkNonShellDenyPolicy(
  * `permissions.allow` rule like `Read(/var/log/**)`. This reuses the exact
  * mechanism Claude Code uses to whitelist a path outside its sandbox, so the
  * grant lives in one place and stays meaningful instead of rotting into a
- * context-mode-only env flag nobody sets.
+ * ctxscribe-only env flag nobody sets.
  *
  * Fail-open on resolver failure (consistent with the other deny checks): if the
  * project root cannot be resolved, containment evaluates as "inside" and the
@@ -1018,7 +1018,7 @@ function checkProjectBoundary(
         type: "text" as const,
         text:
           `File access blocked: "${filePath}" resolves outside the project root ` +
-          `(${projectDir}). context-mode confines ${toolName} to the workspace so it ` +
+          `(${projectDir}). ctxscribe confines ${toolName} to the workspace so it ` +
           `cannot be used to bypass the host's sandbox/permission controls (issue #852). ` +
           `To intentionally process a file outside the project, add a host allow rule, ` +
           `e.g. "permissions": { "allow": ["Read(${filePath})"] } in your settings.`,
@@ -3847,7 +3847,7 @@ server.registerTool(
                 // own session_ids; their retrieval hit their own disposable
                 // windows, not yours. getConversationWindowStats credits the
                 // whole worktree's kept-out bytes while counting only THIS
-                // session's retrieval as "With context-mode", and the
+                // session's retrieval as "With ctxscribe", and the
                 // worktreeHash scope keeps the user's OTHER parallel worktrees
                 // out. projectDirForSid is intentionally dropped — it
                 // under-counted (missed empty-project_dir sub-process sessions)
@@ -3932,7 +3932,7 @@ server.registerTool(
       openWorldHint: false,
     },
     description:
-      "Diagnose context-mode installation. Runs all checks server-side and " +
+      "Diagnose ctxscribe installation. Runs all checks server-side and " +
       "returns a plain-text status report with [OK]/[FAIL]/[WARN] prefixes " +
       "(renderer-safe across MCP clients). No CLI execution needed.",
     inputSchema: z.object({}),
@@ -3945,7 +3945,7 @@ server.registerTool(
     // defined`. We avoid both task-list syntax AND `## ` h2 headings to stay
     // safe across all MCP renderers — using plain-text status prefixes
     // (`[OK]` / `[FAIL]` / `[WARN]`) instead.
-    const lines: string[] = ["context-mode doctor", ""];
+    const lines: string[] = ["ctxscribe doctor", ""];
     let currentPlatform: PlatformId | undefined;
     try {
       currentPlatform = detectPlatform(server.server.getClientVersion() ?? undefined).platform;
@@ -4066,7 +4066,7 @@ server.registerTool(
       openWorldHint: false,
     },
     description:
-      "Upgrade context-mode to the latest version. Returns a shell command to execute. " +
+      "Upgrade ctxscribe to the latest version. Returns a shell command to execute. " +
       "You MUST run the returned command using your shell tool (Bash, shell_execute, " +
       "run_in_terminal, etc.) and display the output as a checklist. " +
       "Tell the user to restart their session after upgrade.",
@@ -4168,7 +4168,7 @@ server.registerTool(
         `console.log("- [x] Copied package files");`,
         `execFileSync(process.platform==="win32"?"npm.cmd":"npm",["install","--production"],{cwd:P,stdio:"inherit",shell:process.platform==="win32"});`,
         `console.log("- [x] Installed production dependencies");`,
-        `console.log("## context-mode upgrade complete");`,
+        `console.log("## ctxscribe upgrade complete");`,
         `}catch(e){`,
         `console.error("- [ ] Upgrade failed:",e.message);`,
         `process.exit(1);`,
@@ -4197,7 +4197,7 @@ server.registerTool(
       "- `[x]` for success, `[ ]` for failure",
       "- Example format:",
       "  ```",
-      "  ## context-mode upgrade",
+      "  ## ctxscribe upgrade",
       "  - [x] Pulled latest from GitHub",
       "  - [x] Built and installed v0.9.24",
       "  - [x] npm global updated",
@@ -4323,7 +4323,7 @@ EXAMPLE: ctx_purge(confirm: true, scope: "project")`,
       scope ?? (sessionId ? "session" : "project");
     if (!scope && !sessionId) {
       console.warn(
-        "[context-mode] ctx_purge: bare {confirm:true} is deprecated. " +
+        "[ctxscribe] ctx_purge: bare {confirm:true} is deprecated. " +
         "Pass scope:'project' for the whole-project wipe, or scope:'session' + sessionId " +
         "for a scoped wipe. See issue #520."
       );
@@ -4646,7 +4646,7 @@ async function main() {
   // Uses process.pid (not ppid) — hooks use directory-scan to find any live sentinel.
   // Hardcoded /tmp on Unix to avoid TMPDIR mismatch (#347).
   const mcpSentinelDir = process.platform === "win32" ? tmpdir() : "/tmp";
-  const mcpSentinel = join(mcpSentinelDir, `context-mode-mcp-ready-${process.pid}`);
+  const mcpSentinel = join(mcpSentinelDir, `ctxscribe-mcp-ready-${process.pid}`);
   // #844: handle to the periodic sentinel refresh timer (started after connect).
   let sentinelRefresh: ReturnType<typeof setInterval> | undefined;
 

@@ -14,7 +14,7 @@ describe("isVersionDirUnderCache — containment against the real cache dir", ()
   });
   it("rejects traversal, escape, empty, relative, the cache dir itself, and too-deep", () => {
     expect(isVersionDirUnderCache(CACHE, `${CACHE}/1.0.1/../../..`)).toBe(false); // Codex traversal repro
-    expect(isVersionDirUnderCache(CACHE, "C:\\evil\\wotjr1649\\context-mode\\1.0.1")).toBe(false);
+    expect(isVersionDirUnderCache(CACHE, "C:\\evil\\wotjr1649\\ctxscribe\\1.0.1")).toBe(false);
     expect(isVersionDirUnderCache(CACHE, "")).toBe(false);
     expect(isVersionDirUnderCache(CACHE, ".")).toBe(false);
     expect(isVersionDirUnderCache(CACHE, CACHE)).toBe(false); // cache dir itself is not a version dir
@@ -51,7 +51,7 @@ describe("verifyDeploy — did /plugin update actually reinstall at the new vers
   });
 
   it("B1 GUARD: empty / relative / repo-root / non-cache installPath is rejected", () => {
-    for (const p of ["", ".", "C:\\Users\\me\\Documents\\ClaudeCode\\context-mode", "C:\\evil\\wotjr1649\\context-mode\\1.0.1"]) {
+    for (const p of ["", ".", "C:\\Users\\me\\Documents\\ClaudeCode\\ctxscribe", "C:\\evil\\wotjr1649\\ctxscribe\\1.0.1"]) {
       const r = verifyDeploy(reg(p), "1.0.1", both("1.0.1"), CACHE);
       expect(r.ok).toBe(false);
       expect(r.reason).toMatch(/no entry has an installPath directly under/);

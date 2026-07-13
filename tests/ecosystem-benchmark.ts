@@ -1,7 +1,7 @@
 /**
  * Ecosystem Benchmark Test
  *
- * Benchmarks context-mode against REAL outputs from popular Claude Code
+ * Benchmarks ctxscribe against REAL outputs from popular Claude Code
  * MCP servers and Skills that developers use daily:
  *
  *   - Context7 (documentation lookup)
@@ -581,12 +581,12 @@ async function main() {
 
   console.log("  Claude's context window: 200,000 tokens");
   console.log("");
-  console.log("  WITHOUT context-mode (raw file reads):");
+  console.log("  WITHOUT ctxscribe (raw file reads):");
   console.log(
     `    ${rawTokens.toLocaleString()} tokens consumed → ${((rawTokens / 200_000) * 100).toFixed(1)}% of context window`,
   );
   console.log("");
-  console.log("  WITH context-mode (execute_file summaries):");
+  console.log("  WITH ctxscribe (execute_file summaries):");
   console.log(
     `    ${ctxTokens.toLocaleString()} tokens consumed → ${((ctxTokens / 200_000) * 100).toFixed(2)}% of context window`,
   );
@@ -636,10 +636,10 @@ async function main() {
   const wfCtxTokens = Math.ceil(workflowCtx / 4);
 
   console.log(
-    `  WITHOUT context-mode: ${(workflowRaw / 1024).toFixed(1)}KB → ${wfRawTokens.toLocaleString()} tokens (${((wfRawTokens / 200_000) * 100).toFixed(1)}% of context GONE)`,
+    `  WITHOUT ctxscribe: ${(workflowRaw / 1024).toFixed(1)}KB → ${wfRawTokens.toLocaleString()} tokens (${((wfRawTokens / 200_000) * 100).toFixed(1)}% of context GONE)`,
   );
   console.log(
-    `  WITH context-mode:    ${(workflowCtx / 1024).toFixed(1)}KB → ${wfCtxTokens.toLocaleString()} tokens (${((wfCtxTokens / 200_000) * 100).toFixed(2)}% of context)`,
+    `  WITH ctxscribe:    ${(workflowCtx / 1024).toFixed(1)}KB → ${wfCtxTokens.toLocaleString()} tokens (${((wfCtxTokens / 200_000) * 100).toFixed(2)}% of context)`,
   );
   console.log(
     `  Result: ${((1 - workflowCtx / workflowRaw) * 100).toFixed(0)}% more context available for actual problem solving`,

@@ -4,7 +4,7 @@
  * Phase 3 deleted every third-party editor adapter (opencode, cursor, zed,
  * ...), yet `main` and `exports["."]` still pointed at
  * `./build/adapters/opencode/plugin.js`. `private: true` kept the broken
- * entry off npm, but `require("context-mode")` / `import "context-mode"`
+ * entry off npm, but `require("ctxscribe")` / `import "ctxscribe"`
  * resolved to a file that no longer exists. Pin both entry points off any
  * deleted-adapter build path so the defect cannot silently return.
  */

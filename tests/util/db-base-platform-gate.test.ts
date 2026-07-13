@@ -133,7 +133,7 @@ describe("v1.0.130 INVARIANT — SQLiteBase multi-writer default", () => {
     try {
       a = new SessionDB({ dbPath });
       // The whole point: this MUST NOT throw. v1.0.128 + v1.0.129
-      // would throw DatabaseLockedError ("Another context-mode server
+      // would throw DatabaseLockedError ("Another ctxscribe server
       // is already running") here. WAL handles two writers natively,
       // and the busy_timeout + withRetry in withRetry() is the right
       // defense for SQLITE_BUSY.

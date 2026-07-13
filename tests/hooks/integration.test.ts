@@ -50,8 +50,8 @@ const HOOK_PATH = join(__dirname, "..", "..", "hooks", "pretooluse.mjs");
 // the hook payload has no session_id).
 const _wid = process.env.VITEST_WORKER_ID;
 const _guidanceSuffix = _wid ? `${process.pid}-w${_wid}` : String(process.pid);
-const _guidanceDir = resolve(tmpdir(), `context-mode-guidance-${_guidanceSuffix}`);
-const _sessionGuidanceDir = resolve(tmpdir(), `context-mode-guidance-s-pid-${process.pid}`);
+const _guidanceDir = resolve(tmpdir(), `ctxscribe-guidance-${_guidanceSuffix}`);
+const _sessionGuidanceDir = resolve(tmpdir(), `ctxscribe-guidance-s-pid-${process.pid}`);
 
 // MCP readiness sentinel — subprocess hooks check process.ppid (= this test's pid)
 // Use the same sentinel directory that isMCPReady() scans: /tmp on Unix, tmpdir() on Windows.
@@ -59,7 +59,7 @@ const _sessionGuidanceDir = resolve(tmpdir(), `context-mode-guidance-s-pid-${pro
 // the sentinel to tmpdir(), CI environments (with no running MCP server in /tmp) will fail
 // because isMCPReady() returns false and all mcpRedirect() calls become passthrough (#347).
 const mcpSentinelDir = process.platform === "win32" ? tmpdir() : "/tmp";
-const mcpSentinel = resolve(mcpSentinelDir, `context-mode-mcp-ready-${process.pid}`);
+const mcpSentinel = resolve(mcpSentinelDir, `ctxscribe-mcp-ready-${process.pid}`);
 
 beforeEach(() => {
   rmSyncRobust(_guidanceDir);
@@ -624,11 +624,11 @@ describe("Security Policy Enforcement", () => {
 describe("Plugin Tool Name Format in ROUTING_BLOCK", () => {
   // When installed via Claude Code plugin marketplace, tool names follow:
   //   mcp__plugin_<plugin-id>_<server-name>__<tool-name>
-  // For context-mode: mcp__plugin_ctxscribe_mcp__<tool-name>
-  // The short form mcp__context-mode__* only works for direct MCP registration.
+  // For ctxscribe: mcp__plugin_ctxscribe_mcp__<tool-name>
+  // The short form mcp__ctxscribe__* only works for direct MCP registration.
 
   const PLUGIN_PREFIX = "mcp__plugin_ctxscribe_mcp__";
-  const SHORT_PREFIX = "mcp__context-mode__";
+  const SHORT_PREFIX = "mcp__ctxscribe__";
 
   test("Agent routing block uses plugin-format tool names", () => {
     const result = runHook({ tool_name: "Agent", tool_input: { prompt: "Do something." } });
@@ -951,7 +951,7 @@ describe("Category 27 — Latency cross-hook bridge", () => {
     assert.equal(result.exitCode, 0);
 
     // Check marker file exists
-    const markerPath = resolve(tmpdir(), `context-mode-latency-${sessionId}-${toolName}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-latency-${sessionId}-${toolName}.txt`);
     assert.ok(existsSync(markerPath), `Latency marker should exist at ${markerPath}`);
 
     // Marker content should be a timestamp
@@ -968,7 +968,7 @@ describe("Category 27 — Latency cross-hook bridge", () => {
   test("posttooluse.mjs reads and deletes latency marker file", () => {
     const sessionId = "latency-test-session";
     const toolName = "Read";
-    const markerPath = resolve(tmpdir(), `context-mode-latency-${sessionId}-${toolName}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-latency-${sessionId}-${toolName}.txt`);
 
     // Write a marker as if pretooluse.mjs ran — use a recent timestamp (not slow)
     writeFileSync(markerPath, String(Date.now()), "utf-8");
@@ -995,7 +995,7 @@ describe("Category 27 — Latency cross-hook bridge", () => {
   test("posttooluse.mjs emits latency event when tool takes >5s", () => {
     const sessionId = "latency-test-session";
     const toolName = "Bash";
-    const markerPath = resolve(tmpdir(), `context-mode-latency-${sessionId}-${toolName}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-latency-${sessionId}-${toolName}.txt`);
 
     // Write a marker with a timestamp 6 seconds ago (simulating a slow tool)
     const sixSecsAgo = Date.now() - 6000;
@@ -1024,7 +1024,7 @@ describe("Category 27 — Latency cross-hook bridge", () => {
   test("posttooluse.mjs does NOT emit latency event when tool is fast (<5s)", () => {
     const sessionId = "latency-test-session";
     const toolName = "Edit";
-    const markerPath = resolve(tmpdir(), `context-mode-latency-${sessionId}-${toolName}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-latency-${sessionId}-${toolName}.txt`);
 
     // Write a marker with a timestamp 100ms ago (fast tool)
     writeFileSync(markerPath, String(Date.now() - 100), "utf-8");
@@ -1051,7 +1051,7 @@ describe("Category 27 — Latency cross-hook bridge", () => {
     const toolName = "Glob";
 
     // Do NOT write a marker — simulate case where pretooluse.mjs didn't run
-    const markerPath = resolve(tmpdir(), `context-mode-latency-${sessionId}-${toolName}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-latency-${sessionId}-${toolName}.txt`);
     if (existsSync(markerPath)) unlinkSync(markerPath);
 
     const result = spawnSync("node", [POSTTOOL_PATH], {
@@ -1236,7 +1236,7 @@ describe("Issue #636: legacy settings.json rewrite quotes spaced paths", () => {
       const spacedTargetDir =
         "/Users/foo/Library/CloudStorage/Dropbox-2olhares/Lucas Werneck/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.140";
       const staleCommand =
-        "node /old/path/context-mode/0.5.0/hooks/pretooluse.mjs";
+        "node /old/path/ctxscribe/0.5.0/hooks/pretooluse.mjs";
 
       const rewritten = applyLegacyRewrite(staleCommand, spacedTargetDir);
       expect(rewritten).not.toBeNull();

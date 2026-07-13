@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * context-mode CLI
+ * ctxscribe CLI
  *
  * Usage:
- *   context-mode                              → Start MCP server (stdio)
- *   context-mode doctor                       → Diagnose runtime issues, hooks, FTS5, version
- *   context-mode upgrade                      → Fix hooks, permissions, and settings
+ *   ctxscribe                              → Start MCP server (stdio)
+ *   ctxscribe doctor                       → Diagnose runtime issues, hooks, FTS5, version
+ *   ctxscribe upgrade                      → Fix hooks, permissions, and settings
  *   ctxscribe hook <platform> <event>      → Dispatch a hook script (used by platform hook configs)
- *   CONTEXT_MODE_DIR=/abs/path context-mode   → Override sessions/content storage root
+ *   CONTEXT_MODE_DIR=/abs/path ctxscribe   → Override sessions/content storage root
  *     Empty/whitespace is ignored; non-empty values must be absolute.
  *
  * Platform auto-detection: CLI detects which platform is running
@@ -114,7 +114,7 @@ async function hookDispatch(platform: string, event: string): Promise<void> {
 
   const scriptPath = HOOK_MAP[platform]?.[event];
   if (!scriptPath) {
-    // Fail OPEN. context-mode has no hook for this platform/event — most often
+    // Fail OPEN. ctxscribe has no hook for this platform/event — most often
     // because a newer adapter's hook command (`ctxscribe hook <platform> …`)
     // is running against an OLDER global binary that predates that adapter
     // (version skew). Exit 0 (no decision) so the host ALLOWS the tool. Exiting
@@ -122,7 +122,7 @@ async function hookDispatch(platform: string, event: string): Promise<void> {
     // verified against GitHub Copilot CLI 1.0.59, where an exit-1 + empty-stdout
     // PreToolUse hook blocks EVERY tool ("Denied by preToolUse hook (hook
     // errored)") — bricking the agent during a skew instead of just disabling
-    // context-mode's instrumentation.
+    // ctxscribe's instrumentation.
     process.exit(0);
   }
   const pluginRoot = getPluginRoot();
@@ -138,13 +138,13 @@ const args = process.argv.slice(2);
 function printHelp(): void {
   console.log([
     "Usage:",
-    "  context-mode                         Start MCP server (stdio)",
-    "  context-mode index <path>            Index a file or directory into the FTS5 knowledge base",
-    "  context-mode search <query...>       Search the current project's FTS5 knowledge base",
-    "  context-mode doctor                  Diagnose runtime issues, hooks, FTS5, version",
-    "  context-mode upgrade                 Fix hooks, permissions, and settings",
+    "  ctxscribe                         Start MCP server (stdio)",
+    "  ctxscribe index <path>            Index a file or directory into the FTS5 knowledge base",
+    "  ctxscribe search <query...>       Search the current project's FTS5 knowledge base",
+    "  ctxscribe doctor                  Diagnose runtime issues, hooks, FTS5, version",
+    "  ctxscribe upgrade                 Fix hooks, permissions, and settings",
     "  ctxscribe hook <platform> <event> Dispatch a configured hook script",
-    "  context-mode statusline              Print Claude Code status line",
+    "  ctxscribe statusline              Print Claude Code status line",
     "",
     "Index options:",
     "  --source <label>                     Source label (default: project:<directory-name> or path)",
@@ -425,7 +425,7 @@ async function indexCommand(argv: string[]): Promise<number> {
     const parsed = parseFlags(argv);
     const target = parsed.positional[0];
     if (!target || target === "-h" || target === "--help") {
-      console.log("Usage: context-mode index <path> [--source label] [--project path] [--max-files n] [--max-depth n] [--ext .ts,.md]");
+      console.log("Usage: ctxscribe index <path> [--source label] [--project path] [--max-files n] [--max-depth n] [--ext .ts,.md]");
       return target ? 0 : 1;
     }
 
@@ -479,7 +479,7 @@ async function indexCommand(argv: string[]): Promise<number> {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`context-mode index: ${message}`);
+    console.error(`ctxscribe index: ${message}`);
     return 1;
   }
 }
@@ -489,7 +489,7 @@ async function searchCommand(argv: string[]): Promise<number> {
     const parsed = parseFlags(argv);
     const query = parsed.positional.join(" ").trim();
     if (!query || query === "-h" || query === "--help") {
-      console.log("Usage: context-mode search <query...> [--source label] [--project path] [--limit n] [--type code|prose]");
+      console.log("Usage: ctxscribe search <query...> [--source label] [--project path] [--limit n] [--type code|prose]");
       return query ? 0 : 1;
     }
 
@@ -527,7 +527,7 @@ async function searchCommand(argv: string[]): Promise<number> {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`context-mode search: ${message}`);
+    console.error(`ctxscribe search: ${message}`);
     return 1;
   }
 }
@@ -559,7 +559,7 @@ async function doctor(): Promise<number> {
   const detection = detectPlatform();
   const adapter = await getAdapter(detection.platform);
 
-  p.intro(color.bgMagenta(color.white(" context-mode doctor ")));
+  p.intro(color.bgMagenta(color.white(" ctxscribe doctor ")));
   p.log.info(
     `Platform: ${color.cyan(adapter.name)}` +
       color.dim(` (${detection.confidence} confidence — ${detection.reason})`),
@@ -638,7 +638,7 @@ async function doctor(): Promise<number> {
         color.red("Node version: FAIL") +
           ` — Linux + Node ${process.versions.node} is unsafe (SIGSEGV)` +
           color.dim(
-            "\n  context-mode requires Node.js >= 22.5 (or Bun) on Linux to avoid the" +
+            "\n  ctxscribe requires Node.js >= 22.5 (or Bun) on Linux to avoid the" +
             "\n  V8 madvise(MADV_DONTNEED) SIGSEGV in better-sqlite3 (1-4/hour)." +
             "\n  Ref: https://github.com/nodejs/node/issues/62515" +
             "\n  Fix:  nvm install 22.5 && nvm use 22.5, then reinstall: claude plugin install ctxscribe@wotjr1649" +
@@ -811,7 +811,7 @@ async function doctor(): Promise<number> {
     );
     if (!existsSync(cacheRoot)) {
       p.log.info(
-        color.dim("Leftover .mcp.json check: SKIP — no plugin cache exists yet (Claude Code has not installed context-mode here)"),
+        color.dim("Leftover .mcp.json check: SKIP — no plugin cache exists yet (Claude Code has not installed ctxscribe here)"),
       );
     } else {
       let staleCount = 0;
@@ -833,7 +833,7 @@ async function doctor(): Promise<number> {
             color.dim(
               `\n  Path: ${cacheRoot}` +
               `\n  Reason: ${msg.slice(0, 160)}` +
-              "\n  Fix: check that the directory is readable, then re-run doctor. If the issue persists, run /context-mode:ctx-upgrade.",
+              "\n  Fix: check that the directory is readable, then re-run doctor. If the issue persists, run /ctxscribe:ctx-upgrade.",
             ),
         );
         staleCount = 0;
@@ -847,11 +847,11 @@ async function doctor(): Promise<number> {
         // WARN, not FAIL — per architect spec this is recoverable.
         p.log.warn(
           color.yellow("Leftover .mcp.json check: WARN") +
-            ` — found ${staleCount} old .mcp.json file(s) left over from previous context-mode versions` +
+            ` — found ${staleCount} old .mcp.json file(s) left over from previous ctxscribe versions` +
             color.dim(
               "\n  These are harmless but should be cleaned up so they cannot confuse Claude Code after an auto-update." +
               `\n  Versions affected: ${staleVersions.join(", ")}${staleCount > staleVersions.length ? ", ..." : ""}` +
-              "\n  Fix: run /context-mode:ctx-upgrade — it sweeps these files automatically on the next run.",
+              "\n  Fix: run /ctxscribe:ctx-upgrade — it sweeps these files automatically on the next run.",
             ),
         );
       }
@@ -897,7 +897,7 @@ async function doctor(): Promise<number> {
             `\n  Path: ${bsqPackageDir}` +
             "\n  Root cause: npm silently skipped better-sqlite3 because the package's `engines` field excluded the running Node (issue #514, e.g. Node 26 vs better-sqlite3@12.x)." +
             `\n  Try (primary): cd "${pluginRootForDoctor}" && npm install better-sqlite3 --no-optional` +
-            "\n  Try (fallback): /context-mode:ctx-upgrade",
+            "\n  Try (fallback): /ctxscribe:ctx-upgrade",
           ),
       );
     } else if (message.includes("Cannot find module") || message.includes("MODULE_NOT_FOUND")) {
@@ -1002,7 +1002,7 @@ async function upgrade(opts?: { platform?: string }) {
     : detectPlatform();
   const adapter = await getAdapter(detection.platform);
 
-  p.intro(color.bgCyan(color.black(" context-mode upgrade ")));
+  p.intro(color.bgCyan(color.black(" ctxscribe upgrade ")));
   p.log.info(
     `Platform: ${color.cyan(adapter.name)}` +
       color.dim(` (${detection.confidence} confidence)`),
@@ -1101,7 +1101,7 @@ async function upgrade(opts?: { platform?: string }) {
       // new files. Historically /ctx-upgrade rsynced new code over the old
       // tree but never signalled the running MCP server, so the previous
       // version stayed alive holding stdio + DB handles. Across enough
-      // upgrades users observed 5+ context-mode start.mjs processes pinned
+      // upgrades users observed 5+ ctxscribe start.mjs processes pinned
       // to RAM. Discovery + kill must happen before npm install to avoid
       // racing against the EXCLUSIVE lock the new server claims on first
       // ctx_search (see #560 fix). Wrapped in try/catch so a missing pgrep
@@ -1262,7 +1262,7 @@ async function upgrade(opts?: { platform?: string }) {
       // (~/.claude/shell-snapshots/snapshot-*.sh, baked at session boot —
       // refs/platforms/claude-code/src/utils/bash/ShellSnapshot.ts:269-336)
       // is `source`d before every Bash tool call. It contains an
-      // `export PATH='…'` line including the context-mode `bin/` for the
+      // `export PATH='…'` line including the ctxscribe `bin/` for the
       // version active at session start. /ctx-upgrade deletes the old
       // cache dir mid-session — the snapshot still points at it, so every
       // Bash call fails with "Plugin directory does not exist" until the
@@ -1351,7 +1351,7 @@ async function upgrade(opts?: { platform?: string }) {
       }
 
       // v1.0.119 — Issue #523 — Layer 5 heal: assert .claude-plugin/plugin.json's
-      // mcpServers["context-mode"].args[0] is the literal ${CLAUDE_PLUGIN_ROOT}/start.mjs
+      // mcpServers["ctxscribe"].args[0] is the literal ${CLAUDE_PLUGIN_ROOT}/start.mjs
       // placeholder, not a tmpdir-prefixed absolute path. cli.ts already wrote .mcp.json
       // with the placeholder (#411 fix), but plugin.json was never touched here — and
       // start.mjs's normalize-hooks (Windows + #378) can bake in absolute paths that
@@ -1405,7 +1405,7 @@ async function upgrade(opts?: { platform?: string }) {
       }
 
       // v1.0.X — Layer 7 heal: update user-level ~/.claude.json MCP server
-      // registrations that point to old context-mode version dirs.
+      // registrations that point to old ctxscribe version dirs.
       // (anthropics/claude-code#59310 workaround — see heal-installed-plugins.mjs)
       try {
         // @ts-expect-error — JS module, no TS declarations
@@ -1533,7 +1533,7 @@ async function upgrade(opts?: { platform?: string }) {
               color.dim(`\n  Path: ${bsqBindingPath}`) +
               color.dim("\n  Cause: npm silently skipped the package (Node engine mismatch, issue #514)") +
               color.dim(`\n  Try (primary): cd "${pluginRoot}" && npm install better-sqlite3 --no-optional`) +
-              color.dim("\n  Try (fallback): /context-mode:ctx-doctor"),
+              color.dim("\n  Try (fallback): /ctxscribe:ctx-doctor"),
           );
         }
         
@@ -1642,7 +1642,7 @@ async function upgrade(opts?: { platform?: string }) {
         color.dim(" — old version is still on disk; hooks/settings will still be refreshed."),
     );
     p.log.info(
-      color.dim("  Recovery: re-run /ctx-upgrade once network is stable, or run /context-mode:ctx-doctor for a full health check."),
+      color.dim("  Recovery: re-run /ctx-upgrade once network is stable, or run /ctxscribe:ctx-doctor for a full health check."),
     );
 
     try { rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }

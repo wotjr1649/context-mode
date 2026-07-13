@@ -3,7 +3,7 @@
  *
  * Bug #3: Persistent memory totals (events across all sessions, not just
  * the current one) must be visible in ctx_stats so the user sees the
- * cumulative value of context-mode.
+ * cumulative value of ctxscribe.
  *
  * Bug #4: Auto-memory captured by Claude Code under
  * ~/.claude/projects/<project>/memory/*.md is invisible today. ctx_stats

@@ -58,7 +58,7 @@ function readEvents(dbPath: string, sessionId: string, type: string): RawEventRo
 // MCP readiness sentinel — hooks check /tmp on Unix, tmpdir() on Windows.
 // Without it, mcpRedirect() returns null (passthrough) and no marker is written.
 const mcpSentinelDir = process.platform === "win32" ? tmpdir() : "/tmp";
-const mcpSentinel = resolve(mcpSentinelDir, `context-mode-mcp-ready-${process.pid}`);
+const mcpSentinel = resolve(mcpSentinelDir, `ctxscribe-mcp-ready-${process.pid}`);
 
 describe("D2 Phase 3 — bash-redirected marker pattern", () => {
   let fakeHome: string;
@@ -95,7 +95,7 @@ describe("D2 Phase 3 — bash-redirected marker pattern", () => {
   beforeEach(() => {
     writeFileSync(mcpSentinel, String(process.pid));
     // Clean any leftover marker so each slice starts clean.
-    const m = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const m = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     try { unlinkSync(m); } catch {}
   });
 
@@ -135,7 +135,7 @@ describe("D2 Phase 3 — bash-redirected marker pattern", () => {
     const r = runPre("curl https://api.example.com/data.json");
     assert.equal(r.status, 0, `pretooluse non-zero. stderr: ${r.stderr}`);
 
-    const markerPath = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     assert.ok(existsSync(markerPath), "marker file must be written");
     const content = readFileSync(markerPath, "utf-8");
     expect(content.startsWith("Bash:bash-redirected:8192:")).toBe(true);
@@ -159,7 +159,7 @@ describe("D2 Phase 3 — bash-redirected marker pattern", () => {
   // ─── Slice 3.3 ───────────────────────────────────────────
   test("3.3: marker is unlinked after PostToolUse reads it (no double-emit)", () => {
     runPre("curl https://example.com");
-    const markerPath = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     assert.ok(existsSync(markerPath), "marker should exist before PostToolUse");
 
     runPost("Bash", { command: "echo blocked" }, "ok");
@@ -185,7 +185,7 @@ describe("D2 Phase 3 — bash-redirected marker pattern", () => {
   test("3.5: long command summary truncated to 200 chars in marker", () => {
     const longCmd = "curl " + "https://example.com/" + "a".repeat(500);
     runPre(longCmd);
-    const markerPath = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     const content = readFileSync(markerPath, "utf-8");
     // Format: tool:type:bytes:summary — extract everything after the 3rd colon.
     const i1 = content.indexOf(":");

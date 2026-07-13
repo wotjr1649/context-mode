@@ -1,8 +1,8 @@
 /**
- * retrieval-marker — server→hook bridge for the "With context-mode"
+ * retrieval-marker — server→hook bridge for the "With ctxscribe"
  * (bytes_retrieved) signal.
  *
- * context-mode's OWN MCP retrieval tools (ctx_search / ctx_fetch_and_index)
+ * ctxscribe's OWN MCP retrieval tools (ctx_search / ctx_fetch_and_index)
  * never fire a PostToolUse hook for the plugin's own server, so the hook-side
  * extractMcpToolCall path can never observe them — verified empirically:
  * 0 mcp_tool_call events + bytes_retrieved 0/124454 in production D1.

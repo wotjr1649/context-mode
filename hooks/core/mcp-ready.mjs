@@ -8,14 +8,14 @@
  * The intermediate shell makes process.ppid point to a transient bash PID, not
  * Claude Code. Directory-scan + PID liveness probe works regardless of spawn topology.
  *
- * Sentinel path: <tmpRoot>/context-mode-mcp-ready-<MCP_PID>
- * Scan: glob all context-mode-mcp-ready-* files, probe each PID.
+ * Sentinel path: <tmpRoot>/ctxscribe-mcp-ready-<MCP_PID>
+ * Scan: glob all ctxscribe-mcp-ready-* files, probe each PID.
  */
 import { readFileSync, readdirSync, statSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const SENTINEL_PREFIX = "context-mode-mcp-ready-";
+const SENTINEL_PREFIX = "ctxscribe-mcp-ready-";
 
 /**
  * Sentinel freshness window (#844). The MCP server refreshes its sentinel's
@@ -58,7 +58,7 @@ export function sentinelPath() {
 /**
  * Check if any MCP server is alive by scanning sentinel files.
  *
- * Scans sentinelDir() for context-mode-mcp-ready-* files, reads the PID
+ * Scans sentinelDir() for ctxscribe-mcp-ready-* files, reads the PID
  * from each, and probes with kill(pid, 0). Cleans up stale sentinels
  * from crashed servers.
  *

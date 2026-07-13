@@ -189,15 +189,15 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
       writeFileSync(
         join(scratch, ".mcp.json"),
         JSON.stringify({
-          mcpServers: { "context-mode": { command: "node", args: [PLACEHOLDER] } },
+          mcpServers: { "ctxscribe": { command: "node", args: [PLACEHOLDER] } },
         }),
       );
       // plugin.json DRIFTED — bare relative path (the #253 regression shape)
       writeFileSync(
         join(scratch, ".claude-plugin", "plugin.json"),
         JSON.stringify({
-          name: "context-mode",
-          mcpServers: { "context-mode": { command: "node", args: ["./start.mjs"] } },
+          name: "ctxscribe",
+          mcpServers: { "ctxscribe": { command: "node", args: ["./start.mjs"] } },
         }),
       );
       const r = spawnSync(
@@ -222,19 +222,19 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
     const scratch = mkdtempSync(join(tmpdir(), "plugin-runtime-missing-"));
     try {
       mkdirSync(join(scratch, ".claude-plugin"), { recursive: true });
-      mkdirSync(join(scratch, "skills", "context-mode"), { recursive: true });
+      mkdirSync(join(scratch, "skills", "ctxscribe"), { recursive: true });
       writeFileSync(
         join(scratch, ".mcp.json.example"),
         JSON.stringify({
-          mcpServers: { "context-mode": { command: "node", args: [PLACEHOLDER] } },
+          mcpServers: { "ctxscribe": { command: "node", args: [PLACEHOLDER] } },
         }),
       );
       writeFileSync(
         join(scratch, ".claude-plugin", "plugin.json"),
         JSON.stringify({
-          name: "context-mode",
+          name: "ctxscribe",
           skills: SKILLS_PATH,
-          mcpServers: { "context-mode": { command: "node", args: [PLACEHOLDER] } },
+          mcpServers: { "ctxscribe": { command: "node", args: [PLACEHOLDER] } },
         }),
       );
       writeFileSync(join(scratch, "cli.bundle.mjs"), "");
@@ -272,7 +272,7 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
   // This invariant scans every committed config template under configs/**
   // and asserts that no string value contains an absolute path, an fnm
   // session shim, a `process.execPath` literal, or a tilde-prefixed
-  // home-dir path. Allowed shapes: bare commands ("context-mode", "node"),
+  // home-dir path. Allowed shapes: bare commands ("ctxscribe", "node"),
   // CLI dispatcher form ("ctxscribe hook <platform> <event>"),
   // placeholders (${CLAUDE_PLUGIN_ROOT}), schema URLs.
   //
@@ -388,7 +388,7 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
           "Per ISSUE-613-VERDICT 6.1, Tier C files MUST be born portable -- no",
           "heal seam exists for files committed to user repos. Allowed shapes:",
           "  - CLI dispatcher: \"ctxscribe hook <platform> <event>\"",
-          "  - Bare command:   \"context-mode\" / \"node\"",
+          "  - Bare command:   \"ctxscribe\" / \"node\"",
           "  - Placeholder:    \"${CLAUDE_PLUGIN_ROOT}/...\"",
           "  - Schema URL:     \"https://.../config.json\"",
           "",
@@ -433,10 +433,10 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
       writeFileSync(
         join(scratch, ".claude-plugin", "plugin.json"),
         JSON.stringify({
-          name: "context-mode",
+          name: "ctxscribe",
           version: "0.0.0-test",
           mcpServers: {
-            "context-mode": {
+            "ctxscribe": {
               command: "node",
               args: [PLACEHOLDER],
             },
@@ -450,7 +450,7 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
       );
       writeFileSync(
         join(scratch, "package.json"),
-        JSON.stringify({ name: "context-mode", version: "0.0.0-test" }),
+        JSON.stringify({ name: "ctxscribe", version: "0.0.0-test" }),
       );
 
       // Copy the live postinstall + normalize-hooks (the modules that
@@ -504,7 +504,7 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
 
       const after = readArgs0(
         join(scratch, ".claude-plugin", "plugin.json"),
-        "context-mode",
+        "ctxscribe",
       );
       expect(
         after,

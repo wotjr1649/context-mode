@@ -273,7 +273,7 @@ function getVersion(cmd: string, args: string[] = ["--version"]): string {
  * PR #190 (f69b0d2) made `process.execPath` the default so snap-Node
  * envs would not re-invoke the snap wrapper via PATH. That assumed
  * `process.execPath` always points at a JS runtime — true on Node,
- * tsx, and snap-Node, but FALSE when context-mode runs in-process
+ * tsx, and snap-Node, but FALSE when ctxscribe runs in-process
  * inside a self-contained host binary (an upstream-era bug class).
  * In such hosts, `process.execPath` resolves to the host executable
  * (NOT node), and spawning that with a `.js` argument triggers the
@@ -337,7 +337,7 @@ export function detectRuntimes(): RuntimeMap {
 
   // Honor SHELL env var when it points at a real binary AND the basename is
   // an allowlisted shell. Lets users with non-standard setups (custom bash,
-  // msys2, pwsh) pin context-mode to their preferred shell.
+  // msys2, pwsh) pin ctxscribe to their preferred shell.
   //
   // Allowlist (PR #401 ops review): basename must match
   // /^(bash|sh|zsh|dash|pwsh|powershell|cmd)(\.exe)?$/. Without this guard, an attacker
@@ -483,7 +483,7 @@ function bunVersionAtLeast1(versionOutput: string): boolean {
  * path — e.g. `~/.local/share/mise/installs/node/20.1.0/bin/node`. A routine
  * `mise upgrade node` installs the next patch and DELETES the 20.1.0 dir, so
  * the cached path dangles and every hook spawn fails with ENOENT — silently
- * killing context-mode for that user.
+ * killing ctxscribe for that user.
  *
  * Same liveness-guard shape as the #800/#803 fix in
  * {@link resolveJavascriptRuntime}: use the pinned execPath IFF it still

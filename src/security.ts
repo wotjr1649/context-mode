@@ -417,11 +417,11 @@ export function readToolDenyPatterns(
  *
  * Generalizes the original deny-only reader so the project-boundary guard
  * (#852) can consult the SAME `permissions.allow` rules the user already
- * maintains for the host's `Read` tool — instead of inventing a context-mode-
+ * maintains for the host's `Read` tool — instead of inventing a ctxscribe-
  * specific opt-out env that would rot into dead code. A user who legitimately
  * needs an out-of-project read expresses it once, in the host config, e.g.
  * `"permissions": { "allow": ["Read(/var/log/**)"] }`, and both the host and
- * context-mode honor it.
+ * ctxscribe honor it.
  */
 export function readToolPermissionPatterns(
   toolName: string,
@@ -751,7 +751,7 @@ function isAbsoluteRel(rel: string): boolean {
  *      principled escape hatch: a deliberate out-of-project read is expressed
  *      ONCE in the host config the user already maintains, reusing the same
  *      mechanism Claude Code itself uses to whitelist a path outside the
- *      sandbox — no context-mode-specific opt-out env that would rot into
+ *      sandbox — no ctxscribe-specific opt-out env that would rot into
  *      dead code.
  *   3. Outside the project, no allow match → denied (closes the #852 escape).
  *

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * context-mode status line — Claude Code statusLine integration.
+ * ctxscribe status line — Claude Code statusLine integration.
  *
  * Reads stats DIRECTLY from SessionDB (`session_events` + `session_resume`),
  * mirroring the `ctx_stats` MCP handler at src/server.ts:2807-2891 so the
@@ -10,7 +10,7 @@
  * Claude sessions colliding on the same shell ppid).
  *
  * Discipline (Datadog / Stripe / Vercel pattern):
- *   - "context-mode" full brand label, never abbreviated
+ *   - "ctxscribe" full brand label, never abbreviated
  *   - ONE chromatic accent (status dot ●), everything else monochrome
  *   - Bold for KPI numbers ($, %), dim for context
  *   - No counts (calls / tokens / events) — only $ and % pass the
@@ -20,7 +20,7 @@
  *   {
  *     "statusLine": {
  *       "type": "command",
- *       "command": "context-mode statusline"
+ *       "command": "ctxscribe statusline"
  *     }
  *   }
  */
@@ -76,7 +76,7 @@ const __warnedKeys = new Set();
 function warnOnce(key, msg) {
   if (__warnedKeys.has(key)) return;
   __warnedKeys.add(key);
-  try { process.stderr.write(`context-mode statusline: ${msg}\n`); } catch { /* ignore */ }
+  try { process.stderr.write(`ctxscribe statusline: ${msg}\n`); } catch { /* ignore */ }
 }
 
 // ── ANSI palette (single chromatic accent on the status dot) ────────────
@@ -115,7 +115,7 @@ function resolveSessionDir() {
       onLegacySessionDir: () => {
         warnOnce(
           "legacy-session-dir",
-          "CONTEXT_MODE_SESSION_DIR is deprecated; set CONTEXT_MODE_DIR to the parent context-mode root.",
+          "CONTEXT_MODE_SESSION_DIR is deprecated; set CONTEXT_MODE_DIR to the parent ctxscribe root.",
         );
       },
     })),
@@ -237,7 +237,7 @@ async function main() {
   // BRAND-NEW / build missing — substantiated headline only
   if (!analytics) {
     process.stdout.write(
-      `${brand("context-mode")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
+      `${brand("ctxscribe")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
     );
     return;
   }
@@ -251,7 +251,7 @@ async function main() {
   // Sessions dir doesn't exist yet — first ever launch
   if (!existsSync(sessionsDir)) {
     process.stdout.write(
-      `${brand("context-mode")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
+      `${brand("ctxscribe")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
     );
     return;
   }
@@ -328,7 +328,7 @@ async function main() {
   // BRAND-NEW: no data at all → marketing headline.
   if (lifetimeBytes === 0 && sessionBytes === 0) {
     process.stdout.write(
-      `${brand("context-mode")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
+      `${brand("ctxscribe")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
     );
     return;
   }
@@ -344,7 +344,7 @@ async function main() {
     }
     blocks.push(dim("preserved across compact, restart & upgrade"));
     process.stdout.write(
-      `${brand("context-mode")}  ${dot}  ${blocks.join(`  ${SEP}  `)}`,
+      `${brand("ctxscribe")}  ${dot}  ${blocks.join(`  ${SEP}  `)}`,
     );
     return;
   }
@@ -363,7 +363,7 @@ async function main() {
     valueBlocks.push(`${bold(`${pct}%`)} ${dim("kept out")}`);
   }
 
-  const head = `${brand("context-mode")}  ${dot}  `;
+  const head = `${brand("ctxscribe")}  ${dot}  `;
   const tail = valueBlocks.join(`  ${SEP}  `);
   process.stdout.write(head + tail);
 }
@@ -372,7 +372,7 @@ main().catch(() => {
   // Last-resort fallback — a thrown error must never produce a blank statusline.
   try {
     process.stdout.write(
-      `${brand("context-mode")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
+      `${brand("ctxscribe")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
     );
   } catch { /* ignore */ }
 });

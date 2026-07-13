@@ -1,4 +1,4 @@
-# Codex CLI — context-mode MCP server configuration
+# Codex CLI — ctxscribe MCP server configuration
 # Add this to ~/.codex/config.toml
 
 [features]

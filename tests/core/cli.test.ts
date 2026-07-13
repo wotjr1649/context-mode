@@ -22,7 +22,7 @@ describe("hook dispatch fails OPEN on a missing hook (version-skew brick fix)", 
   // A non-zero exit + empty stdout makes GitHub Copilot CLI DENY the tool
   // ("Denied by preToolUse hook (hook errored)"), bricking the agent when a
   // newer adapter's hook command runs against an older global that predates it.
-  // context-mode has no hook for an unknown platform/event, so it MUST exit 0
+  // ctxscribe has no hook for an unknown platform/event, so it MUST exit 0
   // (allow). Locks src/cli.ts hookDispatch's missing-script branch.
   const CLI = resolve(ROOT, "cli.bundle.mjs");
 
@@ -65,7 +65,7 @@ describe("cli.bundle.mjs — marketplace install support", () => {
     expect(pkg.files).toContain(".codex-plugin");
   });
 
-  it("Codex plugin MCP manifest approves context-mode tools by default", () => {
+  it("Codex plugin MCP manifest approves ctxscribe tools by default", () => {
     const mcp = JSON.parse(readFileSync(resolve(ROOT, ".codex-plugin", "mcp.json"), "utf-8"));
     expect(mcp.mcpServers["mcp"].default_tools_approval_mode).toBe("approve");
   });
@@ -113,8 +113,8 @@ describe("cli.bundle.mjs — marketplace install support", () => {
 
   it("cli.ts exposes index/search commands for terminal knowledge-base access", () => {
     const src = readFileSync(resolve(ROOT, "src", "cli.ts"), "utf-8");
-    expect(src).toContain("context-mode index <path>");
-    expect(src).toContain("context-mode search <query...>");
+    expect(src).toContain("ctxscribe index <path>");
+    expect(src).toContain("ctxscribe search <query...>");
     expect(src).toContain('args[0] === "index"');
     expect(src).toContain('args[0] === "search"');
     expect(src).toContain("resolveContentStorePath");
@@ -321,7 +321,7 @@ describe("CLI Hook Path Tests", () => {
   });
 
   test("toUnixPath: leaves forward-slash paths unchanged", () => {
-    const input = "/home/user/.claude/plugins/context-mode/hooks/pretooluse.mjs";
+    const input = "/home/user/.claude/plugins/ctxscribe/hooks/pretooluse.mjs";
     const result = toUnixPath(input);
     assert.equal(result, input);
   });
@@ -335,7 +335,7 @@ describe("CLI Hook Path Tests", () => {
   test("toUnixPath: hook command string has no backslashes", () => {
     // Simulate what upgrade() does: "node " + resolve(...)
     // On Windows, resolve() returns backslashes — toUnixPath must normalize them
-    const windowsPath = "C:\\Users\\xxx\\.claude\\plugins\\cache\\context-mode\\hooks\\pretooluse.mjs";
+    const windowsPath = "C:\\Users\\xxx\\.claude\\plugins\\cache\\ctxscribe\\hooks\\pretooluse.mjs";
     const command = "node " + toUnixPath(windowsPath);
     assert.ok(
       !command.includes("\\"),
@@ -344,7 +344,7 @@ describe("CLI Hook Path Tests", () => {
   });
 
   test("toUnixPath: sessionstart path has no backslashes", () => {
-    const windowsPath = "C:\\Users\\xxx\\.claude\\plugins\\cache\\context-mode\\hooks\\sessionstart.mjs";
+    const windowsPath = "C:\\Users\\xxx\\.claude\\plugins\\cache\\ctxscribe\\hooks\\sessionstart.mjs";
     const command = "node " + toUnixPath(windowsPath);
     assert.ok(
       !command.includes("\\"),
@@ -1488,7 +1488,7 @@ describe("start.mjs CLI self-heal", () => {
         resolve(marketplaceClonePath, "package.json"),
         JSON.stringify(
           {
-            name: "context-mode",
+            name: "ctxscribe",
             version,
             files: [
               "hooks",
@@ -1526,7 +1526,7 @@ describe("start.mjs CLI self-heal", () => {
         resolve(marketplaceClonePath, ".claude-plugin", "plugin.json"),
         JSON.stringify(
           {
-            name: "context-mode",
+            name: "ctxscribe",
             version,
             mcpServers: {
               "mcp": {
@@ -1651,12 +1651,12 @@ describe("start.mjs CLI self-heal", () => {
       const { deriveMarketplaceClonePath } = await import(
         "../../hooks/heal-partial-install.mjs"
       );
-      const cache = "C:\\Users\\u\\.claude\\plugins\\cache\\context-mode\\context-mode\\1.0.150";
+      const cache = "C:\\Users\\u\\.claude\\plugins\\cache\\wotjr1649\\ctxscribe\\1.0.150";
       const got = deriveMarketplaceClonePath(cache);
       // resolve() leaves the leading drive letter intact as a relative
       // segment on POSIX; the important assertion is the suffix.
       expect(String(got).replace(/\\/g, "/")).toMatch(
-        /plugins\/marketplaces\/context-mode$/,
+        /plugins\/marketplaces\/wotjr1649$/,
       );
     });
 
@@ -1665,10 +1665,10 @@ describe("start.mjs CLI self-heal", () => {
         "../../hooks/heal-partial-install.mjs"
       );
       expect(
-        deriveMarketplaceClonePath("/usr/local/lib/node_modules/context-mode"),
+        deriveMarketplaceClonePath("/usr/local/lib/node_modules/ctxscribe"),
       ).toBeNull();
       expect(
-        deriveMarketplaceClonePath("/home/u/sultan-projects/context-mode"),
+        deriveMarketplaceClonePath("/home/u/sultan-projects/ctxscribe"),
       ).toBeNull();
       expect(deriveMarketplaceClonePath(undefined)).toBeNull();
       expect(deriveMarketplaceClonePath(null)).toBeNull();
@@ -1788,7 +1788,7 @@ describe("start.mjs CLI self-heal", () => {
         join(pluginRoot, ".claude-plugin", "plugin.json"),
         JSON.stringify(
           {
-            name: "context-mode",
+            name: "ctxscribe",
             version: "1.0.150",
             mcpServers: {
               "mcp": {
@@ -1853,7 +1853,7 @@ describe("start.mjs CLI self-heal", () => {
       writeFileSync(
         attackerJsonPath,
         JSON.stringify({
-          name: "context-mode",
+          name: "ctxscribe",
           version: "1.0.150",
           mcpServers: {
             "mcp": {
@@ -1911,7 +1911,7 @@ describe("start.mjs CLI self-heal", () => {
         join(pluginRoot, ".claude-plugin", "plugin.json"),
         JSON.stringify(
           {
-            name: "context-mode",
+            name: "ctxscribe",
             version: "1.0.150",
             mcpServers: {
               "mcp": {
@@ -1956,7 +1956,7 @@ describe("start.mjs CLI self-heal", () => {
         join(pluginRoot, ".claude-plugin", "plugin.json"),
         JSON.stringify(
           {
-            name: "context-mode",
+            name: "ctxscribe",
             version: "1.0.150",
             mcpServers: {
               "mcp": {
@@ -2017,7 +2017,7 @@ describe("start.mjs CLI self-heal", () => {
         npmGlobalRoot,
         "lib",
         "node_modules",
-        "context-mode",
+        "ctxscribe",
       );
       mkdirSync(npmGlobalPlugin, { recursive: true });
       const r1 = healPartialInstallFromMarketplace({
@@ -2034,7 +2034,7 @@ describe("start.mjs CLI self-heal", () => {
         codexRoot,
         ".codex",
         "plugins",
-        "context-mode",
+        "ctxscribe",
       );
       mkdirSync(codexPlugin, { recursive: true });
       const r2 = healPartialInstallFromMarketplace({
@@ -2089,7 +2089,7 @@ describe("start.mjs CLI self-heal", () => {
       writeFileSync(
         join(marketplaceClonePath, "package.json"),
         JSON.stringify({
-          name: "context-mode",
+          name: "ctxscribe",
           version: "1.0.150",
           files: ["../OUTSIDE-MARKER.txt", "hooks", "start.mjs", "cli.bundle.mjs", "server.bundle.mjs", ".claude-plugin"],
         }),
@@ -2129,7 +2129,7 @@ describe("start.mjs CLI self-heal", () => {
       writeFileSync(
         join(marketplaceClonePath, "package.json"),
         JSON.stringify({
-          name: "context-mode",
+          name: "ctxscribe",
           version: "1.0.150",
           files: ["hooks/../../NESTED-OUTSIDE.txt", "start.mjs"],
         }),
@@ -2241,7 +2241,7 @@ describe("start.mjs CLI self-heal", () => {
       writeFileSync(
         join(marketplaceClonePath, "package.json"),
         JSON.stringify({
-          name: "context-mode",
+          name: "ctxscribe",
           version: "1.0.150",
           files: [
             "scripts/postinstall.mjs",
@@ -2305,7 +2305,7 @@ describe("start.mjs CLI self-heal", () => {
       writeFileSync(
         join(marketplaceClonePath, "package.json"),
         JSON.stringify({
-          name: "context-mode",
+          name: "ctxscribe",
           version: "1.0.150",
           // "scripts" is a directory walk; "evil-link.txt" is a
           // top-level symlink entry. Both should be filtered.
@@ -2359,7 +2359,7 @@ describe("start.mjs CLI self-heal", () => {
       writeFileSync(
         join(marketplaceClonePath, "package.json"),
         JSON.stringify({
-          name: "context-mode",
+          name: "ctxscribe",
           version: "1.0.150",
           files: [
             "../POISON.txt",
@@ -2415,7 +2415,7 @@ describe("start.mjs CLI self-heal", () => {
         join(pluginRoot, ".claude-plugin", "plugin.json"),
         JSON.stringify(
           {
-            name: "context-mode",
+            name: "ctxscribe",
             version: "1.0.150",
             mcpServers: {
               "mcp": {
@@ -3693,7 +3693,7 @@ describe("PR #620 slice 4 — doctor() surfaces persistence-tier bug class", () 
   it("doctor warns on stale `.mcp.json` files in cache version dirs (#609 proactive)", () => {
     const body = doctorBody();
     // Must reference the cache plugin path shape that PR #620 sweeps.
-    // The path nests `context-mode/context-mode` (marketplace/plugin
+    // The path nests `wotjr1649/ctxscribe` (marketplace/plugin
     // nesting per ISSUE-609-VERDICT path examples). cli.ts uses
     // path.join() so the literal appears as adjacent string args:
     //   join(homedir(), ".claude", "plugins", "cache",

@@ -53,7 +53,7 @@ function getColumnInfo(dbPath: string, table: string): Map<string, ColInfo> {
 
 /**
  * Hand-roll a legacy session_events table that omits both bytes columns,
- * to simulate a DB created by an older context-mode version.
+ * to simulate a DB created by an older ctxscribe version.
  */
 function seedLegacyDB(dbPath: string): void {
   const writer = new Database(dbPath);

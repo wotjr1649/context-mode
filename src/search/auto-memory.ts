@@ -11,7 +11,7 @@ import { join, isAbsolute } from "node:path";
 import { resolveClaudeConfigDir } from "../util/claude-config.js";
 import { hashProjectDirCanonical } from "../session/db.js";
 
-const DEBUG = process.env.DEBUG?.includes("context-mode");
+const DEBUG = process.env.DEBUG?.includes("ctxscribe");
 
 export interface AutoMemoryResult {
   title: string;

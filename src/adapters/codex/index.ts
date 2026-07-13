@@ -7,7 +7,7 @@
  *   - 6 hook events: PreToolUse, PostToolUse, PreCompact, SessionStart, UserPromptSubmit, Stop
  *   - Same wire protocol as Claude Code (JSON stdin → stdout)
  *   - Config: $CODEX_HOME or ~/.codex (hooks.json + config.toml)
- *   - Session dir: $CODEX_HOME/context-mode/sessions/
+ *   - Session dir: $CODEX_HOME/ctxscribe/sessions/
  *
  * Hook dispatch is stable in Codex CLI. PreToolUse deny decisions work,
  * while input rewriting remains blocked on upstream updatedInput support.
@@ -77,18 +77,18 @@ type HooksConfigReadResult =
   | { ok: false; reason: "invalid_json"; error: string }
   | { ok: false; reason: "read_error"; error: string };
 
-// PreToolUse matcher: canonical Codex tool names + context-mode bare MCP tool
+// PreToolUse matcher: canonical Codex tool names + ctxscribe bare MCP tool
 // names + external MCP catch-all literal (#529, #547 hotfix).
 //
 // Codex CLI's Rust `regex` crate does NOT support look-around, and
 // `is_exact_matcher` (refs/platforms/codex/codex-rs/hooks/src/events/common.rs:152)
 // short-circuits the regex engine entirely when the matcher contains only
-// [A-Za-z0-9_|]. v1.0.124 shipped a matcher with `(?!.*context-mode)` AND
-// `mcp__.*__ctx_*` regex syntax — Codex rejected the file at boot with
-// "look-around not supported" → all v1.0.124 Codex users broken (#547).
+// [A-Za-z0-9_|]. v1.0.124 shipped a matcher with a brand-substring negative
+// lookahead AND `mcp__.*__ctx_*` regex syntax — Codex rejected the file at boot
+// with "look-around not supported" → all v1.0.124 Codex users broken (#547).
 //
 // Fix: keep only literal tool names (charset-clean). The hook BODY already
-// filters context-mode's own MCP tools via `isExternalMcpTool()` in
+// filters ctxscribe's own MCP tools via `isExternalMcpTool()` in
 // hooks/core/routing.mjs, so dropping `mcp__.*__ctx_*` and the lookaround
 // preserves end-to-end semantics. The literal `mcp__` final segment is a
 // no-op under exact-matcher mode but kept for parity with hooks/hooks.json.
@@ -388,7 +388,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
           hookEventName: "PreToolUse",
           permissionDecision: "deny",
           permissionDecisionReason:
-            response.reason ?? "Blocked by context-mode hook",
+            response.reason ?? "Blocked by ctxscribe hook",
         },
       };
     }
@@ -415,7 +415,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
 
   formatPreCompactResponse(response: PreCompactResponse): unknown {
     // Codex PreCompact currently accepts only universal hook fields.
-    // The hook script stores snapshots in context-mode's DB; SessionStart
+    // The hook script stores snapshots in ctxscribe's DB; SessionStart
     // injects them after compaction.
     return {};
   }
@@ -469,10 +469,10 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
 
   getMemoryDir(projectDir?: string): string {
     // Codex uses "memories" (plural), not the default "memory".
-    // Issue #649: honor CONTEXT_MODE_DATA_DIR for context-mode-owned
+    // Issue #649: honor CONTEXT_MODE_DATA_DIR for ctxscribe-owned
     // persistent memory while preserving the platform-native plural folder
     // name so legacy Codex tooling continues to find it when DATA_DIR is
-    // unset. Under the override, layout is `<DATA_DIR>/context-mode/memories`.
+    // unset. Under the override, layout is `<DATA_DIR>/ctxscribe/memories`.
     // Issue #663: scope by projectDir hash so parallel projects can't
     // read each other's memory.
     const override = resolveContextModeDataRoot();
@@ -604,14 +604,14 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
           : deprecatedOnly
             ? `[features].codex_hooks is deprecated; [features].hooks is missing in ${this.getSettingsPath()}`
             : `[features].hooks missing from ${this.getSettingsPath()}`,
-        ...(enabled ? {} : { fix: "context-mode upgrade" }),
+        ...(enabled ? {} : { fix: "ctxscribe upgrade" }),
       });
     } catch {
       results.push({
         check: "Codex hooks feature flag",
         status: "warn",
         message: `Could not read ${this.getSettingsPath()}`,
-        fix: "context-mode upgrade",
+        fix: "ctxscribe upgrade",
       });
     }
 
@@ -624,10 +624,10 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
         check: "Codex plugin root",
         status: pluginHookStatus.rootMismatch ? "warn" : "pass",
         message: pluginHookStatus.rootMismatch
-          ? `context-mode doctor is running from ${pluginHookStatus.configuredRoot}, but Codex plugin manager reports ${pluginHookStatus.runtimeRoot}`
+          ? `ctxscribe doctor is running from ${pluginHookStatus.configuredRoot}, but Codex plugin manager reports ${pluginHookStatus.runtimeRoot}`
           : `Codex plugin manager reports ${pluginHookStatus.runtimeRoot}`,
         ...(pluginHookStatus.rootMismatch
-          ? { fix: "Restart Codex after upgrade; run context-mode upgrade to keep native user-hook fallback until the plugin root converges" }
+          ? { fix: "Restart Codex after upgrade; run ctxscribe upgrade to keep native user-hook fallback until the plugin root converges" }
           : {}),
       });
     } else if (codexPluginEnabled) {
@@ -643,8 +643,8 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       results.push({
         check: "Codex plugin hooks",
         status: "fail",
-        message: `context-mode Codex plugin is enabled, but ${join(expectedRoot, ".codex-plugin", "hooks.json")} is missing`,
-        fix: "Reinstall or upgrade the context-mode Codex plugin",
+        message: `ctxscribe Codex plugin is enabled, but ${join(expectedRoot, ".codex-plugin", "hooks.json")} is missing`,
+        fix: "Reinstall or upgrade the ctxscribe Codex plugin",
       });
     }
     if (codexPluginEnabled && hasStandaloneContextModeMcp(settingsRaw)) {
@@ -652,7 +652,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
         check: "Standalone MCP duplicate",
         status: "warn",
         message: "[mcp_servers.mcp] is still registered while ctxscribe@wotjr1649 is enabled; Codex may start both plugin and standalone MCP surfaces",
-        fix: "context-mode upgrade (removes the standalone Codex MCP registration when the plugin owns context-mode)",
+        fix: "ctxscribe upgrade (removes the standalone Codex MCP registration when the plugin owns ctxscribe)",
       });
     }
 
@@ -671,7 +671,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
           check: "Hooks config",
           status: "fail",
           message: `No readable ${this.getHooksPath()} found`,
-          fix: "Copy configs/codex/hooks.json to hooks.json or run context-mode upgrade",
+          fix: "Copy configs/codex/hooks.json to hooks.json or run ctxscribe upgrade",
         }]);
       }
       if (hookConfig.reason === "invalid_json") {
@@ -679,7 +679,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
           check: "Hooks config",
           status: "fail",
           message: `${this.getHooksPath()} is not valid JSON: ${hookConfig.error}`,
-          fix: "Repair hooks.json so it contains valid JSON, then rerun context-mode upgrade if needed",
+          fix: "Repair hooks.json so it contains valid JSON, then rerun ctxscribe upgrade if needed",
         }]);
       }
 
@@ -687,7 +687,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
         check: "Hooks config",
         status: "fail",
         message: `Could not read ${this.getHooksPath()}: ${hookConfig.error}`,
-        fix: "Check permissions and file accessibility for hooks.json, then rerun context-mode upgrade if needed",
+        fix: "Check permissions and file accessibility for hooks.json, then rerun ctxscribe upgrade if needed",
       }]);
     }
 
@@ -719,16 +719,16 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
           message: ok
             ? `${hookName} hook configured in ${this.getHooksPath()}`
             : hookName === "PreCompact"
-              ? `${hookName} hook missing or not pointing to context-mode; compaction snapshots require a Codex build that emits PreCompact`
-              : `${hookName} hook missing or not pointing to context-mode`,
+              ? `${hookName} hook missing or not pointing to ctxscribe; compaction snapshots require a Codex build that emits PreCompact`
+              : `${hookName} hook missing or not pointing to ctxscribe`,
           fix: ok ? undefined : `Update ${this.getHooksPath()} to match configs/codex/hooks.json`,
         };
       });
 
-    // #603: surface duplicate context-mode entries per hook event. Codex fires
+    // #603: surface duplicate ctxscribe entries per hook event. Codex fires
     // every matching entry, so duplicates double the work, can saturate the
     // MCP transport (`Transport closed`), and have been observed to inflate
-    // codex-tui.log into the multi-GB range. `context-mode upgrade` collapses
+    // codex-tui.log into the multi-GB range. `ctxscribe upgrade` collapses
     // them via `upsertManagedHookEntry`, so the fix is one command away.
     const duplicateChecks: DiagnosticResult[] = [];
     for (const hookName of Object.keys(expected)) {
@@ -741,15 +741,15 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
         duplicateChecks.push({
           check: `${hookName} duplicates`,
           status: "warn",
-          message: `${managedCount} context-mode entries found for ${hookName} in ${this.getHooksPath()}; Codex will fire all of them`,
-          fix: "context-mode upgrade (collapses duplicate context-mode entries; preserves unrelated hooks)",
+          message: `${managedCount} ctxscribe entries found for ${hookName} in ${this.getHooksPath()}; Codex will fire all of them`,
+          fix: "ctxscribe upgrade (collapses duplicate ctxscribe entries; preserves unrelated hooks)",
         });
       } else if (codexPluginHooksAvailable && managedCount === 1) {
         duplicateChecks.push({
           check: `${hookName} plugin duplicate`,
           status: "warn",
-          message: `${hookName} is configured in both ${this.getHooksPath()} and the context-mode Codex plugin; Codex will fire both hooks`,
-          fix: "context-mode upgrade (removes user config context-mode hooks; preserves unrelated hooks)",
+          message: `${hookName} is configured in both ${this.getHooksPath()} and the ctxscribe Codex plugin; Codex will fire both hooks`,
+          fix: "ctxscribe upgrade (removes user config ctxscribe hooks; preserves unrelated hooks)",
         });
       }
     }
@@ -770,7 +770,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
           check: "MCP registration",
           status: "warn",
           message: "ctxscribe@wotjr1649 plugin is enabled, but standalone [mcp_servers.mcp] is also configured",
-          fix: "context-mode upgrade",
+          fix: "ctxscribe upgrade",
         };
       }
 
@@ -786,7 +786,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
         return {
           check: "MCP registration",
           status: "pass",
-          message: "context-mode found in [mcp_servers] config",
+          message: "ctxscribe found in [mcp_servers] config",
         };
       }
 
@@ -795,8 +795,8 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
           check: "MCP registration",
           status: "fail",
           message:
-            "[mcp_servers] section exists but context-mode not found",
-          fix: `Add context-mode to [mcp_servers] in ${this.getSettingsPath()}`,
+            "[mcp_servers] section exists but ctxscribe not found",
+          fix: `Add ctxscribe to [mcp_servers] in ${this.getSettingsPath()}`,
         };
       }
 
@@ -817,7 +817,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
 
   getInstalledVersion(): string {
     // Codex uses standalone MCP registration; there is no platform-owned
-    // plugin version to compare against the context-mode npm package.
+    // plugin version to compare against the ctxscribe npm package.
     return "standalone";
   }
 
@@ -869,7 +869,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       this.writeHooksConfig(hookFile);
       changes.push(
         codexPluginOwnsHooks
-          ? `Removed duplicate context-mode user hooks from ${this.getHooksPath()}`
+          ? `Removed duplicate ctxscribe user hooks from ${this.getHooksPath()}`
           : `Wrote native Codex hooks to ${this.getHooksPath()}`,
       );
     }
@@ -883,7 +883,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       );
       if (removedMcp.removed.length > 0) {
         settingsText = removedMcp.text;
-        changes.push("Removed standalone Codex context-mode MCP registration");
+        changes.push("Removed standalone Codex ctxscribe MCP registration");
       }
 
       const prunedTrust = this.pruneStaleUserHookTrustState(settingsText, hooks);
@@ -945,7 +945,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       return readFileSync(instructionsPath, "utf-8");
     } catch {
       // Fallback inline instructions
-      return "# context-mode\n\nUse context-mode MCP tools (execute, execute_file, batch_execute, fetch_and_index, search) instead of bash/cat/curl for data-heavy operations.";
+      return "# ctxscribe\n\nUse ctxscribe MCP tools (execute, execute_file, batch_execute, fetch_and_index, search) instead of bash/cat/curl for data-heavy operations.";
     }
   }
 
@@ -1026,7 +1026,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
 
     for (const duplicateIndex of managedIndices.slice(1).reverse()) {
       currentEntries.splice(duplicateIndex, 1);
-      changes.push(`Removed duplicate ${hookName} context-mode hook`);
+      changes.push(`Removed duplicate ${hookName} ctxscribe hook`);
     }
 
     hooks[hookName] = currentEntries;
@@ -1049,7 +1049,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
     } else {
       delete hooks[hookName];
     }
-    changes.push(`Removed ${removed} ${hookName} context-mode user hook${removed === 1 ? "" : "s"}`);
+    changes.push(`Removed ${removed} ${hookName} ctxscribe user hook${removed === 1 ? "" : "s"}`);
   }
 
   private hasCodexPluginHookManifest(pluginRoot: string): boolean {

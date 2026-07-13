@@ -135,7 +135,7 @@ const text = formatReport(report, "1.0.111", null, {
   lifetime,
   multiAdapter,
   realBytes: { lifetime: realBytesLifetime, conversation: realBytesConversation },
-  cwd:    "/home/u/Server/Mert/context-mode/.cw/ctx-analytics",
+  cwd:    "/home/u/Server/Mert/ctxscribe/.cw/ctx-analytics",
   // 67 days after lifetime.firstEventMs (2026-03-04) — matches the
   // Mert-approved demo target exactly. 67 days × 86_400_000 ms.
   now:    Date.UTC(2026, 2, 4) + 67 * 86_400_000,

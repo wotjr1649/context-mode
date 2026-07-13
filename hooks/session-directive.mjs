@@ -28,7 +28,7 @@ function isPriorLeg(ev, boundary) {
 }
 
 // ── Data References sizing (#840) ──
-// Inlining every captured tool-output verbatim defeats context-mode's own
+// Inlining every captured tool-output verbatim defeats ctxscribe's own
 // raw-bytes-stay-out principle. Inline only a small recent window; reference
 // large blobs with a one-line pointer. The full payloads stay queryable in
 // FTS5 via ctx_search(source: "session-events").
@@ -485,7 +485,7 @@ export function buildSessionDirective(source, eventMeta, toolNamer) {
 
   // Search on demand — detailed data lives in FTS5
   block += `\n<session_search>`;
-  block += `\nDetailed session data is indexed in context-mode FTS5 (source: "session-events").`;
+  block += `\nDetailed session data is indexed in ctxscribe FTS5 (source: "session-events").`;
   block += `\nUse ${searchTool}(queries: [...], source: "session-events") when you need specifics.`;
   block += `\nDo NOT call ctx_index() — data is already indexed.`;
   block += `\n</session_search>`;

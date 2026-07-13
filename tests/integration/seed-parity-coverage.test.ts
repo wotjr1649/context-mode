@@ -333,7 +333,7 @@ describe("seed-parity coverage gate", () => {
 
     // Simulate PreToolUse writing the latency marker 200ms ago
     const startMs = Date.now() - 200;
-    const markerPath = join(tmpdir(), `context-mode-latency-${sid}-Bash.txt`);
+    const markerPath = join(tmpdir(), `ctxscribe-latency-${sid}-Bash.txt`);
     writeFileSync(markerPath, String(startMs));
 
     const events = [{ type: "cwd", category: "cwd", data: "/proj", priority: 2 }];

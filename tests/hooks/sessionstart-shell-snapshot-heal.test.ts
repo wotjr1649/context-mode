@@ -74,7 +74,7 @@ describe("selfHealShellSnapshots — SessionStart entry point", () => {
     expect(after).toContain("wotjr1649/ctxscribe/1.0.151/bin");
   });
 
-  test("no-op when no snapshots reference context-mode", () => {
+  test("no-op when no snapshots reference ctxscribe", () => {
     const root = makeTmp();
     const snapshotsDir = join(root, "shell-snapshots");
     mkdirSync(snapshotsDir, { recursive: true });

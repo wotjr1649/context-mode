@@ -89,7 +89,7 @@ describe("start.mjs HEAL 3 + HEAL 4 wiring (v1.0.114 hotfix)", () => {
     // The registry key is derived (PLUGIN_KEY, computed from our own cache
     // path — see start.mjs:149-152), not the hardcoded upstream literal.
     // Hardcoding it here would silently disable every heal below under any
-    // marketplace name other than "context-mode".
+    // marketplace name other than "wotjr1649".
     expect(block).toContain("pluginKey");
     expect(block).not.toContain('"ctxscribe@wotjr1649"');
   });

@@ -10,7 +10,7 @@
  *
  * The Mert-approved demo (target output, /Users/mksglu/.../target.txt):
  *
- *   context-mode kept 356.0 MB (93.3M tokens) out of your AI's context.
+ *   ctxscribe kept 356.0 MB (93.3M tokens) out of your AI's context.
  *   If those tokens had hit Opus 4 ($15 per 1M input):
  *
  *     $1399.73  on Opus 4 input alone

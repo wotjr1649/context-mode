@@ -26,7 +26,7 @@ ${extra}`;
 }
 
 function pluginListOutput(pluginRoot: string): string {
-  return `Marketplace \`context-mode\`
+  return `Marketplace \`wotjr1649\`
 /Users/test/.codex/.tmp/marketplaces/wotjr1649/.agents/plugins/marketplace.json
 
 PLUGIN                    STATUS              VERSION  PATH
@@ -342,12 +342,12 @@ describe("CodexAdapter", () => {
       })).toBeNull();
     });
 
-    it("parses the context-mode runtime root from `codex plugin list` output", () => {
+    it("parses the ctxscribe runtime root from `codex plugin list` output", () => {
       const pluginRoot = join(homedir(), ".codex", ".tmp", "marketplaces", "wotjr1649");
       expect(parseCodexContextModePluginRoot(pluginListOutput(pluginRoot))).toBe(pluginRoot);
     });
 
-    it("returns null when context-mode is not installed in `codex plugin list` output", () => {
+    it("returns null when ctxscribe is not installed in `codex plugin list` output", () => {
       expect(parseCodexContextModePluginRoot("browser@openai-bundled installed, enabled 0.1 /tmp/browser")).toBeNull();
     });
 
@@ -372,7 +372,7 @@ describe("CodexAdapter", () => {
       expect(config.PreToolUse[0]?.matcher).toContain("Edit");
       expect(config.PreToolUse[0]?.matcher).toContain("Write");
       // #547 hotfix: matcher is now charset-clean (no `.*` regex syntax) so
-      // the bare `ctx_*` names cover context-mode's own MCP tools and the
+      // the bare `ctx_*` names cover ctxscribe's own MCP tools and the
       // literal `mcp__` segment exists for parity with hooks/hooks.json.
       expect(config.PreToolUse[0]?.matcher).toContain("ctx_execute");
       expect(config.PreToolUse[0]?.matcher).toContain("ctx_batch_execute");
@@ -403,7 +403,7 @@ describe("CodexAdapter", () => {
       expect(changes.some((change) => change.includes("Wrote native Codex hooks"))).toBe(true);
       expect(changes.some((change) => change.includes("Enabled Codex hooks feature flag"))).toBe(true);
       // #547 hotfix: matcher is charset-clean — bare `ctx_execute` covers
-      // context-mode's own MCP tools (hook body filters by tool prefix).
+      // ctxscribe's own MCP tools (hook body filters by tool prefix).
       expect(written.hooks.PreToolUse[0]?.matcher).toContain("ctx_execute");
       expect(written.hooks.PreToolUse[0]?.matcher).toMatch(/(^|\|)mcp__$/);
       expect(written.hooks.PreToolUse[0]?.matcher).not.toMatch(/(^|\|)Read(\||$)/);
@@ -417,7 +417,7 @@ describe("CodexAdapter", () => {
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           PreToolUse: [
-            { matcher: "", hooks: [{ type: "command", command: "node /tmp/context-mode/hooks/pretooluse.mjs" }] },
+            { matcher: "", hooks: [{ type: "command", command: "node /tmp/ctxscribe/hooks/pretooluse.mjs" }] },
           ],
           SessionStart: [
             { hooks: [{ type: "command", command: "ctxscribe hook codex sessionstart" }] },
@@ -514,8 +514,8 @@ describe("CodexAdapter", () => {
     // ─────────────────────────────────────────────────────
     // Duplicate dedup regression suite (#603)
     //
-    // Reported by jowch + skbsasikumar-rgb: after a context-mode upgrade,
-    // ~/.codex/hooks.json carries TWO context-mode entries for the same
+    // Reported by jowch + skbsasikumar-rgb: after a ctxscribe upgrade,
+    // ~/.codex/hooks.json carries TWO ctxscribe entries for the same
     // hook event (e.g., a legacy `node /path/.../hooks/codex/pretooluse.mjs`
     // alongside the new `ctxscribe hook codex pretooluse`). Codex then
     // fires both, doubling work and historically saturating the MCP
@@ -523,7 +523,7 @@ describe("CodexAdapter", () => {
     // these to exactly one canonical entry per event.
     // ─────────────────────────────────────────────────────
 
-    it("dedups twin canonical context-mode entries to a single entry (#603)", () => {
+    it("dedups twin canonical ctxscribe entries to a single entry (#603)", () => {
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           PreToolUse: [
@@ -557,11 +557,11 @@ describe("CodexAdapter", () => {
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           PreToolUse: [
-            { matcher: "", hooks: [{ type: "command", command: "node /Users/foo/.nvm/versions/node/v20/lib/node_modules/context-mode/hooks/codex/pretooluse.mjs" }] },
+            { matcher: "", hooks: [{ type: "command", command: "node /Users/foo/.nvm/versions/node/v20/lib/node_modules/ctxscribe/hooks/codex/pretooluse.mjs" }] },
             { matcher: "", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
           ],
           PostToolUse: [
-            { hooks: [{ type: "command", command: "/opt/homebrew/bin/node /opt/homebrew/lib/node_modules/context-mode/hooks/posttooluse.mjs" }] },
+            { hooks: [{ type: "command", command: "/opt/homebrew/bin/node /opt/homebrew/lib/node_modules/ctxscribe/hooks/posttooluse.mjs" }] },
             { hooks: [{ type: "command", command: "ctxscribe hook codex posttooluse" }] },
           ],
         },
@@ -580,7 +580,7 @@ describe("CodexAdapter", () => {
     });
 
     it("dedups plugin-cache legacy entry left by /ctx-upgrade with canonical entry (#603)", () => {
-      // Plugin-cache install layout: ~/.claude/plugins/cache/context-mode/<v>/hooks/codex/<event>.mjs
+      // Plugin-cache install layout: ~/.claude/plugins/cache/ctxscribe/<v>/hooks/codex/<event>.mjs
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           UserPromptSubmit: [
@@ -605,7 +605,7 @@ describe("CodexAdapter", () => {
       expect(written.hooks.Stop[0]?.hooks[0]?.command).toBe("ctxscribe hook codex stop");
     });
 
-    it("removes context-mode user hooks when the Codex plugin owns hooks", () => {
+    it("removes ctxscribe user hooks when the Codex plugin owns hooks", () => {
       const pluginRoot = join(codexDir, "plugin-root");
       adapter = adapterWithCodexPluginRoot(pluginRoot);
       writeCodexPluginManifest(pluginRoot);
@@ -633,7 +633,7 @@ describe("CodexAdapter", () => {
       expect(written.hooks.SessionStart).toHaveLength(1);
       expect(written.hooks.SessionStart[0]?.hooks[0]?.command).toContain("oh-my-codex");
       expect(JSON.stringify(written)).not.toContain("ctxscribe hook codex");
-      expect(changes.some((change) => change.includes("Removed duplicate context-mode user hooks"))).toBe(true);
+      expect(changes.some((change) => change.includes("Removed duplicate ctxscribe user hooks"))).toBe(true);
     });
 
     it("keeps native fallback hooks when the running doctor root differs from the Codex plugin manager root", () => {
@@ -661,7 +661,7 @@ describe("CodexAdapter", () => {
         entry.hooks[0]?.command === "ctxscribe hook codex pretooluse",
       )).toBe(true);
       expect(written.hooks.PostToolUse[0]?.hooks[0]?.command).toBe("ctxscribe hook codex posttooluse");
-      expect(changes.some((change) => change.includes("Removed duplicate context-mode user hooks"))).toBe(false);
+      expect(changes.some((change) => change.includes("Removed duplicate ctxscribe user hooks"))).toBe(false);
       expect(changes).toContain("Wrote native Codex hooks to " + hooksPath);
     });
 
@@ -680,7 +680,7 @@ describe("CodexAdapter", () => {
       writeFileSync(join(codexDir, "config.toml"), pluginEnabledSettings(`
 [mcp_servers.mcp]
 command = "npx"
-args = ["-y", "context-mode"]
+args = ["-y", "ctxscribe"]
 
 [mcp_servers.mcp.tools.ctx_execute]
 approval_mode = "approve"
@@ -699,7 +699,7 @@ trusted_hash = "sha256:stale"
       expect(settings).not.toContain("[mcp_servers.mcp.tools.ctx_execute]");
       expect(settings).toContain(`${stateHooksPath}:pre_tool_use:0:0`);
       expect(settings).not.toContain(`${stateHooksPath}:pre_tool_use:1:0`);
-      expect(changes).toContain("Removed standalone Codex context-mode MCP registration");
+      expect(changes).toContain("Removed standalone Codex ctxscribe MCP registration");
       expect(changes.some((change) => change.includes("stale Codex hook trust"))).toBe(true);
     });
   });
@@ -813,14 +813,14 @@ trusted_hash = "sha256:stale"
       writeFileSync(join(codexDir, "config.toml"), pluginEnabledSettings(`
 [mcp_servers.mcp]
 command = "npx"
-args = ["-y", "context-mode"]
+args = ["-y", "ctxscribe"]
 `), "utf-8");
 
       const results = adapter.validateHooks(pluginRoot);
 
       const duplicate = results.find((result) => result.check === "Standalone MCP duplicate");
       expect(duplicate?.status).toBe("warn");
-      expect(duplicate?.fix).toMatch(/context-mode upgrade/);
+      expect(duplicate?.fix).toMatch(/ctxscribe upgrade/);
     });
 
     it("warns instead of failing when only PreCompact is missing", () => {
@@ -843,15 +843,15 @@ args = ["-y", "context-mode"]
       expect(results.some((result) => result.status === "fail" && result.message.includes("not valid JSON"))).toBe(true);
     });
 
-    it("warns when duplicate context-mode entries exist for the same hook event (#603)", () => {
+    it("warns when duplicate ctxscribe entries exist for the same hook event (#603)", () => {
       // Mirrors the user-reported scenario: hooks.json carries two
-      // context-mode entries for the same event after a partial upgrade.
+      // ctxscribe entries for the same event after a partial upgrade.
       // Doctor should surface this so the user knows to run upgrade.
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           PreToolUse: [
             { matcher: "", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
-            { matcher: "", hooks: [{ type: "command", command: "node /Users/foo/.nvm/versions/node/v20/lib/node_modules/context-mode/hooks/codex/pretooluse.mjs" }] },
+            { matcher: "", hooks: [{ type: "command", command: "node /Users/foo/.nvm/versions/node/v20/lib/node_modules/ctxscribe/hooks/codex/pretooluse.mjs" }] },
           ],
           PostToolUse: [
             { hooks: [{ type: "command", command: "ctxscribe hook codex posttooluse" }] },
@@ -877,14 +877,14 @@ args = ["-y", "context-mode"]
 
       const preToolDup = results.find((r) => r.check === "PreToolUse duplicates");
       expect(preToolDup?.status).toBe("warn");
-      expect(preToolDup?.message).toMatch(/2 context-mode entries/);
-      expect(preToolDup?.fix).toMatch(/context-mode upgrade/);
+      expect(preToolDup?.message).toMatch(/2 ctxscribe entries/);
+      expect(preToolDup?.fix).toMatch(/ctxscribe upgrade/);
 
       const postToolDup = results.find((r) => r.check === "PostToolUse duplicates");
       expect(postToolDup?.status).toBe("warn");
-      expect(postToolDup?.message).toMatch(/2 context-mode entries/);
+      expect(postToolDup?.message).toMatch(/2 ctxscribe entries/);
 
-      // Events with only one context-mode entry must NOT trigger the duplicate warning.
+      // Events with only one ctxscribe entry must NOT trigger the duplicate warning.
       expect(results.some((r) => r.check === "SessionStart duplicates")).toBe(false);
       expect(results.some((r) => r.check === "PreCompact duplicates")).toBe(false);
       expect(results.some((r) => r.check === "Stop duplicates")).toBe(false);
@@ -985,7 +985,7 @@ describe("Codex userpromptsubmit hook script", () => {
 describe("Codex stop hook script", () => {
   it("outputs valid JSON and records turn_end without requesting continuation", async () => {
     const hookScript = resolve(__dirname, "../../hooks/codex/stop.mjs");
-    const codexHome = mkdtempSync(join(tmpdir(), "context-mode-codex-stop-home-"));
+    const codexHome = mkdtempSync(join(tmpdir(), "ctxscribe-codex-stop-home-"));
     const projectDir = join(codexHome, "project");
     const sessionId = "test-stop";
     const savedCodexHome = process.env.CODEX_HOME;
@@ -1044,7 +1044,7 @@ describe("Codex stop hook script", () => {
 describe("Codex precompact hook script", () => {
   it("persists a resume snapshot, compact count, and compaction summary", () => {
     const hookScript = resolve(__dirname, "../../hooks/codex/precompact.mjs");
-    const codexHome = mkdtempSync(join(tmpdir(), "context-mode-codex-home-"));
+    const codexHome = mkdtempSync(join(tmpdir(), "ctxscribe-codex-home-"));
     const projectDir = join(codexHome, "project");
     const sessionId = "test-precompact";
     const savedCodexHome = process.env.CODEX_HOME;
@@ -1105,7 +1105,7 @@ describe("Codex precompact hook script", () => {
 describe("Codex sessionstart hook script", () => {
   it("injects a compact resume snapshot before marking it consumed", () => {
     const hookScript = resolve(__dirname, "../../hooks/codex/sessionstart.mjs");
-    const codexHome = mkdtempSync(join(tmpdir(), "context-mode-codex-home-"));
+    const codexHome = mkdtempSync(join(tmpdir(), "ctxscribe-codex-home-"));
     const projectDir = join(codexHome, "project");
     const sessionId = "test-sessionstart-compact";
     const snapshot = "<session_resume><task_state>restore me</task_state></session_resume>";
@@ -1205,8 +1205,8 @@ describe("Codex matcher parity + config integrity", () => {
 });
 
 // #547: Codex CLI uses Rust's `regex` crate which does NOT support look-around
-// (?!...). v1.0.124 shipped matchers containing (?!.*context-mode) and
-// (?!plugin_context-mode_) — Codex rejects them at boot with
+// (?!...). v1.0.124 shipped matchers containing a brand-substring negative
+// lookahead and a plugin-prefixed one — Codex rejects them at boot with
 // "look-around not supported", breaking ALL Codex users.
 //
 // Codex `is_exact_matcher` (refs/platforms/codex/codex-rs/hooks/src/events/common.rs:152)

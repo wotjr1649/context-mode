@@ -5,8 +5,8 @@
 // Guards against a FALSE PASS (the worst outcome — the user ships stale code
 // believing it deployed):
 //   1. Containment: each installPath must resolve to a version directory
-//      DIRECTLY under the plugin cache dir (<cfg>/plugins/cache/context-mode-js/
-//      context-mode/<version>). Lexical resolve() defeats "../.." traversal and
+//      DIRECTLY under the plugin cache dir (<cfg>/plugins/cache/wotjr1649/
+//      ctxscribe/<version>). Lexical resolve() defeats "../.." traversal and
 //      any path outside the cache; the CLI reader additionally realpath()s to
 //      defeat a junction/symlink whose target escapes the cache. So an empty /
 //      relative / repo-root / traversal installPath can never make the reader
@@ -25,7 +25,7 @@ const PLUGIN_KEY = "ctxscribe@wotjr1649";
 /**
  * True iff installPath resolves to a version directory DIRECTLY under cacheDir
  * (cacheDir/<version>) — no traversal, no escape, not cacheDir itself.
- * @param {string} cacheDir - absolute plugin cache dir (…/context-mode-js/context-mode)
+ * @param {string} cacheDir - absolute plugin cache dir (…/wotjr1649/ctxscribe)
  * @param {string} installPath
  * @returns {boolean}
  */

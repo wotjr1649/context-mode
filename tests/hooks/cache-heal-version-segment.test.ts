@@ -58,7 +58,7 @@ describe("rewriteShellSnapshots — trust anchor derived from pluginRoot (F52)",
   // inverted order makes this test fail.
   it("never touches another owner's directory, even under the fork anchor", () => {
     const original =
-      'export PATH="/home/u/.claude/plugins/cache/evil-owner/context-mode/0.9.9/bin:/usr/bin"\n';
+      'export PATH="/home/u/.claude/plugins/cache/evil-owner/ctxscribe/0.9.9/bin:/usr/bin"\n';
     const snap = writeSnapshot("snapshot-bash-spoof.sh", original);
     rewriteShellSnapshots({
       snapshotsDir: snapshots,

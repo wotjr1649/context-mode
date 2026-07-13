@@ -198,7 +198,7 @@ describe("statusline.mjs — SessionDB-backed reads", () => {
       CLAUDE_SESSION_ID: "any-session-id",
     });
 
-    assert.match(stdout, /context-mode/, "brand visible");
+    assert.match(stdout, /ctxscribe/, "brand visible");
     // Post-v1.0.118: statusline is byte-based (no $). 1MB avoided over
     // ~100 events seeds a non-trivial kb()-formatted block — proving
     // SessionDB rows were read and aggregated.
@@ -255,7 +255,7 @@ describe("statusline.mjs — SessionDB-backed reads", () => {
       JSON.stringify({ session_id: sid }),
     );
 
-    assert.match(stdout, /context-mode/, "brand visible");
+    assert.match(stdout, /ctxscribe/, "brand visible");
     // The active session (mine, 50 events ≈ tens of KB) is ~60× smaller than
     // the unrelated 'other' session (3000 events ≈ MB). So a correctly
     // session-scoped "this chat" renders in KB. Two mutations turn this red:
@@ -282,7 +282,7 @@ describe("statusline.mjs — SessionDB-backed reads", () => {
       CONTEXT_MODE_DIR: root,
       CLAUDE_SESSION_ID: "any-session-id",
     });
-    assert.match(stdout, /context-mode/);
+    assert.match(stdout, /ctxscribe/);
     assert.match(stdout, /saves ~98% of context window/);
     assert.doesNotMatch(stdout, /\$\d+\/dev\/month/);
   });
@@ -399,7 +399,7 @@ describe("statusline.mjs — multi-adapter aggregation", () => {
       CLAUDE_SESSION_ID: "any-session-id",
     });
 
-    assert.match(stdout, /context-mode/);
+    assert.match(stdout, /ctxscribe/);
     assert.match(
       stdout,
       /across\s+\d+\s+tools?/i,
@@ -417,7 +417,7 @@ describe("statusline.mjs — multi-adapter aggregation", () => {
       CLAUDE_SESSION_ID: "any-session-id",
     });
 
-    assert.match(stdout, /context-mode/);
+    assert.match(stdout, /ctxscribe/);
     assert.doesNotMatch(
       stdout,
       /across\s+\d+\s+tools?/i,

@@ -24,7 +24,7 @@ export interface SessionEvent {
   /** 1=critical (rules, files, tasks) … 5=low */
   priority: number;
   /**
-   * Optional — bytes context-mode prevented from entering the model context
+   * Optional — bytes ctxscribe prevented from entering the model context
    * window for this event. Currently populated by external_ref when a
    * ctx_fetch_and_index tool_response carries the
    * `Fetched and indexed N sections (XKB)` preamble.
@@ -97,15 +97,15 @@ function safeStringAny(value: unknown): string {
 function isToolError(input: HookInput): boolean {
   const response = String(input.tool_response ?? "");
   // PreToolUse rewrites curl/wget/inline-HTTP/WebFetch commands into
-  //   echo "context-mode: <guidance text including 'retry', 'fails', 'error'>"
+  //   echo "ctxscribe: <guidance text including 'retry', 'fails', 'error'>"
   // The user-facing copy legitimately mentions failure modes ("retry if it
   // fails with a transient DNS error"), but those words must NOT classify
   // our OWN guidance message as a tool error or it gets captured into
   // session_resume and surfaces as a fake error in the next chat.
   // We check BOTH sides because:
-  //   - real shell run → response starts with `context-mode:` (echo stdout)
+  //   - real shell run → response starts with `ctxscribe:` (echo stdout)
   //   - test/captured-output path → response is the raw command itself
-  //     (`echo "context-mode: …"`), so we also match the command shape
+  //     (`echo "ctxscribe: …"`), so we also match the command shape
   const command = String(input.tool_input?.command ?? "");
   if (
     response.startsWith("ctxscribe:") ||
@@ -190,13 +190,13 @@ function extractFileAndRule(input: HookInput): SessionEvent[] {
     //
     //   Filenames: CLAUDE.md, AGENTS.md, AGENTS.override.md, GEMINI.md,
     //              QWEN.md, KIRO.md, copilot-instructions.md,
-    //              context-mode.mdc
+    //              ctxscribe.mdc
     //   Directories: .claude/, .codex/memories/, and any
     //                <dir>/memory|memories/<file>.md convention.
     const isRuleFile =
       /(?:CLAUDE|AGENTS(?:\.override)?|GEMINI|QWEN|KIRO)\.md$/i.test(filePath)
       || /\/copilot-instructions\.md$/i.test(filePath)
-      || /\/context-mode\.mdc$/i.test(filePath)
+      || /\/ctxscribe\.mdc$/i.test(filePath)
       || /\.claude[\\/]/i.test(filePath)
       || /[\\/]memor(?:y|ies)[\\/][^\\/]+\.md$/i.test(filePath);
     if (isRuleFile) {

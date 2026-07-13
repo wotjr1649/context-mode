@@ -1,7 +1,7 @@
 /**
  * External MCP routing — Codex slice (#529 follow-up).
  *
- * PR #532 added the `mcp__(?!plugin_context-mode_)` PreToolUse matcher for
+ * PR #532 added the plugin-prefixed negative-lookahead PreToolUse matcher for
  * Claude Code so external MCP servers (slack, telegram, gdrive, notion …)
  * trigger the context-guidance nudge before their large payloads spill into
  * context. This slice extends the same protection to Codex CLI.
@@ -9,10 +9,11 @@
  * Codex MCP wire shape: `mcp__<server>__<tool>` (verified in
  * configs/codex/hooks.json line 5 which already matches `mcp__.*__ctx_execute`
  * style — proving hook tool_name carries the `mcp__` prefix for MCP-namespaced
- * tools). Codex own context-mode tools surface as bare `ctx_execute` AND as
+ * tools). Codex own ctxscribe tools surface as bare `ctx_execute` AND as
  * `mcp__<server>__ctx_execute` (the existing PRE_TOOL_USE_MATCHER_PATTERN
- * already wires both). The negative-lookahead pattern below carves out any
- * `mcp__` tool name whose server segment contains `context-mode`.
+ * already wires both). The matcher below is a bare `mcp__` catch-all; our own
+ * tools are carved out in the hook BODY by `isExternalMcpTool()`, which keys
+ * off the `ctx_` tool-leaf rather than the server segment.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { CodexAdapter } from "../../src/adapters/codex/index.js";
@@ -30,11 +31,11 @@ describe("CodexAdapter — external MCP routing (#529)", () => {
   });
 
   it("EXTERNAL_MCP_MATCHER_PATTERN is the literal `mcp__` prefix (#547 hotfix)", () => {
-    // v1.0.124 used `mcp__(?!.*context-mode)` — Codex's Rust regex crate
-    // rejects look-around at boot, breaking every Codex user. v1.0.125 drops
+    // v1.0.124 used a brand-substring negative-lookahead matcher — Codex's Rust
+    // regex crate rejects look-around at boot, breaking every Codex user. v1.0.125 drops
     // the lookaround in favor of a literal that satisfies Codex's
     // `is_exact_matcher` charset (`[A-Za-z0-9_|]`). The hook BODY filters
-    // context-mode's own MCP tools via `isExternalMcpTool()` in
+    // ctxscribe's own MCP tools via `isExternalMcpTool()` in
     // hooks/core/routing.mjs, so semantics are preserved end-to-end.
     expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__");
     expect(EXTERNAL_MCP_MATCHER_PATTERN).toMatch(/^[A-Za-z0-9_|]+$/);

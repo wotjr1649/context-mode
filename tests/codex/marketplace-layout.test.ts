@@ -20,8 +20,8 @@
  *   the plugin is dropped. Exit code stays 0, marketplace entry exists in
  *   ~/.codex/config.toml, but the plugins vec is empty.
  *
- *   The first workaround used `./plugins/context-mode` plus a git symlink to
- *   `..`, making the resolved plugin root the repository root on Unix. On
+ *   The first workaround used a `./plugins/<plugin>` directory plus a git symlink
+ *   to `..`, making the resolved plugin root the repository root on Unix. On
  *   native Windows, Git commonly checks symlinks out as regular files
  *   containing the target text (`..`), so `codex plugin add` failed with
  *   `missing plugin.json`.
@@ -170,8 +170,8 @@ describe("Codex marketplace discovery contract — v0.130.0", () => {
     }
   });
 
-  test("old Windows-hostile plugins/context-mode symlink shim is gone", () => {
-    const shim = join(REPO_ROOT, "plugins", "context-mode");
+  test("old Windows-hostile plugins/ctxscribe symlink shim is gone", () => {
+    const shim = join(REPO_ROOT, "plugins", "ctxscribe");
     assert.ok(
       !existsSync(shim),
       `${shim} must not exist. Git symlinks often checkout as a regular '..' file on ` +

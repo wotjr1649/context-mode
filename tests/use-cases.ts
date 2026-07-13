@@ -2,7 +2,7 @@
  * Use Case Tests — Real-world scenarios using static fixtures
  *
  * Each use case represents a common task where Claude Code
- * would benefit from context-mode instead of raw Read/cat.
+ * would benefit from ctxscribe instead of raw Read/cat.
  */
 
 import { strict as assert } from "node:assert";

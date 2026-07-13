@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Unified PreToolUse hook for context-mode (Claude Code)
- * Redirects data-fetching tools to context-mode MCP tools
+ * Unified PreToolUse hook for ctxscribe (Claude Code)
+ * Redirects data-fetching tools to ctxscribe MCP tools
  *
  * Cross-platform (Windows/macOS/Linux) — no bash/jq dependency.
  *
@@ -13,7 +13,7 @@
  * dynamically inside the wrapper.
  *
  * #415: the destructive settings.json mutation block (which removed
- * context-mode hook entries when hooks.json was present) was deleted.
+ * ctxscribe hook entries when hooks.json was present) was deleted.
  * It deleted user-written hook configs without consent and was the
  * documented cause of the regression.
  */
@@ -49,7 +49,7 @@ await runHook(async () => {
     const myVersion = myPkg.version ?? "unknown";
     const myDirName = basename(myRoot);
     const cacheParent = dirname(myRoot);
-    const marker = resolve(tmpdir(), `context-mode-healed-${myVersion}`);
+    const marker = resolve(tmpdir(), `ctxscribe-healed-${myVersion}`);
 
     // Only self-heal inside plugin cache dirs — skip in dev/CI environments
     const isInPluginCache = myRoot.includes("/plugins/cache/") || myRoot.includes("\\plugins\\cache\\");
@@ -121,7 +121,7 @@ await runHook(async () => {
                 entry.matcher = entry.matcher.replace("Task", "Agent|Task");
                 changed = true;
               }
-              // Rewrite stale context-mode hook paths to point to current version
+              // Rewrite stale ctxscribe hook paths to point to current version
               for (const h of (entry.hooks || [])) {
                 if (h.command && h.command.includes(".mjs") && h.command.includes("ctxscribe") && !h.command.includes(targetDir)) {
                   // Extract the script filename (e.g., sessionstart.mjs, pretooluse.mjs)
@@ -178,7 +178,7 @@ await runHook(async () => {
   try {
     const sessionId = getSessionId(input);
     if (tool) {
-      const markerPath = resolve(tmpdir(), `context-mode-latency-${sessionId}-${tool}.txt`);
+      const markerPath = resolve(tmpdir(), `ctxscribe-latency-${sessionId}-${tool}.txt`);
       writeFileSync(markerPath, String(Date.now()), "utf-8");
     }
   } catch { /* latency tracking is best-effort — never block hook */ }
@@ -191,8 +191,8 @@ await runHook(async () => {
       const sessionId = getSessionId(input);
       const reason = decision.action === "deny"
         ? (decision.reason || "denied")
-        : "Redirected to context-mode sandbox";
-      const markerPath = resolve(tmpdir(), `context-mode-rejected-${sessionId}.txt`);
+        : "Redirected to ctxscribe sandbox";
+      const markerPath = resolve(tmpdir(), `ctxscribe-rejected-${sessionId}.txt`);
       writeFileSync(markerPath, `${tool}:${reason}`, "utf-8");
     } catch { /* best-effort — never block hook */ }
   }
@@ -208,7 +208,7 @@ await runHook(async () => {
       const sessionId = getSessionId(input);
       const meta = decision.redirectMeta;
       const summary = String(meta.commandSummary ?? "").slice(0, 200);
-      const markerPath = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+      const markerPath = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
       // Format: tool:type:bytesAvoided:commandSummary (matches Override C).
       // commandSummary may legitimately contain `:` (URLs) — don't quote it,
       // PostToolUse parses only the first 3 colons and treats the rest as data.

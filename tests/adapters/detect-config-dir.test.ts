@@ -116,7 +116,7 @@ describe("detectPlatform — config directory branches", () => {
   // Regression guard (detection-ordering review): a BARE ~/.copilot/ directory
   // (GitHub Copilot CLI co-installed on the same machine) must NOT outrank
   // ~/.claude. Protects existing Claude Code users from stale-dir hijack.
-  it("bare ~/.copilot/ (no context-mode config) does NOT outrank ~/.claude", () => {
+  it("bare ~/.copilot/ (no ctxscribe config) does NOT outrank ~/.claude", () => {
     existsSyncMock.mockImplementation(
       ((p: unknown) =>
         p === resolve(home, ".copilot") ||

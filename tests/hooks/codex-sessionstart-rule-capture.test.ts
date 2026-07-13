@@ -52,7 +52,7 @@ describe("hooks/codex/sessionstart.mjs — rule capture", () => {
   test("captures project AGENTS.md as rule events on startup", () => {
     writeFileSync(
       join(fakeProject, "AGENTS.md"),
-      "# Project rules\n\nUse context-mode for analysis.\n",
+      "# Project rules\n\nUse ctxscribe for analysis.\n",
       "utf8",
     );
 
@@ -79,7 +79,7 @@ describe("hooks/codex/sessionstart.mjs — rule capture", () => {
         expect.objectContaining({ type: "rule", data: join(fakeProject, "AGENTS.md") }),
         expect.objectContaining({
           type: "rule_content",
-          data: expect.stringContaining("Use context-mode for analysis."),
+          data: expect.stringContaining("Use ctxscribe for analysis."),
         }),
       ]),
     );

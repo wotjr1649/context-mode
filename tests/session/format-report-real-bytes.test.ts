@@ -158,7 +158,7 @@ describe("formatReport — Phase 8 realBytes opt", () => {
     // Conversation token count appears in the section-1 Without/With
     // bars (e.g. "2.9M tokens"). Real bytes ~2.9M tok (vs conservative 81K).
     const receiptLine = text.split("\n").find((l) =>
-      l.includes("Without context-mode") && /tokens/.test(l)
+      l.includes("Without ctxscribe") && /tokens/.test(l)
     );
     expect(receiptLine).toBeTruthy();
     expect(receiptLine!).toMatch(/[\d.]+M tokens/);

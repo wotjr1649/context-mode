@@ -21,7 +21,7 @@ import { ContentStore } from "../src/store.js";
 function createStore(): ContentStore {
   const path = join(
     tmpdir(),
-    `context-mode-stale-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+    `ctxscribe-stale-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
   );
   return new ContentStore(path);
 }

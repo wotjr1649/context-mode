@@ -7,7 +7,7 @@ import { extractEvents } from "../../src/session/extract.js";
  * instruction file names (not just CLAUDE.md / .claude/).
  *
  * Without this, reads of AGENTS.md, GEMINI.md, QWEN.md, KIRO.md,
- * copilot-instructions.md, context-mode.mdc, etc. silently dropped
+ * copilot-instructions.md, ctxscribe.mdc, etc. silently dropped
  * to file_read only — never surfacing as `rule` events for snapshots.
  */
 
@@ -60,8 +60,8 @@ describe("rule detection — multi-platform instruction files", () => {
     assert.ok(events.some(e => e.type === "rule"));
   });
 
-  test("Cursor context-mode.mdc emits a rule event", () => {
-    const events = readEvent("/project/.cursor/context-mode.mdc");
+  test("Cursor ctxscribe.mdc emits a rule event", () => {
+    const events = readEvent("/project/.cursor/ctxscribe.mdc");
     assert.ok(events.some(e => e.type === "rule"));
   });
 

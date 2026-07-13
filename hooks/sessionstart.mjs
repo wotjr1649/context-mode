@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * SessionStart hook for context-mode
+ * SessionStart hook for ctxscribe
  *
  * Provides the agent with XML-structured "Rules of Engagement"
  * at the beginning of each session. Injects session knowledge on
@@ -16,7 +16,7 @@
  *
  * Crash-resilience: wrapped via runHook (#414) — all module loads happen
  * dynamically inside the wrapper so a missing/poisoned dep can never hard-fail
- * the hook. Errors land in ~/.claude/context-mode/hook-errors.log.
+ * the hook. Errors land in ~/.claude/ctxscribe/hook-errors.log.
  */
 
 import { runHook } from "./run-hook.mjs";
@@ -116,7 +116,7 @@ await runHook(async () => {
   // Claude Code `source`s ~/.claude/shell-snapshots/snapshot-*.sh before every
   // Bash tool call (refs/platforms/claude-code/src/utils/bash/ShellSnapshot.ts:269-336,
   // sourced at bashProvider.ts:166). The snapshot bakes an `export PATH='…'`
-  // line with the context-mode `bin/` of the version active at session boot.
+  // line with the ctxscribe `bin/` of the version active at session boot.
   // After /ctx-upgrade deletes the old cache dir, the snapshot still points
   // at it — every Bash call fails with "Plugin directory does not exist"
   // until the session restarts.
@@ -134,7 +134,7 @@ await runHook(async () => {
     const { resolveConfigDir } = await import("./session-helpers.mjs");
 
     // Read the version this MCP boot is running under. PLUGIN_ROOT
-    // points at ~/.claude/plugins/cache/<marketplace>/context-mode/<vX>/ —
+    // points at ~/.claude/plugins/cache/<marketplace>/ctxscribe/<vX>/ —
     // it is also the trust anchor rewriteShellSnapshots derives the
     // cache/<marketplace>/<plugin>/ prefix from, so pass it straight through.
     const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT

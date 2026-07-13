@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * PreCompact hook for context-mode session continuity.
+ * PreCompact hook for ctxscribe session continuity.
  *
  * Triggered when Claude Code is about to compact the conversation.
  * Reads all captured session events, builds a priority-sorted resume

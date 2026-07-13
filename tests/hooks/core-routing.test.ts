@@ -63,7 +63,7 @@ beforeAll(async () => {
 // developer's machine. The hook honors CONTEXT_MODE_MCP_SENTINEL_DIR.
 const _sentinelDir = mkdtempSync(join(tmpdir(), "ctx-test-sentinels-"));
 process.env.CONTEXT_MODE_MCP_SENTINEL_DIR = _sentinelDir;
-const mcpSentinel = resolve(_sentinelDir, `context-mode-mcp-ready-${process.pid}`);
+const mcpSentinel = resolve(_sentinelDir, `ctxscribe-mcp-ready-${process.pid}`);
 
 beforeEach(() => {
   if (typeof resetGuidanceThrottle === "function") resetGuidanceThrottle();
@@ -666,7 +666,7 @@ describe("routePreToolUse", () => {
     });
   });
 
-  describe("Codex context-mode MCP execute security", () => {
+  describe("Codex ctxscribe MCP execute security", () => {
     let projectDir: string;
 
     beforeAll(async () => {
@@ -829,7 +829,7 @@ describe("routePreToolUse", () => {
 
   // ─── External MCP tools (#529) ──────────────────────────
   //
-  // hooks/hooks.json registers a `mcp__(?!plugin_context-mode_)` matcher so
+  // hooks/hooks.json registers a bare `mcp__` catch-all matcher so
   // PreToolUse fires on slack/telegram/gdrive/notion-style MCPs whose payloads
   // would otherwise spill into context before PostToolUse can act. The routing
   // branch emits a one-shot context guidance nudge — same throttle model as
@@ -856,7 +856,7 @@ describe("routePreToolUse", () => {
       }
     });
 
-    it("does NOT match context-mode's own MCP tools (no double-firing)", () => {
+    it("does NOT match ctxscribe's own MCP tools (no double-firing)", () => {
       // These are routed by dedicated branches above (ctx_execute,
       // ctx_execute_file, ctx_batch_execute) — they must NOT receive the
       // external-MCP guidance, which would be redundant noise.
@@ -864,7 +864,7 @@ describe("routePreToolUse", () => {
         "mcp__plugin_ctxscribe_mcp__ctx_execute",
         "mcp__plugin_ctxscribe_mcp__ctx_execute_file",
         "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
-        "mcp__context-mode__ctx_execute",
+        "mcp__ctxscribe__ctx_execute",
       ];
       for (const tool of contextModeTools) {
         resetGuidanceThrottle();
@@ -949,14 +949,14 @@ describe("routePreToolUse", () => {
       expect(result).toBeNull();
     });
 
-    it("treats external MCP tools whose tool part contains 'context-mode' as external", () => {
+    it("treats external MCP tools whose tool part contains 'ctxscribe' as external", () => {
       // Guards against the substring-on-full-name false negative: only the
       // server segment (first chunk after the mcp__ prefix) is checked, so a
-      // notion / slack / etc tool that happens to mention context-mode in its
+      // notion / slack / etc tool that happens to mention ctxscribe in its
       // tool name still receives the external-MCP guidance.
       const externals = [
-        "mcp__notion__search_context-mode_notes",
-        "mcp__slack__post_to_context-mode_channel",
+        "mcp__notion__search_ctxscribe_notes",
+        "mcp__slack__post_to_ctxscribe_channel",
       ];
       for (const tool of externals) {
         resetGuidanceThrottle();
@@ -985,13 +985,13 @@ describe("routePreToolUse", () => {
 // ─── mcp-ready.mjs regression matrix (#347 guard) ──────────────────────────
 //
 // PR #347 replaced the PPID-keyed sentinel lookup with a directory-scan over
-// `<sentinelDir()>/context-mode-mcp-ready-*` files. These tests lock in the
+// `<sentinelDir()>/ctxscribe-mcp-ready-*` files. These tests lock in the
 // directory-scan contract so a future refactor cannot silently regress to a
 // PPID-coupled lookup. The test runner's own sentinel (written by the
 // file-level beforeEach above) is removed inside cleanup tests where its
 // presence would mask dead-PID cleanup.
 
-const SENTINEL_PREFIX = "context-mode-mcp-ready-";
+const SENTINEL_PREFIX = "ctxscribe-mcp-ready-";
 const DEAD_PID = 2_147_483_647; // INT32_MAX — never a live PID on any platform
 
 const fixtures = new Set<string>();
@@ -1147,7 +1147,7 @@ describe("mcp-ready: PPID-independence (regression for #347)", () => {
       const { writeFileSync, unlinkSync } = require("node:fs");
       const { join } = require("node:path");
       const dir = process.env.MCP_SENTINEL_DIR;
-      const path = join(dir, "context-mode-mcp-ready-" + process.pid);
+      const path = join(dir, "ctxscribe-mcp-ready-" + process.pid);
       writeFileSync(path, String(process.pid));
       const cleanup = () => { try { unlinkSync(path); } catch {} process.exit(0); };
       process.on("SIGTERM", cleanup);

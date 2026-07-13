@@ -3,7 +3,7 @@
  *
  * v1.0.113's /ctx-upgrade poisoned ~/.claude/plugins/installed_plugins.json by
  * (a) writing a stale per-entry `version` and (b) emptying `enabledPlugins`.
- * Claude Code's plugin loader then refuses to load context-mode and the user
+ * Claude Code's plugin loader then refuses to load ctxscribe and the user
  * loses MCP entirely — including the /ctx-upgrade escape hatch. This module
  * is the single source of truth used by BOTH `start.mjs` (runtime) and
  * `scripts/postinstall.mjs` (npm install) to repair the registry.
@@ -393,7 +393,7 @@ describe("healSettingsEnabledPlugins (v1.0.116)", () => {
 // healPluginJsonMcpServers — Issue #523 (v1.0.119)
 // /ctx-upgrade in v1.0.118 left ~/.claude/plugins/cache/.../.claude-plugin/
 // plugin.json with mcpServers["mcp"].args[0] pointing at the
-// upgrade tmpdir (e.g. /var/folders/.../T/context-mode-upgrade-1747000000000/
+// upgrade tmpdir (e.g. /var/folders/.../T/ctxscribe-upgrade-1747000000000/
 // start.mjs). After the temp dir is reaped, MCP fails to spawn with ENOENT
 // and the user has no /ctx-upgrade escape hatch. Sibling of #411 (which
 // fixed .mcp.json only).
@@ -438,7 +438,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     );
     mkdirSync(pluginRoot, { recursive: true });
     const poisonedTmp =
-      "/var/folders/xx/yyy/T/context-mode-upgrade-1747000000000";
+      "/var/folders/xx/yyy/T/ctxscribe-upgrade-1747000000000";
     const pluginJsonPath = buildPoisonedPluginJson({
       pluginRoot,
       args0: `${poisonedTmp}/start.mjs`,
@@ -458,7 +458,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
   });
 
   // Slice 2 — epoch-pattern detection works even if the tmpdir still exists.
-  it("rewrites context-mode-upgrade-<digits> path even if currently exists", () => {
+  it("rewrites ctxscribe-upgrade-<digits> path even if currently exists", () => {
     const cacheRoot = makeTmp("ctx-issue523-cache-");
     const pluginRoot = resolve(
       cacheRoot,
@@ -467,11 +467,11 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
       "1.0.118",
     );
     mkdirSync(pluginRoot, { recursive: true });
-    // Faithfully reproduce cli.ts's `context-mode-upgrade-${Date.now()}` —
+    // Faithfully reproduce cli.ts's `ctxscribe-upgrade-${Date.now()}` —
     // pure-numeric epoch suffix that mkdtempSync would never produce.
     const epochTmp = join(
       tmpdir(),
-      `context-mode-upgrade-${Date.now()}`,
+      `ctxscribe-upgrade-${Date.now()}`,
     );
     mkdirSync(epochTmp, { recursive: true });
     cleanups.push(epochTmp);
@@ -530,7 +530,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     mkdirSync(resolve(escapedRoot, ".claude-plugin"), { recursive: true });
     const pluginJsonPath = buildPoisonedPluginJson({
       pluginRoot: escapedRoot,
-      args0: "/var/folders/x/T/context-mode-upgrade-1747000000000/start.mjs",
+      args0: "/var/folders/x/T/ctxscribe-upgrade-1747000000000/start.mjs",
     });
     const before = readFileSync(pluginJsonPath, "utf-8");
 
@@ -558,7 +558,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     mkdirSync(pluginRoot, { recursive: true });
     const pluginJsonPath = buildPoisonedPluginJson({
       pluginRoot,
-      args0: "/tmp/context-mode-upgrade-1747000000000/start.mjs",
+      args0: "/tmp/ctxscribe-upgrade-1747000000000/start.mjs",
       extraServers: {
         "user-other-mcp": {
           command: "python",
@@ -597,7 +597,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     );
     mkdirSync(pluginRoot, { recursive: true });
     const winPoisoned =
-      "C:\\Users\\Mert\\AppData\\Local\\Temp\\context-mode-upgrade-1747000000000\\start.mjs";
+      "C:\\Users\\Mert\\AppData\\Local\\Temp\\ctxscribe-upgrade-1747000000000\\start.mjs";
     const pluginJsonPath = buildPoisonedPluginJson({
       pluginRoot,
       args0: winPoisoned,
@@ -744,7 +744,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
   });
 
   // Slice 3 — tmpdir-prefixed paths (POSIX + Windows backslash)
-  it("rewrites tmpdir-prefixed paths matching context-mode-upgrade-<digits>", () => {
+  it("rewrites tmpdir-prefixed paths matching ctxscribe-upgrade-<digits>", () => {
     const cacheRoot = makeTmp("ctx-issue531-cache-");
     const pluginRoot = resolve(
       cacheRoot,
@@ -754,7 +754,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     );
     mkdirSync(pluginRoot, { recursive: true });
     const posixPoisoned =
-      "/var/folders/xx/yyy/T/context-mode-upgrade-1747000000000/start.mjs";
+      "/var/folders/xx/yyy/T/ctxscribe-upgrade-1747000000000/start.mjs";
     const mcpJsonPath = buildPoisonedMcpJson({
       pluginRoot,
       args0: posixPoisoned,
@@ -783,7 +783,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     );
     mkdirSync(pluginRoot, { recursive: true });
     const winPoisoned =
-      "C:\\Users\\Mert\\AppData\\Local\\Temp\\context-mode-upgrade-1747000000000\\start.mjs";
+      "C:\\Users\\Mert\\AppData\\Local\\Temp\\ctxscribe-upgrade-1747000000000\\start.mjs";
     const mcpJsonPath = buildPoisonedMcpJson({
       pluginRoot,
       args0: winPoisoned,
@@ -836,7 +836,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const escapedRoot = makeTmp("ctx-issue531-escape-");
     const mcpJsonPath = buildPoisonedMcpJson({
       pluginRoot: escapedRoot,
-      args0: "/var/folders/x/T/context-mode-upgrade-1747000000000/start.mjs",
+      args0: "/var/folders/x/T/ctxscribe-upgrade-1747000000000/start.mjs",
     });
     const before = readFileSync(mcpJsonPath, "utf-8");
 
@@ -1025,7 +1025,7 @@ describe("healClaudeJsonMcpArgs", () => {
     expect(result.skipped).toBe("no-mcp-servers");
   });
 
-  it("ignores args that are not inside the context-mode cache", () => {
+  it("ignores args that are not inside the ctxscribe cache", () => {
     const tmp = makeTmp("ctx-claude-json-unrelated-");
     const cacheParent = join(tmp, "plugins", "cache", "wotjr1649", "ctxscribe");
     const newPluginRoot = join(cacheParent, "1.0.135");
@@ -1131,7 +1131,7 @@ describe("derivePluginKey", () => {
     expect(derivePluginKey("/h/src/ctxscribe")).toBeNull();
   });
 
-  it("returns null for a true npm-global pkgRoot (…/npm/lib/node_modules/context-mode)", () => {
+  it("returns null for a true npm-global pkgRoot (…/npm/lib/node_modules/ctxscribe)", () => {
     // Pure-function pin of the null→skip contract (Task 9 fix round). Same
     // npm-global shape postinstall-heal.test.ts's Slice 6b stages: a real
     // `npm install -g` puts pkgRoot outside any plugins/cache tree, so the
@@ -1152,6 +1152,6 @@ describe("derivePluginCacheParent", () => {
   });
 
   it("returns null outside the plugin cache", () => {
-    expect(derivePluginCacheParent("/h/src/context-mode")).toBeNull();
+    expect(derivePluginCacheParent("/h/src/ctxscribe")).toBeNull();
   });
 });

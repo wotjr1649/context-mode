@@ -21,7 +21,7 @@ const MAX_CHUNK_BYTES = 4096;
 function tmpDbPath(tag: string): string {
   return join(
     tmpdir(),
-    `context-mode-bytecap-${tag}-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+    `ctxscribe-bytecap-${tag}-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
   );
 }
 

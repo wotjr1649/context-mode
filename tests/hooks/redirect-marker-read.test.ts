@@ -58,7 +58,7 @@ function readEvents(dbPath: string, sessionId: string, type: string): RawEventRo
 }
 
 const mcpSentinelDir = process.platform === "win32" ? tmpdir() : "/tmp";
-const mcpSentinel = resolve(mcpSentinelDir, `context-mode-mcp-ready-${process.pid}`);
+const mcpSentinel = resolve(mcpSentinelDir, `ctxscribe-mcp-ready-${process.pid}`);
 
 describe("D2 Phase 4 — read-redirected marker pattern", () => {
   let fakeHome: string;
@@ -102,7 +102,7 @@ describe("D2 Phase 4 — read-redirected marker pattern", () => {
 
   beforeEach(() => {
     writeFileSync(mcpSentinel, String(process.pid));
-    const m = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const m = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     try { unlinkSync(m); } catch {}
   });
 
@@ -141,7 +141,7 @@ describe("D2 Phase 4 — read-redirected marker pattern", () => {
   test("4.4: Read on large file (>50KB) writes redirect marker", () => {
     const r = runPre(largeFilePath);
     assert.equal(r.status, 0, `pretooluse non-zero. stderr: ${r.stderr}`);
-    const markerPath = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     assert.ok(existsSync(markerPath), "marker file must be written for large reads");
     const content = readFileSync(markerPath, "utf-8");
     expect(content.startsWith(`Read:read-redirected:${LARGE_SIZE}:`)).toBe(true);
@@ -163,7 +163,7 @@ describe("D2 Phase 4 — read-redirected marker pattern", () => {
   // ─── Slice 4.6 ───────────────────────────────────────────
   test("4.6: Read on small file (<=50KB) does NOT write redirect marker", () => {
     runPre(smallFilePath);
-    const markerPath = resolve(tmpdir(), `context-mode-redirect-${sessionId}.txt`);
+    const markerPath = resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`);
     assert.ok(!existsSync(markerPath), "no marker for small file reads");
   });
 });

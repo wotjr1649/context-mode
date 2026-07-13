@@ -2,7 +2,7 @@
 import "./platform.mjs";
 import "../suppress-stderr.mjs";
 /**
- * Codex CLI preToolUse hook for context-mode.
+ * Codex CLI preToolUse hook for ctxscribe.
  *
  * Codex PreToolUse honors `permissionDecision:"deny"` on all builds, and
  * `permissionDecision:"allow" + updatedInput` / `additionalContext` on

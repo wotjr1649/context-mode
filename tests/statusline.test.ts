@@ -164,7 +164,7 @@ describe("statusline.mjs — render fallbacks", () => {
       CONTEXT_MODE_DIR: root,
       CLAUDE_SESSION_ID: "pid-doesnotexist",
     });
-    assert.match(out, /context-mode/);
+    assert.match(out, /ctxscribe/);
     assert.match(out, /saves ~98% of context window/);
     assert.doesNotMatch(out, /\$\d+\/dev\/month/, "no fabricated $/dev/month claim");
   });
@@ -176,7 +176,7 @@ describe("statusline.mjs — render fallbacks", () => {
       CONTEXT_MODE_DIR: root,
       CLAUDE_SESSION_ID: "pid-empty",
     });
-    assert.match(out, /context-mode/);
+    assert.match(out, /ctxscribe/);
     assert.match(out, /saves ~98% of context window/);
     assert.doesNotMatch(out, /NaN/);
   });
@@ -190,7 +190,7 @@ describe("statusline.mjs — render fallbacks", () => {
       CONTEXT_MODE_DIR: root,
       CLAUDE_SESSION_ID: "pid-bad",
     });
-    assert.match(out, /context-mode/);
+    assert.match(out, /ctxscribe/);
     assert.match(out, /saves ~98% of context window/);
     assert.doesNotMatch(out, /NaN/);
   });
@@ -356,7 +356,7 @@ describe("statusline.mjs — CONTEXT_MODE_DIR override", () => {
       CONTEXT_MODE_DIR: root,
       CLAUDE_SESSION_ID: "any-id",
     });
-    assert.match(out, /context-mode/);
+    assert.match(out, /ctxscribe/);
     assert.match(out, /this chat/, "render reflects override-dir SessionDB");
   });
 
@@ -367,7 +367,7 @@ describe("statusline.mjs — CONTEXT_MODE_DIR override", () => {
       CLAUDE_SESSION_ID: "legacy-id",
     });
 
-    assert.match(stdout, /context-mode/);
+    assert.match(stdout, /ctxscribe/);
     assert.match(stdout, /this chat/, "render reflects legacy session-dir SessionDB");
     assert.match(stderr, /CONTEXT_MODE_SESSION_DIR is deprecated/);
   });

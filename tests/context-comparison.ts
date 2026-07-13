@@ -2,8 +2,8 @@
  * Context Comparison Test
  *
  * Uses static fixtures to show exactly what enters Claude's context window:
- *   WITHOUT context-mode: raw file content (every byte enters context)
- *   WITH context-mode: only the printed summary enters context
+ *   WITHOUT ctxscribe: raw file content (every byte enters context)
+ *   WITH ctxscribe: only the printed summary enters context
  *
  * Fixtures in tests/fixtures/ represent real-world data Claude Code encounters daily.
  */
@@ -337,14 +337,14 @@ async function main() {
     console.log(`\u2502 ${scenario.description}`);
     console.log(`\u2502`);
     console.log(
-      `\u2502 WITHOUT context-mode (raw Read/cat):`,
+      `\u2502 WITHOUT ctxscribe (raw Read/cat):`,
     );
     console.log(
       `\u2502   ${(rawBytes / 1024).toFixed(1)}KB enters Claude's context (${Math.ceil(rawContent.length / 4).toLocaleString()} tokens est.)`,
     );
     console.log(`\u2502`);
     console.log(
-      `\u2502 WITH context-mode (execute_file):`,
+      `\u2502 WITH ctxscribe (execute_file):`,
     );
     console.log(
       `\u2502   ${contextBytes}B enters Claude's context (${Math.ceil(result.stdout.length / 4)} tokens est.)`,
@@ -432,14 +432,14 @@ async function main() {
   );
   console.log("");
   console.log(
-    `  WITHOUT context-mode:`,
+    `  WITHOUT ctxscribe:`,
   );
   console.log(
     `    ${totalRawTokens.toLocaleString()} tokens consumed → ${((totalRawTokens / 200_000) * 100).toFixed(1)}% of context used just reading files`,
   );
   console.log("");
   console.log(
-    `  WITH context-mode:`,
+    `  WITH ctxscribe:`,
   );
   console.log(
     `    ${totalCtxTokens.toLocaleString()} tokens consumed → ${((totalCtxTokens / 200_000) * 100).toFixed(2)}% of context`,
@@ -503,10 +503,10 @@ async function main() {
   }
 
   console.log(
-    `  WITHOUT context-mode: ${(debugRaw / 1024).toFixed(1)}KB → ${Math.ceil(debugRaw / 4).toLocaleString()} tokens (${((debugRaw / 4 / 200_000) * 100).toFixed(1)}% of context GONE)`,
+    `  WITHOUT ctxscribe: ${(debugRaw / 1024).toFixed(1)}KB → ${Math.ceil(debugRaw / 4).toLocaleString()} tokens (${((debugRaw / 4 / 200_000) * 100).toFixed(1)}% of context GONE)`,
   );
   console.log(
-    `  WITH context-mode:    ${(debugCtx / 1024).toFixed(1)}KB → ${Math.ceil(debugCtx / 4).toLocaleString()} tokens (${((debugCtx / 4 / 200_000) * 100).toFixed(2)}% of context)`,
+    `  WITH ctxscribe:    ${(debugCtx / 1024).toFixed(1)}KB → ${Math.ceil(debugCtx / 4).toLocaleString()} tokens (${((debugCtx / 4 / 200_000) * 100).toFixed(2)}% of context)`,
   );
   console.log(
     `  Result: ${((1 - debugCtx / debugRaw) * 100).toFixed(0)}% more context available for actual problem solving.`,

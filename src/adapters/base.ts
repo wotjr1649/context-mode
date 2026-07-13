@@ -21,11 +21,11 @@
  *
  * Issue #649 — `CONTEXT_MODE_DATA_DIR` universal storage override. Adapters
  * historically had storage hardcoded to
- * `~/.<platform>/context-mode/sessions/` with no env-var escape hatch. CI
+ * `~/.<platform>/ctxscribe/sessions/` with no env-var escape hatch. CI
  * runners on NFS homes, dev containers, and shared-workspace setups need to
- * point context-mode storage at a writable volume without patching source or
+ * point ctxscribe storage at a writable volume without patching source or
  * abusing the host platform's own config-dir variable. The override applies
- * only to context-mode-owned state (`getSessionDir`, `getMemoryDir`) — never
+ * only to ctxscribe-owned state (`getSessionDir`, `getMemoryDir`) — never
  * to platform-native config (`getConfigDir`, `getSettingsPath`), which must
  * stay where the host platform's own tooling expects it. Adapters that
  * override `getSessionDir`/`getMemoryDir` directly (claude-code, codex)
@@ -82,7 +82,7 @@ export abstract class BaseAdapter {
    * settings.json / hooks.json / config.toml location — relocating that
    * would silently fork platform behaviour from the platform's own tooling.
    * Use `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME`, etc. to move
-   * platform-native config; use `CONTEXT_MODE_DATA_DIR` to move context-mode
+   * platform-native config; use `CONTEXT_MODE_DATA_DIR` to move ctxscribe
    * storage independently.
    *
    * @param _projectDir Unused by the home-rooted default — accepted so
@@ -106,8 +106,8 @@ export abstract class BaseAdapter {
    * codex uses "memories" plural) override this.
    *
    * Issue #649: when `CONTEXT_MODE_DATA_DIR` is set, memory follows storage
-   * to `<DATA_DIR>/context-mode/memory/` since persistent memory is
-   * context-mode-owned state, not platform-native config.
+   * to `<DATA_DIR>/ctxscribe/memory/` since persistent memory is
+   * ctxscribe-owned state, not platform-native config.
    *
    * Issue #663: when `projectDir` is supplied the path is scoped via
    * `hashProjectDirCanonical(projectDir)` so two projects running in

@@ -115,7 +115,7 @@ function defaultGuidanceId() {
 
 function guidanceDirFor(sessionId) {
   const id = sessionId ? `s-${sessionId}` : defaultGuidanceId();
-  return resolve(tmpdir(), `context-mode-guidance-${id}`);
+  return resolve(tmpdir(), `ctxscribe-guidance-${id}`);
 }
 
 function guidanceOnce(type, content, sessionId) {
@@ -404,7 +404,7 @@ export async function initSecurity(buildDir) {
     } catch (err) {
       if (!securityInitFailed && !process.env.CONTEXT_MODE_SUPPRESS_SECURITY_WARNING) {
         process.stderr.write(
-          `[context-mode] WARNING: failed to load security bundle (${bundlePath}) — deny patterns NOT enforced: ${err?.message ?? err}\n`,
+          `[ctxscribe] WARNING: failed to load security bundle (${bundlePath}) — deny patterns NOT enforced: ${err?.message ?? err}\n`,
         );
       }
       securityInitFailed = true;
@@ -420,7 +420,7 @@ export async function initSecurity(buildDir) {
     } catch (err) {
       if (!securityInitFailed && !process.env.CONTEXT_MODE_SUPPRESS_SECURITY_WARNING) {
         process.stderr.write(
-          `[context-mode] WARNING: failed to load security module — deny patterns NOT enforced: ${err?.message ?? err}\n`,
+          `[ctxscribe] WARNING: failed to load security module — deny patterns NOT enforced: ${err?.message ?? err}\n`,
         );
       }
       securityInitFailed = true;
@@ -432,7 +432,7 @@ export async function initSecurity(buildDir) {
   // that mentions BOTH paths so users on either install model can self-diagnose.
   if (!securityInitFailed && !process.env.CONTEXT_MODE_SUPPRESS_SECURITY_WARNING) {
     process.stderr.write(
-      `[context-mode] WARNING: security module not found — security deny patterns will NOT be enforced.\n` +
+      `[ctxscribe] WARNING: security module not found — security deny patterns will NOT be enforced.\n` +
         `  Searched: ${bundlePath} (bundle) and ${secPath} (build).\n` +
         `  Marketplace installs ship hooks/security.bundle.mjs via CI; for source checkouts run \`npm run bundle\` (or \`npm run build\`).\n` +
         `  Set CONTEXT_MODE_SUPPRESS_SECURITY_WARNING=1 to silence.\n`,
@@ -471,7 +471,7 @@ export function buildSecurityWarningContext() {
     "<context_mode_security_warning>",
     "  <severity>HIGH</severity>",
     "  <issue>",
-    "    The context-mode security module failed to load.",
+    "    The ctxscribe security module failed to load.",
     "    User-configured `permissions.deny` patterns are NOT being enforced.",
     "    Bash commands and file operations bypass the deny gate (fail-open).",
     "  </issue>",
@@ -481,8 +481,8 @@ export function buildSecurityWarningContext() {
     "    bundle was missing prior to v1.0.127.",
     "  </root_cause>",
     "  <fix>",
-    "    Run `npm run bundle` from the context-mode source checkout, OR",
-    "    upgrade context-mode to v1.0.127+ (which ships hooks/security.bundle.mjs",
+    "    Run `npm run bundle` from the ctxscribe source checkout, OR",
+    "    upgrade ctxscribe to v1.0.127+ (which ships hooks/security.bundle.mjs",
     "    via CI). To opt in to fail-CLOSED instead, set CONTEXT_MODE_REQUIRE_SECURITY=1.",
     "    To silence this warning while you investigate, set CONTEXT_MODE_SUPPRESS_SECURITY_WARNING=1.",
     "  </fix>",
@@ -569,7 +569,7 @@ function matchesContextModeTool(toolName, ctxName, legacyName) {
 // core/tool-naming.mjs):
 //   - `mcp__<server>__<tool>`     Claude Code / Codex
 //
-// Tools belonging to context-mode itself are excluded — they have dedicated
+// Tools belonging to ctxscribe itself are excluded — they have dedicated
 // routing branches above (ctx_execute, ctx_execute_file, ctx_batch_execute)
 // and re-routing them here would double-process the call.
 const MCP_PREFIX = "mcp__";
@@ -656,7 +656,7 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
       action: "deny",
       reason:
         "ctxscribe: security module unavailable and CONTEXT_MODE_REQUIRE_SECURITY=1 — fail-closed engaged. " +
-        "Run `npm run build` (or reinstall context-mode) to restore security enforcement. " +
+        "Run `npm run build` (or reinstall ctxscribe) to restore security enforcement. " +
         "To bypass, unset or set CONTEXT_MODE_REQUIRE_SECURITY=0.",
     };
   }
@@ -862,7 +862,7 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
     }, mcpToolsAvailable);
   }
 
-  // ─── Agent: inject context-mode routing into subagent prompts ───
+  // ─── Agent: inject ctxscribe routing into subagent prompts ───
   // Subagents cannot use ctx commands (stats/doctor/upgrade/purge) — omit that section (#233)
   if (canonical === "Agent") {
     const subagentType = toolInput.subagent_type ?? "";
@@ -889,7 +889,7 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
   }
 
   // ─── MCP execute: security check for shell commands ───
-  // Match bare, generic MCP, and legacy context-mode execute tool names.
+  // Match bare, generic MCP, and legacy ctxscribe execute tool names.
   const shouldPinClaudeExecutorCwd =
     platform === "claude-code" &&
     typeof projectDir === "string" &&
@@ -970,9 +970,11 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
   }
 
   // ─── External MCP tools: periodic guidance about routing large payloads ─── (#529, #567 follow-up)
-  // hooks/hooks.json registers a `mcp__(?!plugin_context-mode_)` matcher so this
+  // hooks/hooks.json registers a bare `mcp__` catch-all matcher so this
   // branch fires for slack/telegram/gdrive/notion-style MCPs whose results would
-  // otherwise spill into context. We don't deny or modify — the agent still needs
+  // otherwise spill into context. Our own tools never reach here: isExternalMcpTool()
+  // keys the own/external split off the `ctx_` tool-leaf, not the server segment.
+  // We don't deny or modify — the agent still needs
   // the tool's output; we just nudge it to pipe large results through ctx_execute.
   //
   // Cadence: every N calls (default 10, tunable via CONTEXT_MODE_EXTERNAL_MCP_NUDGE_EVERY).

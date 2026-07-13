@@ -1,5 +1,5 @@
 {
-  "_comment": "Codex CLI users — context-mode auto-recovers the project cwd from your active Codex session log (~/.codex/sessions/<uuid>.jsonl). If that heuristic fails (e.g. you launched MCP outside a Codex session), set CONTEXT_MODE_PROJECT_DIR explicitly to pin the workspace. Issue #45.",
+  "_comment": "Codex CLI users — ctxscribe auto-recovers the project cwd from your active Codex session log (~/.codex/sessions/<uuid>.jsonl). If that heuristic fails (e.g. you launched MCP outside a Codex session), set CONTEXT_MODE_PROJECT_DIR explicitly to pin the workspace. Issue #45.",
   "mcpServers": {
     "mcp": {
       "command": "node",

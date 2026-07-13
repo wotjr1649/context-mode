@@ -119,7 +119,7 @@ function invalidStorageOverride(kind: StorageDirectoryKind, path: string, detail
     path,
     STORAGE_ROOT_ENV,
     undefined,
-    [`Invalid ${STORAGE_ROOT_ENV} for context-mode ${kind} directory: ${detail}`, storageDirectoryHint()].join("\n"),
+    [`Invalid ${STORAGE_ROOT_ENV} for ctxscribe ${kind} directory: ${detail}`, storageDirectoryHint()].join("\n"),
   );
 }
 
@@ -266,7 +266,7 @@ function storageDirectoryErrorMessage(
   metadata: Pick<ResolvedStorageDir, "ignoredEnvVar" | "ignoredReason"> = {},
 ): string {
   return [
-    `context-mode ${kind} directory is not writable: ${path}`,
+    `ctxscribe ${kind} directory is not writable: ${path}`,
     ignoredStorageOverrideHint(metadata),
     storageDirectoryHint(),
   ].filter(Boolean).join("\n");
@@ -573,9 +573,9 @@ export interface StoredEvent {
 
 /** Optional per-event byte accounting passed to {@link SessionDB.insertEvent}. */
 export interface EventBytes {
-  /** Bytes context-mode prevented from entering the model context window. */
+  /** Bytes ctxscribe prevented from entering the model context window. */
   bytesAvoided?: number;
-  /** Bytes context-mode actually returned to the model. */
+  /** Bytes ctxscribe actually returned to the model. */
   bytesReturned?: number;
 }
 
@@ -697,7 +697,7 @@ const S = {
 
 /**
  * Columns that the current `session_events` schema requires but earlier
- * versions of context-mode did not write. Older DBs on disk are missing
+ * versions of ctxscribe did not write. Older DBs on disk are missing
  * these — the analytics aggregator opens every DB it finds across all
  * adapters, so without an in-place migration the SUM queries below fail
  * the entire DB (the catch at the top of the read loop swallows the
@@ -1336,7 +1336,7 @@ export class SessionDB extends SQLiteBase {
   /**
    * Aggregate per-event byte accounting for a session.
    *
-   * Returns the total bytes context-mode kept OUT of the model context
+   * Returns the total bytes ctxscribe kept OUT of the model context
    * window (`bytesAvoided`) and the total it actually returned to the
    * model (`bytesReturned`). Both default to 0 for unknown sessions.
    *

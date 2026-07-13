@@ -412,7 +412,7 @@ function inferExitCode(response) {
 
 // ── Latency timing — reads PreToolUse marker ────────────────────────────
 //
-// PreToolUse already writes `${tmpdir}/context-mode-latency-${sessionId}-
+// PreToolUse already writes `${tmpdir}/ctxscribe-latency-${sessionId}-
 // ${toolName}.txt` with the start timestamp (pretooluse.mjs:177). We
 // piggyback on that marker — read + compute delta, do NOT unlink (the
 // downstream slow-tool event emission in posttooluse.mjs:128-152 manages
@@ -423,7 +423,7 @@ function readLatencyMs(sessionId, toolName) {
   if (!sessionId || !toolName) return undefined;
   const markerPath = resolvePath(
     tmpdir(),
-    `context-mode-latency-${sessionId}-${toolName}.txt`,
+    `ctxscribe-latency-${sessionId}-${toolName}.txt`,
   );
   try {
     const start = parseInt(readFileSync(markerPath, "utf8").trim(), 10);

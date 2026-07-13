@@ -46,7 +46,7 @@ beforeAll(async () => {
 
 // MCP readiness sentinel — routing.mjs checks process.ppid in-process
 const _sentinelDir = process.platform === "win32" ? tmpdir() : "/tmp";
-const mcpSentinel = resolve(_sentinelDir, `context-mode-mcp-ready-${process.pid}`);
+const mcpSentinel = resolve(_sentinelDir, `ctxscribe-mcp-ready-${process.pid}`);
 
 beforeEach(() => {
   if (typeof resetGuidanceThrottle === "function") resetGuidanceThrottle();

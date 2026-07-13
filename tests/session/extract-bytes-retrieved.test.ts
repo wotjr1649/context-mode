@@ -1,5 +1,5 @@
 /**
- * Retrieval-cost capture — the OTHER half of the context-mode with/without ratio.
+ * Retrieval-cost capture — the OTHER half of the ctxscribe with/without ratio.
  *
  * `bytes_avoided` measures content kept OUT of the model context. `bytes_retrieved`
  * measures the bytes the model PAID to ACCESS that kept-out content — the

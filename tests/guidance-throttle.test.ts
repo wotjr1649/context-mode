@@ -8,7 +8,7 @@ const PROJECT_DIR = "/tmp/test-project";
 
 // MCP readiness sentinel — routing.mjs checks process.ppid in-process
 const _sentinelDir = process.platform === "win32" ? tmpdir() : "/tmp";
-const mcpSentinel = resolve(_sentinelDir, `context-mode-mcp-ready-${process.pid}`);
+const mcpSentinel = resolve(_sentinelDir, `ctxscribe-mcp-ready-${process.pid}`);
 
 describe("guidance throttle", () => {
   beforeEach(() => {
@@ -110,7 +110,7 @@ describe("guidance throttle", () => {
     const path = require("node:path");
     const wid = process.env.VITEST_WORKER_ID;
     const suffix = wid ? `${process.ppid}-w${wid}` : String(process.ppid);
-    const dir = path.resolve(os.tmpdir(), `context-mode-guidance-${suffix}`);
+    const dir = path.resolve(os.tmpdir(), `ctxscribe-guidance-${suffix}`);
     try { fs.mkdirSync(dir, { recursive: true }); } catch {}
     try { fs.writeFileSync(path.resolve(dir, "read"), "", "utf-8"); } catch {}
 
@@ -143,7 +143,7 @@ describe("guidance throttle", () => {
     const SESSION_B = "e5f6a7b8-session-beta";
 
     function sessionDir(sessionId: string) {
-      return path.resolve(os.tmpdir(), `context-mode-guidance-s-${sessionId}`);
+      return path.resolve(os.tmpdir(), `ctxscribe-guidance-s-${sessionId}`);
     }
 
     function clearSessionDir(sessionId: string) {
@@ -204,7 +204,7 @@ describe("guidance throttle", () => {
       const ppidSuffix = process.env.VITEST_WORKER_ID
         ? `${process.ppid}-w${process.env.VITEST_WORKER_ID}`
         : String(process.ppid);
-      const ppidDir = path.resolve(os.tmpdir(), `context-mode-guidance-${ppidSuffix}`);
+      const ppidDir = path.resolve(os.tmpdir(), `ctxscribe-guidance-${ppidSuffix}`);
       try { fs.mkdirSync(ppidDir, { recursive: true }); } catch {}
       try { fs.writeFileSync(path.resolve(ppidDir, "bash"), "", "utf-8"); } catch {}
 

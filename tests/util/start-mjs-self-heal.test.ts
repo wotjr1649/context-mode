@@ -9,7 +9,7 @@
  *
  * The bug being fixed:
  *   v1.0.118's /ctx-upgrade left .claude-plugin/plugin.json's args[0] pointing
- *   at <tmpdir>/context-mode-upgrade-<epoch>/start.mjs. After tmpdir cleanup,
+ *   at <tmpdir>/ctxscribe-upgrade-<epoch>/start.mjs. After tmpdir cleanup,
  *   MCP fails to spawn with ENOENT — and the user has no /ctx-upgrade escape
  *   hatch (because MCP itself is dead). The escape hatch lives in start.mjs:
  *   if Claude Code can spawn start.mjs once with a stale path, it can't; if
@@ -49,7 +49,7 @@ describe("start.mjs — Issue #523 Layer 5b plugin.json mcpServers heal", () => 
 
   test("Layer 5b heal iterates ALL cache entries — not just our own pluginRoot", () => {
     // Critical: a user can have multiple installed_plugins.json entries for
-    // context-mode (different versions, different scopes). The heal MUST run
+    // ctxscribe (different versions, different scopes). The heal MUST run
     // against EVERY entry's installPath under pluginCacheRoot, otherwise an
     // older poisoned cache survives. We assert the iterator pattern: a `for`
     // loop over installed_plugins.json's plugins[key] entries, calling the

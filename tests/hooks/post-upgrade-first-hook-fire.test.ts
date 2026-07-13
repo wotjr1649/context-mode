@@ -104,7 +104,7 @@ function seedFixture(dir: string): {
   const pluginJsonPath = join(dir, ".claude-plugin", "plugin.json");
   const pluginJsonOriginal = JSON.stringify(
     {
-      name: "context-mode",
+      name: "ctxscribe",
       version: "1.0.149",
       mcpServers: {
         "mcp": {
