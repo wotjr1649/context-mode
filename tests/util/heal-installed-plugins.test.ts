@@ -392,7 +392,7 @@ describe("healSettingsEnabledPlugins (v1.0.116)", () => {
 // ─────────────────────────────────────────────────────────────────────────
 // healPluginJsonMcpServers — Issue #523 (v1.0.119)
 // /ctx-upgrade in v1.0.118 left ~/.claude/plugins/cache/.../.claude-plugin/
-// plugin.json with mcpServers["ctxscribe"].args[0] pointing at the
+// plugin.json with mcpServers["mcp"].args[0] pointing at the
 // upgrade tmpdir (e.g. /var/folders/.../T/context-mode-upgrade-1747000000000/
 // start.mjs). After the temp dir is reaped, MCP fails to spawn with ENOENT
 // and the user has no /ctx-upgrade escape hatch. Sibling of #411 (which
@@ -415,7 +415,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
       name: "ctxscribe",
       version: "1.0.118",
       mcpServers: {
-        "ctxscribe": {
+        "mcp": {
           command: "node",
           args: [opts.args0],
         },
@@ -452,7 +452,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["ctxscribe"].args).toEqual([
+    expect(after.mcpServers["mcp"].args).toEqual([
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     ]);
   });
@@ -490,7 +490,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
+    expect(after.mcpServers["mcp"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -576,7 +576,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
     // Our entry healed.
-    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
+    expect(after.mcpServers["mcp"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
     // Sibling untouched (we don't own it).
@@ -611,7 +611,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
+    expect(after.mcpServers["mcp"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -643,7 +643,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
+    expect(after.mcpServers["mcp"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -673,7 +673,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
+    expect(after.mcpServers["mcp"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -704,7 +704,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const path = resolve(opts.pluginRoot, ".mcp.json");
     const content = {
       mcpServers: {
-        "ctxscribe": {
+        "mcp": {
           command: "node",
           args: [opts.args0],
         },
@@ -738,7 +738,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
 
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
-    expect(after.mcpServers["ctxscribe"].args).toEqual([
+    expect(after.mcpServers["mcp"].args).toEqual([
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     ]);
   });
@@ -768,7 +768,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
 
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
-    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
+    expect(after.mcpServers["mcp"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -797,7 +797,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
 
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
-    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
+    expect(after.mcpServers["mcp"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -882,7 +882,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
     // Our entry healed.
-    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
+    expect(after.mcpServers["mcp"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
     // Sibling untouched (we don't own it).
@@ -939,7 +939,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
 
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
-    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
+    expect(after.mcpServers["mcp"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });

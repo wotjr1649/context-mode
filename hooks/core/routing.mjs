@@ -582,6 +582,8 @@ function isExternalMcpTool(toolName) {
   // (rename invariant) regardless of the MCP server segment, so key the
   // own/external split off the tool-name leaf, not the server substring.
   if (raw.startsWith(MCP_PREFIX)) {
+    const server = raw.slice(MCP_PREFIX.length).split("__")[0];
+    if (!server) return false; // degenerate ("mcp__" — no server segment) is not an external tool
     return !toolLeafName(raw).startsWith(OWN_TOOL_LEAF);
   }
 

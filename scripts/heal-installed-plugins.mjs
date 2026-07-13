@@ -269,8 +269,12 @@ export function healPluginJsonMcpServers({ pluginRoot, pluginCacheRoot, pluginKe
     return { healed: [], skipped: "no-mcp-servers" };
   }
 
-  // Derive our server name from pluginKey ("context-mode@context-mode" → "context-mode").
-  const ourServerName = pluginKey.split("@")[0];
+  // Server key is the fixed literal "mcp" (NOT derived from pluginKey). The
+  // ctxscribe rename decoupled them: pluginKey is "ctxscribe@wotjr1649" while
+  // the manifest mcpServers key stayed "mcp". Deriving from pluginKey would
+  // look up the wrong key and no-op the heal. See .claude-plugin/plugin.json
+  // and .mcp.json.example.
+  const ourServerName = "mcp";
   const ours = servers[ourServerName];
   if (!ours || typeof ours !== "object" || !Array.isArray(ours.args)) {
     return { healed: [], skipped: "no-our-server" };
@@ -379,8 +383,12 @@ export function healMcpJsonArgs({ pluginRoot, pluginCacheRoot, pluginKey }) {
     return { healed: [], skipped: "no-mcp-servers" };
   }
 
-  // Derive our server name from pluginKey ("context-mode@context-mode" → "context-mode").
-  const ourServerName = pluginKey.split("@")[0];
+  // Server key is the fixed literal "mcp" (NOT derived from pluginKey). The
+  // ctxscribe rename decoupled them: pluginKey is "ctxscribe@wotjr1649" while
+  // the manifest mcpServers key stayed "mcp". Deriving from pluginKey would
+  // look up the wrong key and no-op the heal. See .claude-plugin/plugin.json
+  // and .mcp.json.example.
+  const ourServerName = "mcp";
   const ours = servers[ourServerName];
   if (!ours || typeof ours !== "object" || !Array.isArray(ours.args)) {
     return { healed: [], skipped: "no-our-server" };
