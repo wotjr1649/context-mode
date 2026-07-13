@@ -630,7 +630,7 @@ export function enumerateAdapterDirs(opts?: { home?: string }): AdapterDirEntry[
     ["codex",       [".codex"]],
   ];
   return map.map(([name, segments]) => {
-    const base = join(home, ...segments, "context-mode");
+    const base = join(home, ...segments, "ctxscribe");
     return {
       name,
       sessionsDir: join(base, "sessions"),
@@ -704,7 +704,7 @@ export function getLifetimeStats(opts?: {
   // even though the SessionDB sidecars exist under the override.
   const claudeRoot = resolveClaudeConfigDir();
   const sessionsDir = opts?.sessionsDir
-    ?? join(claudeRoot, "context-mode", "sessions");
+    ?? join(claudeRoot, "ctxscribe", "sessions");
   const memoryRoot = opts?.memoryRoot
     ?? join(claudeRoot, "projects");
 
@@ -858,7 +858,7 @@ export function getConversationStats(opts: {
   loadDatabase?: () => unknown;
 }): ConversationStats {
   const sessionsDir = opts.sessionsDir
-    ?? join(homedir(), ".claude", "context-mode", "sessions");
+    ?? join(homedir(), ".claude", "ctxscribe", "sessions");
   const sessionId = opts.sessionId;
 
   const empty: ConversationStats = {
@@ -1192,7 +1192,7 @@ export function getRealBytesStats(opts: {
   };
 
   const sessionsDir = opts.sessionsDir
-    ?? join(homedir(), ".claude", "context-mode", "sessions");
+    ?? join(homedir(), ".claude", "ctxscribe", "sessions");
   if (!existsSync(sessionsDir)) return empty;
 
   let dbFiles: string[] = [];

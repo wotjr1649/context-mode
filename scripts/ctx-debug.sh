@@ -593,8 +593,8 @@ section "11. Session Databases"
 
 # Check session dirs for all adapters
 SESSION_DIRS=(
-  "$HOME_DIR/.claude/context-mode/sessions"
-  "$HOME_DIR/.codex/context-mode/sessions"
+  "$HOME_DIR/.claude/ctxscribe/sessions"
+  "$HOME_DIR/.codex/ctxscribe/sessions"
 )
 TOTAL_DB_COUNT=0
 for SESSION_DIR in "${SESSION_DIRS[@]}"; do
@@ -758,7 +758,7 @@ fi
 
 section "15. SQLite Concurrency"
 
-SESSION_BASE="$HOME_DIR/.claude/context-mode/sessions"
+SESSION_BASE="$HOME_DIR/.claude/ctxscribe/sessions"
 if [ -d "$SESSION_BASE" ]; then
   FIRST_DB="$(find "$SESSION_BASE" -name '*.db' -type f 2>/dev/null | head -1)"
   if [ -n "$FIRST_DB" ]; then

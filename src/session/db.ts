@@ -92,7 +92,7 @@ export function resolveDefaultSessionDir(opts: DefaultSessionDirOptions): string
     return legacy;
   }
 
-  return join(resolveConfigDirForDefaultSession(opts.configDir, opts.configDirEnv, env), "context-mode", "sessions");
+  return join(resolveConfigDirForDefaultSession(opts.configDir, opts.configDirEnv, env), "ctxscribe", "sessions");
 }
 
 function resolveConfigDirForDefaultSession(

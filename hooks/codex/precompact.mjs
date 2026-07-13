@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 const HOOK_DIR = dirname(fileURLToPath(import.meta.url));
 const { loadSessionDB, loadSnapshot } = createSessionLoaders(HOOK_DIR);
 const OPTS = CODEX_OPTS;
-const DEBUG_LOG = join(resolveConfigDir(OPTS), "context-mode", "precompact-debug.log");
+const DEBUG_LOG = join(resolveConfigDir(OPTS), "ctxscribe", "precompact-debug.log");
 
 try {
   const raw = await readStdin();

@@ -106,8 +106,8 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
     // intact below.
     const override = resolveContextModeDataRoot();
     const dir = override
-      ? join(override, "context-mode", "sessions")
-      : join(this.getConfigDir(), "context-mode", "sessions");
+      ? join(override, "ctxscribe", "sessions")
+      : join(this.getConfigDir(), "ctxscribe", "sessions");
     mkdirSync(dir, { recursive: true });
     return dir;
   }

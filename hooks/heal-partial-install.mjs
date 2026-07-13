@@ -423,7 +423,7 @@ function resolveConfigDir() {
 
 function logHealResult(result) {
   try {
-    const logDir = join(resolveConfigDir(), "context-mode");
+    const logDir = join(resolveConfigDir(), "ctxscribe");
     mkdirSync(logDir, { recursive: true });
     appendFileSync(
       join(logDir, "heal-partial-install.log"),

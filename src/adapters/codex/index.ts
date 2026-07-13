@@ -449,8 +449,8 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
     // sees its own config in the expected place.
     const override = resolveContextModeDataRoot();
     const dir = override
-      ? join(override, "context-mode", "sessions")
-      : join(this.getConfigDir(), "context-mode", "sessions");
+      ? join(override, "ctxscribe", "sessions")
+      : join(this.getConfigDir(), "ctxscribe", "sessions");
     mkdirSync(dir, { recursive: true });
     return dir;
   }
@@ -477,7 +477,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
     // read each other's memory.
     const override = resolveContextModeDataRoot();
     const base = override
-      ? join(override, "context-mode", "memories")
+      ? join(override, "ctxscribe", "memories")
       : join(this.getConfigDir(), "memories");
     if (!projectDir) return base;
     return join(base, hashProjectDirCanonical(projectDir));

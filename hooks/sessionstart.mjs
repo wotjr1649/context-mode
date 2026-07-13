@@ -440,7 +440,7 @@ await runHook(async () => {
       const { join: pjoin } = await import("node:path");
       const { resolveConfigDir: _resolve } = await import("./session-helpers.mjs");
       appendFileSync(
-        pjoin(_resolve(), "context-mode", "sessionstart-debug.log"),
+        pjoin(_resolve(), "ctxscribe", "sessionstart-debug.log"),
         `[${new Date().toISOString()}] ${err?.message || err}\n${err?.stack || ""}\n`,
       );
     } catch { /* ignore logging failure */ }

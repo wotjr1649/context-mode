@@ -28,12 +28,12 @@ let _fsLoads = 0;    // test-only counter: how many times readConfig hit the FS
 export function configPath() {
   if (process.platform === "win32") {
     const appdata = process.env.APPDATA;
-    if (appdata) return path.join(appdata, "context-mode", "platform.json");
+    if (appdata) return path.join(appdata, "ctxscribe", "platform.json");
     // Fallback if APPDATA unset (rare — Git Bash without env)
-    return path.join(os.homedir(), "AppData", "Roaming", "context-mode", "platform.json");
+    return path.join(os.homedir(), "AppData", "Roaming", "ctxscribe", "platform.json");
   }
   if (process.env.XDG_CONFIG_HOME) {
-    return path.join(process.env.XDG_CONFIG_HOME, "context-mode", "platform.json");
+    return path.join(process.env.XDG_CONFIG_HOME, "ctxscribe", "platform.json");
   }
   return path.join(os.homedir(), ".context-mode", "platform.json");
 }

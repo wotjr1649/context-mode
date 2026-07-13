@@ -182,7 +182,7 @@ export function cleanupStaleDBs(): number {
   try {
     const files = readdirSync(dir);
     for (const file of files) {
-      const match = file.match(/^context-mode-(\d+)\.db$/);
+      const match = file.match(/^ctxscribe-(\d+)\.db$/);
       if (!match) continue;
       const pid = parseInt(match[1], 10);
       if (pid === process.pid) continue;
@@ -420,7 +420,7 @@ export class ContentStore {
   constructor(dbPath?: string) {
     const Database = loadDatabase();
     this.#dbPath =
-      dbPath ?? join(tmpdir(), `context-mode-${process.pid}.db`);
+      dbPath ?? join(tmpdir(), `ctxscribe-${process.pid}.db`);
     cleanOrphanedWALFiles(this.#dbPath);
     let db: DatabaseInstance;
     try {

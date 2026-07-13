@@ -414,7 +414,7 @@ export function closeDB(db: DatabaseInstance): void {
  * Uses the OS temp directory and embeds the current PID so multiple
  * server instances never share a file.
  */
-export function defaultDBPath(prefix: string = "context-mode"): string {
+export function defaultDBPath(prefix: string = "ctxscribe"): string {
   return join(tmpdir(), `${prefix}-${process.pid}.db`);
 }
 

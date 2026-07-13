@@ -64,8 +64,8 @@ export abstract class BaseAdapter {
   getSessionDir(): string {
     const override = resolveContextModeDataRoot();
     const dir = override
-      ? join(override, "context-mode", "sessions")
-      : join(homedir(), ...this.sessionDirSegments, "context-mode", "sessions");
+      ? join(override, "ctxscribe", "sessions")
+      : join(homedir(), ...this.sessionDirSegments, "ctxscribe", "sessions");
     mkdirSync(dir, { recursive: true });
     return dir;
   }
@@ -117,7 +117,7 @@ export abstract class BaseAdapter {
   getMemoryDir(projectDir?: string): string {
     const override = resolveContextModeDataRoot();
     const base = override
-      ? join(override, "context-mode", "memory")
+      ? join(override, "ctxscribe", "memory")
       : join(this.getConfigDir(), "memory");
     if (!projectDir) return base;
     return join(base, hashProjectDirCanonical(projectDir));

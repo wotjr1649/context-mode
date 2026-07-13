@@ -40,7 +40,7 @@ function resolveClaudeConfigDir() {
 
 function logError(err) {
   try {
-    const dir = resolve(resolveClaudeConfigDir(), "context-mode");
+    const dir = resolve(resolveClaudeConfigDir(), "ctxscribe");
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     const line = `[${new Date().toISOString()}] pid=${process.pid} ${err?.stack || err?.message || String(err)}\n`;
     appendFileSync(resolve(dir, "hook-errors.log"), line);

@@ -28,7 +28,7 @@ await runHook(async () => {
   // Resolve absolute path for imports
   const HOOK_DIR = dirname(fileURLToPath(import.meta.url));
   const { loadSessionDB, loadSnapshot, loadProjectAttribution } = createSessionLoaders(HOOK_DIR);
-  const DEBUG_LOG = join(resolveConfigDir(), "context-mode", "precompact-debug.log");
+  const DEBUG_LOG = join(resolveConfigDir(), "ctxscribe", "precompact-debug.log");
 
   try {
     const raw = await readStdin();
