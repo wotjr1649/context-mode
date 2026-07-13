@@ -69,10 +69,10 @@ function browserOpenArgv(
 import { detectPlatform, getAdapter } from "./adapters/detect.js";
 
 // Pure + exported for tests: does a marketplace clone's origin URL point at the
-// FORK (wotjr1649/context-mode)? Accepts https + ssh, with/without .git or trailing
+// FORK (wotjr1649/ctxscribe)? Accepts https + ssh, with/without .git or trailing
 // slash. Charter D9: the sync must never hard-reset a clone pointed elsewhere.
 export function isForkOrigin(originUrl: string): boolean {
-  return /^(?:https:\/\/(?:[^@/]+@)?|git@|ssh:\/\/(?:[^@/]+@)?)github\.com(?::\d+)?[/:]wotjr1649\/context-mode(?:\.git)?\/?$/i.test(
+  return /^(?:https:\/\/(?:[^@/]+@)?|git@|ssh:\/\/(?:[^@/]+@)?)github\.com(?::\d+)?[/:]wotjr1649\/ctxscribe(?:\.git)?\/?$/i.test(
     String(originUrl ?? "").trim(),
   );
 }
@@ -806,8 +806,8 @@ async function doctor(): Promise<number> {
       ".claude",
       "plugins",
       "cache",
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
     );
     if (!existsSync(cacheRoot)) {
       p.log.info(
@@ -1018,14 +1018,14 @@ async function upgrade(opts?: { platform?: string }) {
   const s = p.spinner();
 
   // Step 0: Sync the marketplace clone (#418).
-  // Claude Code reads plugin metadata from ~/.claude/plugins/marketplaces/context-mode/.
+  // Claude Code reads plugin metadata from ~/.claude/plugins/marketplaces/wotjr1649/.
   // Without a git pull there, the marketplace stays pinned at the install-time
   // commit and CC keeps reporting the old version even after our cache dir is
   // updated — users then see "ctx-upgrade succeeded" but nothing actually
   // changed at the plugin-system level.
   // Issue #460 round-3: route through resolveClaudeConfigDir so users who
   // relocate their CC config root keep the marketplace clone in the same tree.
-  const marketplaceDir = resolve(resolveClaudeConfigDir(), "plugins", "marketplaces", "context-mode");
+  const marketplaceDir = resolve(resolveClaudeConfigDir(), "plugins", "marketplaces", "wotjr1649");
   if (existsSync(join(marketplaceDir, ".git"))) {
     s.start("Syncing marketplace clone");
     try {
@@ -1075,10 +1075,10 @@ async function upgrade(opts?: { platform?: string }) {
   // Charter D9: clone the FORK, never upstream mksglu — cloning upstream would
   // overwrite this hard fork with upstream code on `ctx upgrade`. (The version
   // check removal + marketplace --tags/origin repoint landed in 1.0.3.)
-  s.start("Cloning wotjr1649/context-mode");
+  s.start("Cloning wotjr1649/ctxscribe");
   try {
     execFileSync(
-      "git", ["clone", "--depth", "1", "https://github.com/wotjr1649/context-mode.git", tmpDir],
+      "git", ["clone", "--depth", "1", "https://github.com/wotjr1649/ctxscribe.git", tmpDir],
       { stdio: "pipe", timeout: 30000 },
     );
     s.stop("Downloaded");
@@ -1759,7 +1759,7 @@ function statuslineForward(): void {
   const claudeRoot = resolveClaudeConfigDir();
   const candidates: string[] = [
     resolve(getPluginRoot(), "bin", "statusline.mjs"),
-    resolve(claudeRoot, "plugins", "marketplaces", "context-mode", "bin", "statusline.mjs"),
+    resolve(claudeRoot, "plugins", "marketplaces", "wotjr1649", "bin", "statusline.mjs"),
   ];
 
   // installed_plugins.json may list one or more install paths CC actually

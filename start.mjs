@@ -143,13 +143,13 @@ const cacheMatch = __dirname.match(
 
 // Registry key is "<plugin>@<marketplace>", and our own install path spells both:
 //   .../plugins/cache/<marketplace>/<plugin>/<version>
-// Hardcoding "context-mode@context-mode" silently disables every self-heal below
+// Hardcoding "ctxscribe@wotjr1649" silently disables every self-heal below
 // under any other marketplace name. Fall back to the literal outside the cache
 // (a dev checkout), where there is no registry entry to heal anyway.
 const keyMatch = __dirname.match(
   /[\/\\]plugins[\/\\]cache[\/\\]([^\/\\]+)[\/\\]([^\/\\]+)[\/\\][^\/\\]+$/,
 );
-const PLUGIN_KEY = keyMatch ? `${keyMatch[2]}@${keyMatch[1]}` : "context-mode@context-mode";
+const PLUGIN_KEY = keyMatch ? `${keyMatch[2]}@${keyMatch[1]}` : "ctxscribe@wotjr1649";
 if (cacheMatch) {
   try {
     const cacheParent = cacheMatch[1];

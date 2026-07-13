@@ -4130,7 +4130,7 @@ server.registerTool(
       // Inline fallback: neither CLI file exists (e.g. marketplace installs).
       // Generate a self-contained node -e script that performs the upgrade.
       // Charter D9: FORK origin, never upstream mksglu (see cli.ts upgrade()).
-      const repoUrl = "https://github.com/wotjr1649/context-mode.git";
+      const repoUrl = "https://github.com/wotjr1649/ctxscribe.git";
       // Write inline script to a temp .mjs file — avoids quote-escaping issues
       // across cmd.exe, PowerShell, and bash (node -e '...' breaks on Windows).
       const scriptLines = [
