@@ -1065,7 +1065,10 @@ describe("Bin entry uses cli.bundle.mjs", () => {
     const loop = src.slice(loopStart, loopEnd);
 
     expect(loop).toContain('result.status === "warn"');
-    expect(loop).toContain("p.log.warn");
+    // warn() is doctor's counted WARN surface — it wraps p.log.warn and bumps
+    // the warning tally. What matters is that this branch takes the warn path,
+    // not the fail() path.
+    expect(loop).toMatch(/\bwarn\(/);
     expect(loop).toContain(": WARN");
   });
 
@@ -3605,7 +3608,7 @@ describe("Issue #564 — doctor() flags Linux + Node < 22.5 + no Bun", () => {
     // Bun must be allowed through (Linux + Bun is fine).
     expect(body).toMatch(/globalThis\.Bun|hasBunRuntime|process\.versions\.bun/);
     // Must be a RED FAIL (architect mandate) — not a warn/info. Reuses
-    // the existing FAIL surface: `p.log.error(color.red(... FAIL ...`.
+    // the existing FAIL surface: `fail(color.red(... FAIL ...`.
     // We assert FAIL appears in the new block by matching against an
     // anchor unique to it (issue #564 reference).
     const issueIdx = body.indexOf("#564");
@@ -3617,10 +3620,11 @@ describe("Issue #564 — doctor() flags Linux + Node < 22.5 + no Bun", () => {
       Math.max(0, issueIdx - 1500),
       issueIdx + 2000,
     );
-    expect(surrounding).toMatch(/p\.log\.error/);
+    expect(surrounding).toMatch(/\bfail\(/);
     expect(surrounding).toMatch(/FAIL/);
     // The block must increment criticalFails so the doctor exits non-zero.
-    expect(surrounding).toMatch(/criticalFails\+\+/);
+    // fail() is the counted FAIL surface — it is where the increment lives.
+    expect(body).toMatch(/const fail\s*=[\s\S]{0,120}criticalFails\+\+/);
     // Remediation: must point users at 22.5+ (or Bun).
     expect(body).toMatch(/22\.5/);
   });
@@ -3713,8 +3717,9 @@ describe("PR #620 slice 4 — doctor() surfaces persistence-tier bug class", () 
     );
     expect(window_).toContain(".mcp.json");
     // WARN (not FAIL) — the verdict spec is explicit that this is
-    // recoverable: "ctx_upgrade will sweep on next run".
-    expect(window_).toMatch(/p\.log\.warn/);
+    // recoverable: "ctx_upgrade will sweep on next run". warn() is doctor's
+    // counted WARN surface; the fail() path would exit non-zero.
+    expect(window_).toMatch(/\bwarn\(/);
     expect(window_).toMatch(/ctx[_-]?upgrade/i);
   });
 

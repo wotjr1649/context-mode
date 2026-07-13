@@ -566,6 +566,12 @@ async function doctor(): Promise<number> {
   );
 
   let criticalFails = 0;
+  let warnings = 0;
+  // Print and tally in one call — the summary at the bottom is only honest if
+  // every FAIL/WARN reaches a counter. Report results through these, never
+  // through p.log.error / p.log.warn directly.
+  const fail = (message: string) => { criticalFails++; p.log.error(message); };
+  const warn = (message: string) => { warnings++; p.log.warn(message); };
 
   try {
     const sessionDir = resolveSessionStorageDir(() => adapter.getSessionDir());
@@ -585,8 +591,7 @@ async function doctor(): Promise<number> {
     criticalFails += logStorageDir(statsDir);
   } catch (err) {
     if (err instanceof StorageDirectoryError) {
-      criticalFails++;
-      p.log.error(
+      fail(
         color.red(`Storage ${err.kind}: FAIL`) +
           color.dim(` — ${formatStorageDirectoryError(err)}`),
       );
@@ -605,7 +610,7 @@ async function doctor(): Promise<number> {
     available = getAvailableLanguages(runtimes);
   } catch {
     s.stop("Diagnostics partial");
-    p.log.warn(color.yellow("Could not detect runtimes") + color.dim(" — module may be missing, restart session after upgrade"));
+    warn(color.yellow("Could not detect runtimes") + color.dim(" — module may be missing, restart session after upgrade"));
     p.outro(color.yellow("Doctor could not fully run — try again after restarting"));
     return 1;
   }
@@ -633,8 +638,7 @@ async function doctor(): Promise<number> {
       !hasModernSqlite() &&
       !hasBunRuntime()
     ) {
-      criticalFails++;
-      p.log.error(
+      fail(
         color.red("Node version: FAIL") +
           ` — Linux + Node ${process.versions.node} is unsafe (SIGSEGV)` +
           color.dim(
@@ -655,7 +659,7 @@ async function doctor(): Promise<number> {
         " — Bun detected for JS/TS execution",
     );
   } else {
-    p.log.warn(
+    warn(
       color.yellow("Performance: NORMAL") +
         " — Using Node.js (install Bun for 3-5x speed boost)",
     );
@@ -665,8 +669,7 @@ async function doctor(): Promise<number> {
   const total = 11;
   const pct = ((available.length / total) * 100).toFixed(0);
   if (available.length < 2) {
-    criticalFails++;
-    p.log.error(
+    fail(
       color.red(`Language coverage: ${available.length}/${total} (${pct}%)`) +
         " — too few runtimes detected" +
         color.dim(` — ${available.join(", ") || "none"}`),
@@ -691,19 +694,17 @@ async function doctor(): Promise<number> {
     if (result.exitCode === 0 && result.stdout.trim() === "ok") {
       p.log.success(color.green("Server test: PASS"));
     } else {
-      criticalFails++;
       const detail = result.stderr?.trim() ? ` (${result.stderr.trim().slice(0, 200)})` : "";
-      p.log.error(
+      fail(
         color.red("Server test: FAIL") + ` — exit ${result.exitCode}${detail}`,
       );
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("Cannot find module") || message.includes("MODULE_NOT_FOUND")) {
-      p.log.warn(color.yellow("Server test: SKIP") + color.dim(" — module not available (restart session after upgrade)"));
+      warn(color.yellow("Server test: SKIP") + color.dim(" — module not available (restart session after upgrade)"));
     } else {
-      criticalFails++;
-      p.log.error(color.red("Server test: FAIL") + ` — ${message}`);
+      fail(color.red("Server test: FAIL") + ` — ${message}`);
     }
   }
 
@@ -716,13 +717,13 @@ async function doctor(): Promise<number> {
     if (result.status === "pass") {
       p.log.success(color.green(`${result.check}: PASS`) + ` — ${result.message}`);
     } else if (result.status === "warn") {
-      p.log.warn(
+      warn(
         color.yellow(`${result.check}: WARN`) +
           ` — ${result.message}` +
           (result.fix ? color.dim(`\n  Run: ${result.fix}`) : ""),
       );
     } else {
-      p.log.error(
+      fail(
         color.red(`${result.check}: FAIL`) +
           ` — ${result.message}` +
           (result.fix ? color.dim(`\n  Run: ${result.fix}`) : ""),
@@ -751,7 +752,7 @@ async function doctor(): Promise<number> {
             (result.detail ? color.dim(` — ${result.detail}`) : ""),
         );
       } else {
-        p.log.error(
+        fail(
           color.red(`${hc.name}: FAIL`) +
             (result.detail ? color.dim(` — ${result.detail}`) : ""),
         );
@@ -768,7 +769,7 @@ async function doctor(): Promise<number> {
           accessSync(absolutePath, constants.R_OK);
           p.log.success(color.green("Hook script exists: PASS") + color.dim(` — ${absolutePath}`));
         } catch {
-          p.log.error(
+          fail(
             color.red("Hook script exists: FAIL") +
               color.dim(` — not found at ${absolutePath}`),
           );
@@ -783,7 +784,7 @@ async function doctor(): Promise<number> {
   if (pluginCheck.status === "pass") {
     p.log.success(color.green("Plugin enabled: PASS") + color.dim(` — ${pluginCheck.message}`));
   } else {
-    p.log.warn(
+    warn(
       color.yellow("Plugin enabled: WARN") +
         ` — ${pluginCheck.message}`,
     );
@@ -827,7 +828,7 @@ async function doctor(): Promise<number> {
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        p.log.warn(
+        warn(
           color.yellow("Leftover .mcp.json check: WARN") +
             ` — could not read the plugin cache directory` +
             color.dim(
@@ -845,7 +846,7 @@ async function doctor(): Promise<number> {
         );
       } else {
         // WARN, not FAIL — per architect spec this is recoverable.
-        p.log.warn(
+        warn(
           color.yellow("Leftover .mcp.json check: WARN") +
             ` — found ${staleCount} old .mcp.json file(s) left over from previous ctxscribe versions` +
             color.dim(
@@ -870,8 +871,7 @@ async function doctor(): Promise<number> {
     if (row && row.content === "hello world") {
       p.log.success(color.green("FTS5 / SQLite: PASS") + " — native module works");
     } else {
-      criticalFails++;
-      p.log.error(color.red("FTS5 / SQLite: FAIL") + " — query returned unexpected result");
+      fail(color.red("FTS5 / SQLite: FAIL") + " — query returned unexpected result");
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -889,8 +889,7 @@ async function doctor(): Promise<number> {
     const packageMissing = !existsSync(bsqPackageDir);
 
     if (packageMissing) {
-      criticalFails++;
-      p.log.error(
+      fail(
         color.red("FTS5 / better-sqlite3: FAIL") +
           color.dim(" — package-missing") +
           color.dim(
@@ -901,9 +900,8 @@ async function doctor(): Promise<number> {
           ),
       );
     } else if (message.includes("Cannot find module") || message.includes("MODULE_NOT_FOUND")) {
-      p.log.warn(color.yellow("FTS5 / better-sqlite3: SKIP") + color.dim(" — module not available (restart session after upgrade)"));
+      warn(color.yellow("FTS5 / better-sqlite3: SKIP") + color.dim(" — module not available (restart session after upgrade)"));
     } else {
-      criticalFails++;
       // Detect better-sqlite3 native bindings-missing pattern (issue #408).
       // The `bindings` package throws "Could not locate the bindings file"
       // when better_sqlite3.node failed to install — typical on Windows
@@ -914,7 +912,7 @@ async function doctor(): Promise<number> {
         /bindings\.node/i.test(message) ||
         /\bbindings\b/i.test(message);
       if (isBindingsMissing && process.platform === "win32") {
-        p.log.error(
+        fail(
           color.red("FTS5 / better-sqlite3: FAIL") +
             ` — ${message}` +
             color.dim(
@@ -924,7 +922,7 @@ async function doctor(): Promise<number> {
             ),
         );
       } else {
-        p.log.error(
+        fail(
           color.red("FTS5 / better-sqlite3: FAIL") +
             ` — ${message}` +
             color.dim("\n  Try: npm rebuild better-sqlite3"),
@@ -963,9 +961,11 @@ async function doctor(): Promise<number> {
   }
 
   p.outro(
-    available.length >= 4
-      ? color.green("Diagnostics complete!")
-      : color.yellow("Some checks need attention — see above for details"),
+    warnings > 0
+      ? color.yellow(
+          `Some checks need attention — ${warnings} warning(s), see above for details`,
+        )
+      : color.green("Diagnostics complete!"),
   );
   return 0;
 }
