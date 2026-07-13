@@ -15,6 +15,9 @@ describe("isForkOrigin — marketplace clone must point at the fork", () => {
     expect(isForkOrigin("https://github.com/mksglu/context-mode.git")).toBe(false);
     expect(isForkOrigin("https://github.com/attacker/context-mode.git")).toBe(false);
     expect(isForkOrigin("https://github.com/wotjr1649/other-repo.git")).toBe(false);
+    // Honest host, honest owner, OLD repo name — the sharpest post-rename case:
+    // a marketplace clone whose origin still points at the pre-rename repo.
+    expect(isForkOrigin("https://github.com/wotjr1649/context-mode.git")).toBe(false);
     expect(isForkOrigin("")).toBe(false);
     expect(isForkOrigin(undefined as unknown as string)).toBe(false);
     // host-boundary bypass attempts — "github.com" as a substring must NOT match

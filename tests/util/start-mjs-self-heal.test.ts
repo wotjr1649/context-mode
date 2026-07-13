@@ -223,7 +223,7 @@ describe("start.mjs — Issue #577 CLAUDE_CONFIG_DIR honoring", () => {
 
   test("auto-deployed heal script template honors CLAUDE_CONFIG_DIR at its own runtime", () => {
     // The embedded `healScript` template literal becomes
-    // $CLAUDE_CONFIG_DIR/hooks/context-mode-cache-heal.mjs. Its OWN runtime
+    // $CLAUDE_CONFIG_DIR/hooks/ctxscribe-cache-heal.mjs. Its OWN runtime
     // — i.e. when Claude Code spawns it on SessionStart — must also honor
     // CLAUDE_CONFIG_DIR. So the template literal itself has to embed the
     // env-var read; baking the value at start.mjs render time would freeze
