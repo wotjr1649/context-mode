@@ -210,10 +210,10 @@ describe("ClaudeCodeAdapter", () => {
       );
     });
 
-    it("session dir is under ~/.claude/context-mode/sessions/ by default", () => {
+    it("session dir is under ~/.claude/ctxscribe/sessions/ by default", () => {
       const sessionDir = adapter.getSessionDir();
       expect(sessionDir).toBe(
-        join(homedir(), ".claude", "context-mode", "sessions"),
+        join(homedir(), ".claude", "ctxscribe", "sessions"),
       );
     });
 
@@ -222,7 +222,7 @@ describe("ClaudeCodeAdapter", () => {
       process.env.CLAUDE_CONFIG_DIR = customRoot;
       const sessionDir = adapter.getSessionDir();
       expect(sessionDir).toBe(
-        join(customRoot, "context-mode", "sessions"),
+        join(customRoot, "ctxscribe", "sessions"),
       );
     });
 
@@ -242,7 +242,7 @@ describe("ClaudeCodeAdapter", () => {
         sessionsDir: adapter.getSessionDir(),
       });
       expect(dbPath).toBe(
-        join(homedir(), ".claude", "context-mode", "sessions", `${hash}.db`),
+        join(homedir(), ".claude", "ctxscribe", "sessions", `${hash}.db`),
       );
     });
   });
@@ -284,7 +284,7 @@ describe("ClaudeCodeAdapter", () => {
         sessionsDir: adapter.getSessionDir(),
       });
       expect(dbPath).toBe(
-        join(customDir, "context-mode", "sessions", `${hash}.db`),
+        join(customDir, "ctxscribe", "sessions", `${hash}.db`),
       );
       // Regression pin: session DB must NOT land under ~/.claude when
       // CLAUDE_CONFIG_DIR is set.
@@ -400,11 +400,11 @@ describe("ClaudeCodeAdapter", () => {
           hooks: {
             PreToolUse: [{
               matcher: "Bash",
-              hooks: [{ type: "command", command: "context-mode hook claude-code pretooluse" }],
+              hooks: [{ type: "command", command: "ctxscribe hook claude-code pretooluse" }],
             }],
             SessionStart: [{
               matcher: "",
-              hooks: [{ type: "command", command: "context-mode hook claude-code sessionstart" }],
+              hooks: [{ type: "command", command: "ctxscribe hook claude-code sessionstart" }],
             }],
           },
         }),
@@ -465,7 +465,7 @@ describe("ClaudeCodeAdapter", () => {
       expect(changes).toContain("Removed 1 stale PreToolUse hook(s)");
     });
 
-    it("preserves non-context-mode hooks from other plugins", () => {
+    it("preserves non-ctxscribe hooks from other plugins", () => {
       const staleRoot = "/tmp/non-existent-old-version-dir";
       const otherPluginHook = {
         matcher: "Bash",
@@ -490,7 +490,7 @@ describe("ClaudeCodeAdapter", () => {
 
       const settings = JSON.parse(readFileSync(join(tempDir, "settings.json"), "utf-8"));
       const preToolUseEntries = settings.hooks.PreToolUse;
-      // Should have the other plugin's hook + the fresh context-mode hook
+      // Should have the other plugin's hook + the fresh ctxscribe hook
       expect(preToolUseEntries.length).toBe(2);
       expect(preToolUseEntries[0]).toEqual(otherPluginHook);
     });
@@ -525,7 +525,7 @@ describe("ClaudeCodeAdapter", () => {
           hooks: {
             SessionStart: [{
               matcher: "",
-              hooks: [{ type: "command", command: "context-mode hook claude-code sessionstart" }],
+              hooks: [{ type: "command", command: "ctxscribe hook claude-code sessionstart" }],
             }],
           },
         }),
@@ -570,7 +570,7 @@ describe("ClaudeCodeAdapter", () => {
       );
 
       // settings.json starts empty but marks context-mode as a plugin install
-      writeFileSync(join(tempDir, "settings.json"), JSON.stringify({ enabledPlugins: { "context-mode": {} } }));
+      writeFileSync(join(tempDir, "settings.json"), JSON.stringify({ enabledPlugins: { "ctxscribe": {} } }));
 
       const changes = adapter.configureAllHooks(pluginRoot);
 
@@ -607,7 +607,7 @@ describe("ClaudeCodeAdapter", () => {
       writeFileSync(
         join(tempDir, "settings.json"),
         JSON.stringify({
-          enabledPlugins: { "context-mode": {} },
+          enabledPlugins: { "ctxscribe": {} },
           hooks: {
             SessionStart: [{
               matcher: "",
@@ -675,7 +675,7 @@ describe("ClaudeCodeAdapter", () => {
       writeFileSync(
         join(tempDir, "settings.json"),
         JSON.stringify({
-          enabledPlugins: { "context-mode": {} },
+          enabledPlugins: { "ctxscribe": {} },
           hooks: {
             SessionStart: [{
               matcher: "",
@@ -716,7 +716,7 @@ describe("ClaudeCodeAdapter", () => {
       writeFileSync(
         join(tempDir, "settings.json"),
         JSON.stringify({
-          enabledPlugins: { "context-mode": {} },
+          enabledPlugins: { "ctxscribe": {} },
           hooks: {
             SessionStart: [{
               matcher: "",
@@ -733,7 +733,7 @@ describe("ClaudeCodeAdapter", () => {
       expect(sessionEntries).toHaveLength(0);
     });
 
-    it("removes existing valid context-mode hooks from settings.json when plugin hooks.json covers all required hooks", () => {
+    it("removes existing valid ctxscribe hooks from settings.json when plugin hooks.json covers all required hooks", () => {
       // Plugin hooks.json covers all required hooks (pluginRoot already has scripts from beforeEach)
       writeFileSync(
         join(pluginRoot, "hooks", "hooks.json"),
@@ -745,13 +745,13 @@ describe("ClaudeCodeAdapter", () => {
         }),
       );
 
-      // settings.json has VALID (non-stale) context-mode hooks — paths exist, so they won't be
+      // settings.json has VALID (non-stale) ctxscribe hooks — paths exist, so they won't be
       // removed by the stale-path filter. But they duplicate what hooks.json already registers,
       // causing two concurrent hook processes for every tool call (the root cause of #NNN).
       writeFileSync(
         join(tempDir, "settings.json"),
         JSON.stringify({
-          enabledPlugins: { "context-mode": {} },
+          enabledPlugins: { "ctxscribe": {} },
           hooks: {
             PreToolUse: [{
               matcher: "Bash|WebFetch|Read|Grep|Agent",
@@ -897,7 +897,7 @@ describe("ClaudeCodeAdapter", () => {
       // CLI dispatcher entries are path-independent — parseNodeCommand
       // is for buildNodeCommand-shaped strings only. Returning null lets
       // callers fall through to dispatcher handling without false matches.
-      expect(parseNodeCommand("context-mode hook claude-code pretooluse")).toBeNull();
+      expect(parseNodeCommand("ctxscribe hook claude-code pretooluse")).toBeNull();
       expect(parseNodeCommand("")).toBeNull();
       expect(parseNodeCommand('"/usr/bin/node"')).toBeNull();
     });

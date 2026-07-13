@@ -47,14 +47,14 @@ describe("start.mjs env bootstrap — plugin path no-poison", () => {
   const makePluginDir = () => {
     const root = mkdtempSync(join(tmpdir(), "ctx-fake-plugin-"));
     cleanup.push(root);
-    const pluginPath = join(root, ".claude", "plugins", "cache", "context-mode", "context-mode", "1.0.113");
+    const pluginPath = join(root, ".claude", "plugins", "cache", "wotjr1649", "ctxscribe", "1.0.113");
     mkdirSync(pluginPath, { recursive: true });
     return pluginPath;
   };
   const makeCodexPluginDir = () => {
     const root = mkdtempSync(join(tmpdir(), "ctx-fake-plugin-"));
     cleanup.push(root);
-    const pluginPath = join(root, ".codex", "plugins", "cache", "context-mode", "context-mode", "1.0.151");
+    const pluginPath = join(root, ".codex", "plugins", "cache", "wotjr1649", "ctxscribe", "1.0.151");
     mkdirSync(pluginPath, { recursive: true });
     return pluginPath;
   };

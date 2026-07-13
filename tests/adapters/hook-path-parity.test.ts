@@ -14,7 +14,7 @@ import {
  *
  * For every adapter whose `buildHookCommand` emits an absolute filesystem
  * path (i.e. NOT a CLI-dispatcher Tier C adapter — codex deliberately emits
- * `context-mode hook <platform> <event>` strings and is excluded), the
+ * `ctxscribe hook <platform> <event>` strings and is excluded), the
  * emitted command MUST resolve to a script that exists in the published
  * tree under the same relative layout HOOK_MAP in src/cli.ts uses.
  *

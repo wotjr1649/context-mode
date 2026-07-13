@@ -80,14 +80,14 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
     // longer tracked in source — the canonical template moved to
     // .mcp.json.example. Contributors copy it to .mcp.json locally; end users
     // get MCP via .claude-plugin/plugin.json. This test pins the template.
-    const got = readArgs0(resolve(ROOT, ".mcp.json.example"), "context-mode");
+    const got = readArgs0(resolve(ROOT, ".mcp.json.example"), "mcp");
     expect(got, ".mcp.json.example missing or args[0] not a string").toBe(PLACEHOLDER);
   });
 
   test(".claude-plugin/plugin.json args[0] is the ${CLAUDE_PLUGIN_ROOT}/start.mjs placeholder", () => {
     const got = readArgs0(
       resolve(ROOT, ".claude-plugin", "plugin.json"),
-      "context-mode",
+      "mcp",
     );
     expect(got, "plugin.json missing or args[0] not a string").toBe(PLACEHOLDER);
   });
@@ -96,10 +96,10 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
     // Core architectural invariant. If the source-tracked template and the
     // shipped Claude Code manifest ever drift, fresh installs break silently.
     // This is the test-time mirror of scripts/assert-asymmetric-drift.mjs.
-    const exampleArgs = readArgs0(resolve(ROOT, ".mcp.json.example"), "context-mode");
+    const exampleArgs = readArgs0(resolve(ROOT, ".mcp.json.example"), "mcp");
     const pluginArgs = readArgs0(
       resolve(ROOT, ".claude-plugin", "plugin.json"),
-      "context-mode",
+      "mcp",
     );
     expect(exampleArgs).not.toBeNull();
     expect(pluginArgs).not.toBeNull();
@@ -273,7 +273,7 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
   // and asserts that no string value contains an absolute path, an fnm
   // session shim, a `process.execPath` literal, or a tilde-prefixed
   // home-dir path. Allowed shapes: bare commands ("context-mode", "node"),
-  // CLI dispatcher form ("context-mode hook <platform> <event>"),
+  // CLI dispatcher form ("ctxscribe hook <platform> <event>"),
   // placeholders (${CLAUDE_PLUGIN_ROOT}), schema URLs.
   //
   // The persistence-tier rule (ISSUE-613-VERDICT §6.1):
@@ -387,7 +387,7 @@ describe("Issue #531 — asymmetric-drift invariant", () => {
           "Workspace-committed config templates ship to every user's git tree.",
           "Per ISSUE-613-VERDICT 6.1, Tier C files MUST be born portable -- no",
           "heal seam exists for files committed to user repos. Allowed shapes:",
-          "  - CLI dispatcher: \"context-mode hook <platform> <event>\"",
+          "  - CLI dispatcher: \"ctxscribe hook <platform> <event>\"",
           "  - Bare command:   \"context-mode\" / \"node\"",
           "  - Placeholder:    \"${CLAUDE_PLUGIN_ROOT}/...\"",
           "  - Schema URL:     \"https://.../config.json\"",

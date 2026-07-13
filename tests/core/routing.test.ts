@@ -76,7 +76,7 @@ describe("Routing: Subagents (Agent only — Task removed per #241)", () => {
     const prompt = decision.updatedInput.prompt;
     expect(prompt).toContain("deferred_tool_bootstrap");
     expect(prompt).toContain("ToolSearch");
-    expect(prompt).toContain("select:mcp__plugin_context-mode_context-mode__ctx_batch_execute");
+    expect(prompt).toContain("select:mcp__plugin_ctxscribe_mcp__ctx_batch_execute");
   });
 
   it("Agent block omits the ToolSearch bootstrap on platforms without deferred tools (#724)", () => {

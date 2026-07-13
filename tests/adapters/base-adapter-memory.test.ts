@@ -50,16 +50,16 @@ describe("BaseAdapter memory/config defaults", () => {
 // Issue #649 — CONTEXT_MODE_DATA_DIR universal storage override.
 //
 // Adapters historically hardcoded their
-// storage root to `~/.<platform>/context-mode/sessions/` with no env-var
+// storage root to `~/.<platform>/ctxscribe/sessions/` with no env-var
 // escape hatch. CI runners, dev containers, and NFS-home users need to point
 // context-mode storage at a writable volume without patching source or
 // changing the host platform's own config-dir variable.
 //
 // Contract for CONTEXT_MODE_DATA_DIR:
 //   - Unset / empty / whitespace-only → use platform-native default (no-op).
-//   - Set                              → `<DATA_DIR>/context-mode/sessions/`
+//   - Set                              → `<DATA_DIR>/ctxscribe/sessions/`
 //                                        for getSessionDir(), and
-//                                        `<DATA_DIR>/context-mode/memory/`
+//                                        `<DATA_DIR>/ctxscribe/memory/`
 //                                        for getMemoryDir().
 //   - Tilde + relative path handling mirrors `resolveClaudeConfigDir`
 //     (~ expands to homedir, relative paths resolve against cwd).
@@ -83,14 +83,14 @@ describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
     const adapter = new TestAdapter([".acme"]);
     process.env[ENV_KEY] = "/tmp/custom-data";
     expect(adapter.getSessionDir()).toBe(
-      resolve("/tmp/custom-data", "context-mode", "sessions"),
+      resolve("/tmp/custom-data", "ctxscribe", "sessions"),
     );
   });
 
-  it("getSessionDir falls back to <home>/<segments>/context-mode/sessions when env unset", () => {
+  it("getSessionDir falls back to <home>/<segments>/ctxscribe/sessions when env unset", () => {
     const adapter = new TestAdapter([".acme"]);
     expect(adapter.getSessionDir()).toBe(
-      join(homedir(), ".acme", "context-mode", "sessions"),
+      join(homedir(), ".acme", "ctxscribe", "sessions"),
     );
   });
 
@@ -98,7 +98,7 @@ describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
     const adapter = new TestAdapter([".gemini"]);
     process.env[ENV_KEY] = "   ";
     expect(adapter.getSessionDir()).toBe(
-      join(homedir(), ".gemini", "context-mode", "sessions"),
+      join(homedir(), ".gemini", "ctxscribe", "sessions"),
     );
   });
 
@@ -106,15 +106,15 @@ describe("BaseAdapter — CONTEXT_MODE_DATA_DIR override (#649)", () => {
     const adapter = new TestAdapter([".acme"]);
     process.env[ENV_KEY] = "~/relocated-storage";
     expect(adapter.getSessionDir()).toBe(
-      resolve(homedir(), "relocated-storage", "context-mode", "sessions"),
+      resolve(homedir(), "relocated-storage", "ctxscribe", "sessions"),
     );
   });
 
-  it("getMemoryDir relocates to <DATA_DIR>/context-mode/memory when env set", () => {
+  it("getMemoryDir relocates to <DATA_DIR>/ctxscribe/memory when env set", () => {
     const adapter = new TestAdapter([".acme"]);
     process.env[ENV_KEY] = "/tmp/custom-data";
     expect(adapter.getMemoryDir()).toBe(
-      resolve("/tmp/custom-data", "context-mode", "memory"),
+      resolve("/tmp/custom-data", "ctxscribe", "memory"),
     );
   });
 
@@ -222,7 +222,7 @@ describe("BaseAdapter — getMemoryDir project scoping (#663)", () => {
     expect(adapter.getMemoryDir(projectDir)).toBe(
       join(
         resolve("/tmp/custom-data"),
-        "context-mode",
+        "ctxscribe",
         "memory",
         hashProjectDirCanonical(projectDir),
       ),

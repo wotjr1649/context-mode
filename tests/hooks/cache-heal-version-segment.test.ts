@@ -11,8 +11,8 @@ describe("rewriteShellSnapshots — trust anchor derived from pluginRoot (F52)",
   // Real pluginRoot shape: …/cache/<marketplace>/<plugin>/<version>.
   // Omitting the version segment makes the depth guard no-op and the test
   // pass vacuously (false green).
-  const pluginRootFor = (marketplace: string) =>
-    `/home/u/.claude/plugins/cache/${marketplace}/context-mode/1.0.0`;
+  const pluginRootFor = (marketplace: string, plugin = "ctxscribe") =>
+    `/home/u/.claude/plugins/cache/${marketplace}/${plugin}/1.0.0`;
 
   const writeSnapshot = (name: string, body: string) => {
     const p = join(snapshots, name);
@@ -27,17 +27,17 @@ describe("rewriteShellSnapshots — trust anchor derived from pluginRoot (F52)",
   });
   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
-  it("rewrites a stale version under the fork's context-mode-js/context-mode/", () => {
+  it("rewrites a stale version under the fork's wotjr1649/ctxscribe/", () => {
     const snap = writeSnapshot(
       "snapshot-bash-1.sh",
-      'export PATH="/home/u/.claude/plugins/cache/context-mode-js/context-mode/0.9.9/bin:$PATH"\n',
+      'export PATH="/home/u/.claude/plugins/cache/wotjr1649/ctxscribe/0.9.9/bin:$PATH"\n',
     );
     rewriteShellSnapshots({
       snapshotsDir: snapshots,
       currentVersion: "1.0.0",
-      pluginRoot: pluginRootFor("context-mode-js"),
+      pluginRoot: pluginRootFor("wotjr1649"),
     });
-    expect(readFileSync(snap, "utf-8")).toContain("cache/context-mode-js/context-mode/1.0.0/bin");
+    expect(readFileSync(snap, "utf-8")).toContain("cache/wotjr1649/ctxscribe/1.0.0/bin");
   });
 
   it("still rewrites the un-renamed upstream layout when that is the anchor", () => {
@@ -48,13 +48,13 @@ describe("rewriteShellSnapshots — trust anchor derived from pluginRoot (F52)",
     rewriteShellSnapshots({
       snapshotsDir: snapshots,
       currentVersion: "1.0.0",
-      pluginRoot: pluginRootFor("context-mode"),
+      pluginRoot: pluginRootFor("context-mode", "context-mode"),
     });
     expect(readFileSync(snap, "utf-8")).toContain("cache/context-mode/context-mode/1.0.0/bin");
   });
 
   // Discriminating test. The fork's names are asymmetric
-  // (context-mode-js ≠ context-mode); slicing marketplace/plugin in the
+  // (wotjr1649 ≠ ctxscribe); slicing marketplace/plugin in the
   // inverted order makes this test fail.
   it("never touches another owner's directory, even under the fork anchor", () => {
     const original =
@@ -63,7 +63,7 @@ describe("rewriteShellSnapshots — trust anchor derived from pluginRoot (F52)",
     rewriteShellSnapshots({
       snapshotsDir: snapshots,
       currentVersion: "1.0.0",
-      pluginRoot: pluginRootFor("context-mode-js"),
+      pluginRoot: pluginRootFor("wotjr1649"),
     });
     expect(readFileSync(snap, "utf-8")).toBe(original);
   });

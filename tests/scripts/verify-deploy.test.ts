@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { verifyDeploy, isVersionDirUnderCache } from "../../scripts/verify-deploy.mjs";
 
-const CACHE = "/h/.claude/plugins/cache/context-mode-js/context-mode";
+const CACHE = "/h/.claude/plugins/cache/wotjr1649/ctxscribe";
 const reg = (installPath: string) => ({
-  plugins: { "context-mode@context-mode-js": [{ installPath }] },
+  plugins: { "ctxscribe@wotjr1649": [{ installPath }] },
 });
 // a reader that reports the same version from both manifests (a clean deploy)
 const both = (v: string | null) => () => ({ pkg: v, manifest: v });
@@ -14,7 +14,7 @@ describe("isVersionDirUnderCache — containment against the real cache dir", ()
   });
   it("rejects traversal, escape, empty, relative, the cache dir itself, and too-deep", () => {
     expect(isVersionDirUnderCache(CACHE, `${CACHE}/1.0.1/../../..`)).toBe(false); // Codex traversal repro
-    expect(isVersionDirUnderCache(CACHE, "C:\\evil\\context-mode-js\\context-mode\\1.0.1")).toBe(false);
+    expect(isVersionDirUnderCache(CACHE, "C:\\evil\\wotjr1649\\context-mode\\1.0.1")).toBe(false);
     expect(isVersionDirUnderCache(CACHE, "")).toBe(false);
     expect(isVersionDirUnderCache(CACHE, ".")).toBe(false);
     expect(isVersionDirUnderCache(CACHE, CACHE)).toBe(false); // cache dir itself is not a version dir
@@ -51,7 +51,7 @@ describe("verifyDeploy — did /plugin update actually reinstall at the new vers
   });
 
   it("B1 GUARD: empty / relative / repo-root / non-cache installPath is rejected", () => {
-    for (const p of ["", ".", "C:\\Users\\me\\Documents\\ClaudeCode\\context-mode", "C:\\evil\\context-mode-js\\context-mode\\1.0.1"]) {
+    for (const p of ["", ".", "C:\\Users\\me\\Documents\\ClaudeCode\\context-mode", "C:\\evil\\wotjr1649\\context-mode\\1.0.1"]) {
       const r = verifyDeploy(reg(p), "1.0.1", both("1.0.1"), CACHE);
       expect(r.ok).toBe(false);
       expect(r.reason).toMatch(/no entry has an installPath directly under/);
@@ -72,12 +72,12 @@ describe("verifyDeploy — did /plugin update actually reinstall at the new vers
 
   it("I1: multiple entries that AGREE pass; that DISAGREE are ambiguous", () => {
     const agree = {
-      plugins: { "context-mode@context-mode-js": [{ installPath: `${CACHE}/1.0.1` }, { installPath: `${CACHE}/1.0.1` }] },
+      plugins: { "ctxscribe@wotjr1649": [{ installPath: `${CACHE}/1.0.1` }, { installPath: `${CACHE}/1.0.1` }] },
     };
     expect(verifyDeploy(agree, "1.0.1", both("1.0.1"), CACHE).ok).toBe(true);
 
     const disagree = {
-      plugins: { "context-mode@context-mode-js": [{ installPath: `${CACHE}/1.0.0` }, { installPath: `${CACHE}/1.0.1` }] },
+      plugins: { "ctxscribe@wotjr1649": [{ installPath: `${CACHE}/1.0.0` }, { installPath: `${CACHE}/1.0.1` }] },
     };
     const r = verifyDeploy(disagree, "1.0.1", (p: string) => {
       const v = p.includes("1.0.0") ? "1.0.0" : "1.0.1";

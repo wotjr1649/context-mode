@@ -19,7 +19,7 @@
  * Bug being fixed: After Brew upgrades Node, ~/.claude/settings.json contains
  * a hook command pointing at a versioned Cellar path that no longer exists:
  *
- *   "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "/Users/x/.claude/hooks/context-mode-cache-heal.mjs"
+ *   "/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "/Users/x/.claude/hooks/ctxscribe-cache-heal.mjs"
  *
  * Fix layer A (new installs, Unix): write hook script with shebang +
  *   chmod +x, register hook command as bare script path. `env` resolves
@@ -96,7 +96,7 @@ function writeJson(path: string, value: unknown): void {
 describe("extractNodePath", () => {
   test("extracts a quoted node path from the start of the command", () => {
     const cmd =
-      '"/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "/Users/vigo/.claude/hooks/context-mode-cache-heal.mjs"';
+      '"/opt/homebrew/Cellar/node/25.9.0_2/bin/node" "/Users/vigo/.claude/hooks/ctxscribe-cache-heal.mjs"';
     expect(extractNodePath(cmd)).toBe(
       "/opt/homebrew/Cellar/node/25.9.0_2/bin/node",
     );
@@ -110,7 +110,7 @@ describe("extractNodePath", () => {
 
   test("returns null when command is shebang-style (no node prefix)", () => {
     // Layer A registration: bare script path, shebang inside script handles node.
-    const cmd = '"/Users/vigo/.claude/hooks/context-mode-cache-heal.mjs"';
+    const cmd = '"/Users/vigo/.claude/hooks/ctxscribe-cache-heal.mjs"';
     expect(extractNodePath(cmd)).toBeNull();
   });
 
@@ -150,7 +150,7 @@ describe("isStaleNodePath", () => {
 
   test("returns false when command has no node path (shebang style)", () => {
     // Bare script path — `env` resolves node, nothing to validate here.
-    const cmd = '"/Users/vigo/.claude/hooks/context-mode-cache-heal.mjs"';
+    const cmd = '"/Users/vigo/.claude/hooks/ctxscribe-cache-heal.mjs"';
     expect(isStaleNodePath(cmd)).toBe(false);
   });
 
@@ -166,35 +166,35 @@ describe("isStaleNodePath", () => {
 describe("buildHookCommand", () => {
   test("Unix: produces just the script path (shebang-based)", () => {
     const out = buildHookCommand({
-      scriptPath: "/Users/x/.claude/hooks/context-mode-cache-heal.mjs",
+      scriptPath: "/Users/x/.claude/hooks/ctxscribe-cache-heal.mjs",
       platform: "darwin",
       nodePath: "/opt/homebrew/Cellar/node/25.9.0_2/bin/node",
     });
     expect(out).toBe(
-      '"/Users/x/.claude/hooks/context-mode-cache-heal.mjs"',
+      '"/Users/x/.claude/hooks/ctxscribe-cache-heal.mjs"',
     );
     expect(out).not.toContain("node");
   });
 
   test("Linux: same as darwin (any non-win32 platform)", () => {
     const out = buildHookCommand({
-      scriptPath: "/home/x/.claude/hooks/context-mode-cache-heal.mjs",
+      scriptPath: "/home/x/.claude/hooks/ctxscribe-cache-heal.mjs",
       platform: "linux",
       nodePath: "/usr/bin/node",
     });
     expect(out).toBe(
-      '"/home/x/.claude/hooks/context-mode-cache-heal.mjs"',
+      '"/home/x/.claude/hooks/ctxscribe-cache-heal.mjs"',
     );
   });
 
   test("Windows: produces nodePath + scriptPath, both quoted, forward slashes", () => {
     const out = buildHookCommand({
-      scriptPath: "C:\\Users\\me\\.claude\\hooks\\context-mode-cache-heal.mjs",
+      scriptPath: "C:\\Users\\me\\.claude\\hooks\\ctxscribe-cache-heal.mjs",
       platform: "win32",
       nodePath: "C:\\Program Files\\nodejs\\node.exe",
     });
     expect(out).toBe(
-      '"C:/Program Files/nodejs/node.exe" "C:/Users/me/.claude/hooks/context-mode-cache-heal.mjs"',
+      '"C:/Program Files/nodejs/node.exe" "C:/Users/me/.claude/hooks/ctxscribe-cache-heal.mjs"',
     );
   });
 
@@ -217,7 +217,7 @@ describe("buildHookCommand", () => {
     "Unix: returned bare-script command can actually execute (shebang + chmod +x)",
     () => {
       const dir = makeTmp("ctx-cache-heal-build-");
-      const scriptPath = join(dir, "context-mode-cache-heal.mjs");
+      const scriptPath = join(dir, "ctxscribe-cache-heal.mjs");
       writeFileSync(
         scriptPath,
         '#!/usr/bin/env node\nprocess.stdout.write("OK");\n',
@@ -231,7 +231,7 @@ describe("buildHookCommand", () => {
       });
 
       // The shell would just run this command directly — simulate that.
-      // cmd is e.g. '"/tmp/xxx/context-mode-cache-heal.mjs"'.
+      // cmd is e.g. '"/tmp/xxx/ctxscribe-cache-heal.mjs"'.
       const unquoted = cmd.replace(/^"|"$/g, "");
       const r = spawnSync(unquoted, [], { encoding: "utf-8" });
       expect(r.status).toBe(0);
@@ -286,7 +286,7 @@ describe("selfHealCacheHealHook", () => {
   test("no-op when the cache-heal hook command is shebang-form (no node path)", () => {
     const dir = makeTmp("ctx-cache-heal-self-");
     const settingsPath = join(dir, "settings.json");
-    const scriptPath = join(dir, "context-mode-cache-heal.mjs");
+    const scriptPath = join(dir, "ctxscribe-cache-heal.mjs");
     // Doesn't matter that the script doesn't exist — the command alone is
     // shebang form which means there's no node path to validate.
     writeJson(settingsPath, {
@@ -316,7 +316,7 @@ describe("selfHealCacheHealHook", () => {
   test("no-op when the cache-heal hook command's node path exists", () => {
     const dir = makeTmp("ctx-cache-heal-self-");
     const settingsPath = join(dir, "settings.json");
-    const scriptPath = join(dir, "context-mode-cache-heal.mjs");
+    const scriptPath = join(dir, "ctxscribe-cache-heal.mjs");
     const fakeNode = join(dir, "node");
     writeFileSync(fakeNode, "#!/bin/sh\n");
     chmodSync(fakeNode, 0o755);
@@ -351,7 +351,7 @@ describe("selfHealCacheHealHook", () => {
   test("Unix: rewrites command when node path is stale", () => {
     const dir = makeTmp("ctx-cache-heal-self-");
     const settingsPath = join(dir, "settings.json");
-    const scriptPath = join(dir, "context-mode-cache-heal.mjs");
+    const scriptPath = join(dir, "ctxscribe-cache-heal.mjs");
     // Pretend an old script exists (we simulate the upgrade case where the
     // script was already on disk before Brew nuked the node binary).
     writeFileSync(scriptPath, "console.log('heal')\n");
@@ -400,7 +400,7 @@ describe("selfHealCacheHealHook", () => {
   test("Windows: rewrites stale command using execPath form", () => {
     const dir = makeTmp("ctx-cache-heal-self-");
     const settingsPath = join(dir, "settings.json");
-    const scriptPath = join(dir, "context-mode-cache-heal.mjs");
+    const scriptPath = join(dir, "ctxscribe-cache-heal.mjs");
     writeFileSync(scriptPath, "console.log('heal')\n");
 
     const stalePath = join(dir, "old-cellar", "node");
@@ -438,7 +438,7 @@ describe("selfHealCacheHealHook", () => {
   test("preserves other hooks unchanged", () => {
     const dir = makeTmp("ctx-cache-heal-self-");
     const settingsPath = join(dir, "settings.json");
-    const scriptPath = join(dir, "context-mode-cache-heal.mjs");
+    const scriptPath = join(dir, "ctxscribe-cache-heal.mjs");
     writeFileSync(scriptPath, "console.log('heal')\n");
     const stalePath = join(dir, "totally-gone", "bin", "node");
 
@@ -556,8 +556,8 @@ describe("sweepStaleMcpJson", () => {
     const dir = makeTmp("ctx-sweep-");
     // Match the real cache layout: <cacheRoot>/<owner>/<plugin>/<version>/
     const pluginCacheRoot = join(dir, "cache");
-    const pluginKey = "context-mode@context-mode";
-    const ownerDir = join(pluginCacheRoot, "context-mode", "context-mode");
+    const pluginKey = "ctxscribe@wotjr1649";
+    const ownerDir = join(pluginCacheRoot, "wotjr1649", "ctxscribe");
     const versionDirs = ["1.0.135", "1.0.136", "1.0.137"].map((v) =>
       join(ownerDir, v),
     );
@@ -566,7 +566,7 @@ describe("sweepStaleMcpJson", () => {
         join(makeDir(vd), ".mcp.json"),
         JSON.stringify({
           mcpServers: {
-            "context-mode": {
+            "mcp": {
               command: "node",
               args: ["${CLAUDE_PLUGIN_ROOT}/start.mjs"],
             },
@@ -607,12 +607,12 @@ describe("sweepStaleMcpJson", () => {
   test("no-op when no .mcp.json files exist in any version dir", () => {
     const dir = makeTmp("ctx-sweep-empty-");
     const pluginCacheRoot = join(dir, "cache");
-    const ownerDir = join(pluginCacheRoot, "context-mode", "context-mode");
+    const ownerDir = join(pluginCacheRoot, "wotjr1649", "ctxscribe");
     makeDir(join(ownerDir, "1.0.137"));
 
     const result = sweepStaleMcpJson({
       pluginCacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.removed).toEqual([]);
@@ -622,7 +622,7 @@ describe("sweepStaleMcpJson", () => {
     const dir = makeTmp("ctx-sweep-missing-");
     const result = sweepStaleMcpJson({
       pluginCacheRoot: join(dir, "absent"),
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
     expect(result.removed).toEqual([]);
     expect(result.skipped).toBe("no-cache-root");
@@ -728,7 +728,7 @@ describe("Issues #814/#807 — cleanup leaves a breadcrumb to the live version",
     fakeRoot = mkdtempSync(join(tmpdir(), "ctx-breadcrumb-"));
     // The cleanup only fires when CLAUDE_PLUGIN_ROOT matches
     // .../plugins/cache/<owner>/<plugin>/<version>.
-    cacheParent = join(fakeRoot, "plugins", "cache", "context-mode", "context-mode");
+    cacheParent = join(fakeRoot, "plugins", "cache", "wotjr1649", "ctxscribe");
     currentDir = join(cacheParent, "1.0.200");
     mkdirSync(currentDir, { recursive: true });
 

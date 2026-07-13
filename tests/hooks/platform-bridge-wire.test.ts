@@ -42,7 +42,7 @@ function platformConfigFile(fakeHome: string): string {
   if (process.platform === "win32") {
     return join(
       process.env.APPDATA ?? join(fakeHome, "AppData", "Roaming"),
-      "context-mode",
+      "ctxscribe",
       "platform.json",
     );
   }
@@ -394,7 +394,7 @@ describe("platform-bridge wire — session-loaders forwards events", () => {
     const retrievalEvent = {
       type: "mcp_tool_call",
       category: "mcp_tool_call",
-      data: '{"tool_name":"mcp__plugin_context-mode_context-mode__ctx_search"}',
+      data: '{"tool_name":"mcp__plugin_ctxscribe_mcp__ctx_search"}',
       bytes_retrieved: 4200,
     };
 

@@ -23,12 +23,12 @@ import { selfHealShellSnapshots } from "../../hooks/cache-heal-utils.mjs";
 
 // Trust anchor: selfHealShellSnapshots forwards pluginRoot to
 // rewriteShellSnapshots, which derives the `cache/<marketplace>/<plugin>/`
-// prefix from it. The fixtures use the upstream `context-mode/context-mode/`
+// prefix from it. The fixtures use the upstream `wotjr1649/ctxscribe/`
 // layout, so the real installed-tree pluginRoot names that anchor. The old
 // `pluginCacheRoot: join(root, "cache")` was the shallow `.../cache` meaning
 // and no-ops under the depth guard.
 const PLUGIN_ROOT =
-  "/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.151";
+  "/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.151";
 
 const cleanups: string[] = [];
 
@@ -59,7 +59,7 @@ describe("selfHealShellSnapshots — SessionStart entry point", () => {
     const file = join(snapshotsDir, "snapshot-zsh-stale.sh");
     writeFileSync(
       file,
-      `export PATH='/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin:/usr/bin'\n`,
+      `export PATH='/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin:/usr/bin'\n`,
       "utf-8",
     );
 
@@ -71,7 +71,7 @@ describe("selfHealShellSnapshots — SessionStart entry point", () => {
 
     expect(result.rewritten).toEqual([file]);
     const after = readFileSync(file, "utf-8");
-    expect(after).toContain("context-mode/context-mode/1.0.151/bin");
+    expect(after).toContain("wotjr1649/ctxscribe/1.0.151/bin");
   });
 
   test("no-op when no snapshots reference context-mode", () => {

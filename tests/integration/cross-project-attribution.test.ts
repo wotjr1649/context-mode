@@ -29,7 +29,7 @@ function platformConfigFile(fakeHome: string): string {
   if (process.platform === "win32") {
     return join(
       process.env.APPDATA ?? join(fakeHome, "AppData", "Roaming"),
-      "context-mode",
+      "ctxscribe",
       "platform.json",
     );
   }

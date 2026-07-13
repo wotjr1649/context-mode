@@ -2,7 +2,7 @@
  * multi-adapter-stats — B3a (PRD-stats-multi-adapter)
  *
  * Today `getLifetimeStats` and `getRealBytesStats` scan ONE sessionsDir
- * (~/.claude/context-mode/sessions/ by default). The marketing line
+ * (~/.claude/ctxscribe/sessions/ by default). The marketing line
  * promises "your work everywhere on this machine across all AI tools" —
  * code MUST aggregate across every adapter dir.
  *
@@ -113,8 +113,8 @@ describe("Slice 2.1 — enumerateAdapterDirs()", () => {
     // raw "/HOME" + sep would compare against an apple-and-orange first
     // character on Windows ("/HOME\\..." vs actual "\\HOME\\...").
     const expectedHomePrefix = join(home) + sep;
-    const expectedSessionsSuffix = sep + join("context-mode", "sessions");
-    const expectedContentSuffix = sep + join("context-mode", "content");
+    const expectedSessionsSuffix = sep + join("ctxscribe", "sessions");
+    const expectedContentSuffix = sep + join("ctxscribe", "content");
     for (const d of dirs) {
       expect(d.sessionsDir.startsWith(expectedHomePrefix)).toBe(true);
       expect(d.contentDir.startsWith(expectedHomePrefix)).toBe(true);
@@ -128,14 +128,14 @@ describe("Slice 2.1 — enumerateAdapterDirs()", () => {
     const dirs = enumerateAdapterDirs({ home });
     const byName = Object.fromEntries(dirs.map((d) => [d.name, d]));
     // Build expectations through path.join so backslashes on Windows match.
-    expect(byName["claude-code"].sessionsDir).toBe(join(home, ".claude", "context-mode", "sessions"));
-    expect(byName["codex"].sessionsDir).toBe(join(home, ".codex", "context-mode", "sessions"));
+    expect(byName["claude-code"].sessionsDir).toBe(join(home, ".claude", "ctxscribe", "sessions"));
+    expect(byName["codex"].sessionsDir).toBe(join(home, ".codex", "ctxscribe", "sessions"));
   });
 
   test("defaults to os.homedir() when no override passed", () => {
     const dirs = enumerateAdapterDirs();
     expect(dirs.length).toBe(2);
-    const expectedSuffix = sep + join("context-mode", "sessions");
+    const expectedSuffix = sep + join("ctxscribe", "sessions");
     expect(dirs.every((d) => d.sessionsDir.includes(expectedSuffix))).toBe(true);
   });
 });
@@ -147,8 +147,8 @@ describe("Slice 2.1 — enumerateAdapterDirs()", () => {
 describe("Slice 2.2 — getMultiAdapterLifetimeStats()", () => {
   test("aggregates totals across two adapter dirs and returns per-adapter breakdown", () => {
     const home = tmpHome();
-    const claudeSessions = ensureDir(join(home, ".claude", "context-mode", "sessions"));
-    const codexSessions = ensureDir(join(home, ".codex", "context-mode", "sessions"));
+    const claudeSessions = ensureDir(join(home, ".claude", "ctxscribe", "sessions"));
+    const codexSessions = ensureDir(join(home, ".codex", "ctxscribe", "sessions"));
 
     seed(dbPathFor(claudeSessions, "aaaaaaaaaaaaaaaa"), `cc-${randomUUID()}`, [
       { type: "tool_use", category: "file", data: "src/a.ts", projectDir: "/p/cc" },
@@ -177,7 +177,7 @@ describe("Slice 2.2 — getMultiAdapterLifetimeStats()", () => {
 
   test("each perAdapter entry exposes eventCount, dataBytes, rescueBytes, contentBytes, uuidConvs, projectDirs, firstMs, isReal", () => {
     const home = tmpHome();
-    const claudeSessions = ensureDir(join(home, ".claude", "context-mode", "sessions"));
+    const claudeSessions = ensureDir(join(home, ".claude", "ctxscribe", "sessions"));
     seed(dbPathFor(claudeSessions, "1111111111111111"), `s-${randomUUID()}`, [
       { type: "tool_use", category: "file", data: "x", projectDir: "/p/x" },
     ], [{ snapshot: "Z".repeat(2_000) }]);
@@ -211,7 +211,7 @@ describe("Slice 2.2 — getMultiAdapterLifetimeStats()", () => {
 describe("Slice 2.3 — isReal filter (eventCount>=100 && distinctProjects>=5 && within 30 days && avgBytes>=50)", () => {
   test("flags adapter with only test fixtures (low event count, low projects) as isReal=false", () => {
     const home = tmpHome();
-    const sessionsDir = ensureDir(join(home, ".claude", "context-mode", "sessions"));
+    const sessionsDir = ensureDir(join(home, ".claude", "ctxscribe", "sessions"));
     // 5 events, 1 project — fails both eventCount>=100 and distinctProjects>=5
     seed(dbPathFor(sessionsDir, "fixtxtxfixtxfixt"), `fx-${randomUUID()}`, [
       { type: "t", category: "file", data: "a", projectDir: "/p" },
@@ -227,7 +227,7 @@ describe("Slice 2.3 — isReal filter (eventCount>=100 && distinctProjects>=5 &&
 
   test("flags adapter with avgBytes<50 as isReal=false even with many events and projects", () => {
     const home = tmpHome();
-    const sessionsDir = ensureDir(join(home, ".claude", "context-mode", "sessions"));
+    const sessionsDir = ensureDir(join(home, ".claude", "ctxscribe", "sessions"));
     // 120 tiny events across 6 projects — passes count + projects + recency,
     // but each row data is "x#N" so average bytes < 50.
     const events = [];
@@ -243,7 +243,7 @@ describe("Slice 2.3 — isReal filter (eventCount>=100 && distinctProjects>=5 &&
 
   test("flags adapter passing all four thresholds as isReal=true", () => {
     const home = tmpHome();
-    const sessionsDir = ensureDir(join(home, ".claude", "context-mode", "sessions"));
+    const sessionsDir = ensureDir(join(home, ".claude", "ctxscribe", "sessions"));
     // 120 fat events across 6 projects, all very recent. data is 200 bytes each.
     const fat = "y".repeat(200);
     const events = [];
@@ -266,8 +266,8 @@ describe("Slice 2.3 — isReal filter (eventCount>=100 && distinctProjects>=5 &&
 describe("Slice 2.4 — getMultiAdapterRealBytesStats()", () => {
   test("aggregates real bytes from all adapter dirs (lifetime tier)", () => {
     const home = tmpHome();
-    const claudeSessions = ensureDir(join(home, ".claude", "context-mode", "sessions"));
-    const codexSessions = ensureDir(join(home, ".codex", "context-mode", "sessions"));
+    const claudeSessions = ensureDir(join(home, ".claude", "ctxscribe", "sessions"));
+    const codexSessions = ensureDir(join(home, ".codex", "ctxscribe", "sessions"));
 
     seed(dbPathFor(claudeSessions, "1111111111111111"), `a-${randomUUID()}`, [
       { type: "x", category: "sandbox", data: "p", bytesAvoided: 2_000, bytesReturned: 1_000 },
@@ -290,8 +290,8 @@ describe("Slice 2.4 — getMultiAdapterRealBytesStats()", () => {
 
   test("sessionId filter narrows to one session across all adapter dirs", () => {
     const home = tmpHome();
-    const claudeSessions = ensureDir(join(home, ".claude", "context-mode", "sessions"));
-    const codexSessions = ensureDir(join(home, ".codex", "context-mode", "sessions"));
+    const claudeSessions = ensureDir(join(home, ".claude", "ctxscribe", "sessions"));
+    const codexSessions = ensureDir(join(home, ".codex", "ctxscribe", "sessions"));
 
     const target = `target-${randomUUID()}`;
     seed(dbPathFor(claudeSessions, "1111111111111111"), target, [
@@ -307,8 +307,8 @@ describe("Slice 2.4 — getMultiAdapterRealBytesStats()", () => {
 
   test("worktreeHash filter applies to filename prefix in every adapter dir", () => {
     const home = tmpHome();
-    const claudeSessions = ensureDir(join(home, ".claude", "context-mode", "sessions"));
-    const codexSessions = ensureDir(join(home, ".codex", "context-mode", "sessions"));
+    const claudeSessions = ensureDir(join(home, ".claude", "ctxscribe", "sessions"));
+    const codexSessions = ensureDir(join(home, ".codex", "ctxscribe", "sessions"));
 
     seed(dbPathFor(claudeSessions, "60303a5b5b31fb98"), `a-${randomUUID()}`, [
       { type: "x", category: "sandbox", data: "p", bytesReturned: 7_000 },
@@ -352,8 +352,8 @@ describe("Slice 2.5 — backward compat", () => {
 
   test("multi-adapter helpers do NOT mutate single-dir behaviour: getLifetimeStats({sessionsDir}) only sees that one dir", () => {
     const home = tmpHome();
-    const claudeSessions = ensureDir(join(home, ".claude", "context-mode", "sessions"));
-    const codexSessions = ensureDir(join(home, ".codex", "context-mode", "sessions"));
+    const claudeSessions = ensureDir(join(home, ".claude", "ctxscribe", "sessions"));
+    const codexSessions = ensureDir(join(home, ".codex", "ctxscribe", "sessions"));
     seed(dbPathFor(claudeSessions, "1111111111111111"), `a-${randomUUID()}`, [
       { type: "t", category: "file", data: "x", projectDir: "/p/cc" },
     ]);

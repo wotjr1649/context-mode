@@ -19,7 +19,7 @@ import { sweepStaleMcpJson } from "../../scripts/heal-installed-plugins.mjs";
 // ─────────────────────────────────────────────────────────────────────────
 // F54 — sweepStaleMcpJson's pluginKey->path mapping was inverted. It only
 // worked pre-rename because upstream's marketplace and plugin names were
-// both "context-mode". Post-rename (marketplace "context-mode-js", plugin
+// both "context-mode". Post-rename (marketplace "wotjr1649", plugin
 // "context-mode") the mapping built `<cacheRoot>/<plugin>/<marketplace>`
 // instead of the real `<cacheRoot>/<marketplace>/<plugin>` layout, so the
 // sweep always reported skipped:"no-plugin-dir" and never removed anything.
@@ -41,14 +41,14 @@ describe("sweepStaleMcpJson — plugin-key mapping (F54)", () => {
   });
 
   it("sweeps .mcp.json when marketplace name differs from plugin name", () => {
-    const versionDir = join(root, "context-mode-js", "context-mode", "1.0.0");
+    const versionDir = join(root, "wotjr1649", "ctxscribe", "1.0.0");
     mkdirSync(versionDir, { recursive: true });
     const stale = join(versionDir, ".mcp.json");
     writeFileSync(stale, "{}", "utf-8");
 
     const result = sweepStaleMcpJson({
       pluginCacheRoot: root,
-      pluginKey: "context-mode@context-mode-js",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.skipped).toBeUndefined();
@@ -57,7 +57,7 @@ describe("sweepStaleMcpJson — plugin-key mapping (F54)", () => {
   });
 
   it("rejects a traversal segment that normalizes back inside the cache root", () => {
-    const result = sweepStaleMcpJson({ pluginCacheRoot: root, pluginKey: "../victim@context-mode-js" });
+    const result = sweepStaleMcpJson({ pluginCacheRoot: root, pluginKey: "../victim@wotjr1649" });
     expect(result.skipped).toBe("bad-plugin-key");
     expect(result.removed).toEqual([]);
   });

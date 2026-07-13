@@ -3,7 +3,7 @@
  *
  * claude-code emits JS-runtime hook spawn commands that must route through
  * `buildHookRuntimeCommand` so bun is preferred when available. codex emits a
- * CLI dispatcher command (`context-mode hook codex <event>`) that inherits the
+ * CLI dispatcher command (`ctxscribe hook codex <event>`) that inherits the
  * CLI's runtime choice and is asserted as a non-regression below.
  *
  * Test strategy: rather than fight Vitest's module cache (which caches
@@ -59,7 +59,7 @@ describe("hook command emission flows through buildHookRuntimeCommand (#738)", (
 });
 
 describe("CLI-dispatcher adapters keep their dispatcher form (#738 non-regression)", () => {
-  test("codex still emits 'context-mode hook codex <event>' shape", async () => {
+  test("codex still emits 'ctxscribe hook codex <event>' shape", async () => {
     const { CodexAdapter } = await import("../../src/adapters/codex/index.js");
     const adapter = new CodexAdapter();
     const config = adapter.generateHookConfig("/plugin/root") as Record<string, Array<{ hooks: Array<{ command: string }> }>>;
@@ -67,7 +67,7 @@ describe("CLI-dispatcher adapters keep their dispatcher form (#738 non-regressio
       arr.flatMap((e) => e.hooks.map((h) => h.command))
     );
     for (const cmd of cmds) {
-      expect(cmd).toMatch(/^context-mode hook codex /);
+      expect(cmd).toMatch(/^ctxscribe hook codex /);
     }
   });
 });

@@ -22,7 +22,7 @@ function runHook(path: string, input: Record<string, unknown>, env: Record<strin
 }
 
 function readGoalRows(codexHome: string) {
-  const sessionDir = join(codexHome, "context-mode", "sessions");
+  const sessionDir = join(codexHome, "ctxscribe", "sessions");
   const dbFiles = readdirSync(sessionDir).filter((file) => file.endsWith(".db"));
   const Database = loadDatabase();
   const rows: Array<{ data: string; priority: number }> = [];

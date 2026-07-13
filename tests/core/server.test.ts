@@ -93,7 +93,7 @@ describe("storage path resolution", () => {
     const configRoot = join(tmpdir(), "context-mode-config-root");
 
     expect(resolveDefaultSessionDir({ configDir: configRoot })).toBe(
-      join(configRoot, "context-mode", "sessions"),
+      join(configRoot, "ctxscribe", "sessions"),
     );
   });
 
@@ -106,7 +106,7 @@ describe("storage path resolution", () => {
         configDirEnv: "CONTEXT_MODE_TEST_CONFIG_DIR",
         env: { CONTEXT_MODE_TEST_CONFIG_DIR: configRoot },
       }),
-    ).toBe(join(configRoot, "context-mode", "sessions"));
+    ).toBe(join(configRoot, "ctxscribe", "sessions"));
   });
 
   test("legacy session dir wins only inside blank or unset storage override default callback", () => {
@@ -2483,7 +2483,7 @@ describe("Project dir hash consistency", () => {
     const body = statsMatch![0];
     // Every `getLifetimeStats(` invocation inside ctx_stats MUST be argumented
     // (sessionsDir-aware). A bare `()` call falls back to the hardcoded
-    // ~/.claude/context-mode/sessions default and silently mis-attributes
+    // ~/.claude/ctxscribe/sessions default and silently mis-attributes
     // lifetime counts on non-Claude platforms. Use a negative lookbehind to
     // exclude `getMultiAdapterLifetimeStats(` whose default is intentional.
     const bareCalls = body.match(
@@ -4115,7 +4115,7 @@ describe("ctx_doctor — renderer-safe output (Z.ai compat)", () => {
 //
 // Before the MCP `initialize` handshake completes, `_detectedAdapter` is null.
 // Tools called in that window must still resolve a platform-correct sessions
-// dir instead of falling back to hardcoded `~/.claude/context-mode/sessions/`.
+// dir instead of falling back to hardcoded `~/.claude/ctxscribe/sessions/`.
 //
 // `getSessionDirSegments` is a sync, env-free map from PlatformId → segments
 // (no adapter instantiation). `getSessionDir` calls `detectPlatform()` (sync,

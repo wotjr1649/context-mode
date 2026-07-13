@@ -1129,10 +1129,10 @@ describe("defaultDBPath — process-scoped temp path", () => {
     expect(base.endsWith(".db")).toBe(true);
   });
 
-  test("defaults to the 'context-mode' prefix", () => {
+  test("defaults to the 'ctxscribe' prefix", () => {
     const p = defaultDBPath();
     const base = p.split(/[\\/]/).pop() ?? "";
-    expect(base.startsWith("context-mode-")).toBe(true);
+    expect(base.startsWith("ctxscribe-")).toBe(true);
   });
 
   test("returns a path under the OS tmpdir", () => {

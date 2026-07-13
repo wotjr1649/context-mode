@@ -3,13 +3,13 @@ import { isForkOrigin } from "../../src/cli.js";
 
 describe("isForkOrigin — marketplace clone must point at the fork", () => {
   it("accepts fork origin URL variants", () => {
-    expect(isForkOrigin("https://github.com/wotjr1649/context-mode.git")).toBe(true);
-    expect(isForkOrigin("https://github.com/wotjr1649/context-mode")).toBe(true);
-    expect(isForkOrigin("git@github.com:wotjr1649/context-mode.git")).toBe(true);
-    expect(isForkOrigin("  https://github.com/wotjr1649/context-mode.git\n")).toBe(true);
-    expect(isForkOrigin("https://token@github.com/wotjr1649/context-mode.git")).toBe(true); // embedded credentials
-    expect(isForkOrigin("ssh://git@github.com/wotjr1649/context-mode.git")).toBe(true);
-    expect(isForkOrigin("https://github.com:443/wotjr1649/context-mode.git")).toBe(true); // explicit port
+    expect(isForkOrigin("https://github.com/wotjr1649/ctxscribe.git")).toBe(true);
+    expect(isForkOrigin("https://github.com/wotjr1649/ctxscribe")).toBe(true);
+    expect(isForkOrigin("git@github.com:wotjr1649/ctxscribe.git")).toBe(true);
+    expect(isForkOrigin("  https://github.com/wotjr1649/ctxscribe.git\n")).toBe(true);
+    expect(isForkOrigin("https://token@github.com/wotjr1649/ctxscribe.git")).toBe(true); // embedded credentials
+    expect(isForkOrigin("ssh://git@github.com/wotjr1649/ctxscribe.git")).toBe(true);
+    expect(isForkOrigin("https://github.com:443/wotjr1649/ctxscribe.git")).toBe(true); // explicit port
   });
   it("rejects upstream and unrelated origins", () => {
     expect(isForkOrigin("https://github.com/mksglu/context-mode.git")).toBe(false);

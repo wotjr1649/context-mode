@@ -109,7 +109,7 @@ function seedDb(opts: {
 }
 
 // Isolate the spawned statusline's env so getMultiAdapterLifetimeStats()
-// (which scans `~/.{adapter}/context-mode/sessions/`) and any
+// (which scans `~/.{adapter}/ctxscribe/sessions/`) and any
 // APPDATA / XDG_CONFIG_HOME-rooted reader cannot leak data from
 // concurrently-running tests (or the developer's real adapter dirs) into
 // render decisions. Crucially we set APPDATA/LOCALAPPDATA/XDG_* alongside

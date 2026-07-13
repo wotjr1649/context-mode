@@ -91,7 +91,7 @@ describe("start.mjs HEAL 3 + HEAL 4 wiring (v1.0.114 hotfix)", () => {
     // Hardcoding it here would silently disable every heal below under any
     // marketplace name other than "context-mode".
     expect(block).toContain("pluginKey");
-    expect(block).not.toContain('"context-mode@context-mode"');
+    expect(block).not.toContain('"ctxscribe@wotjr1649"');
   });
 });
 

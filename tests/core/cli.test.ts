@@ -67,7 +67,7 @@ describe("cli.bundle.mjs — marketplace install support", () => {
 
   it("Codex plugin MCP manifest approves context-mode tools by default", () => {
     const mcp = JSON.parse(readFileSync(resolve(ROOT, ".codex-plugin", "mcp.json"), "utf-8"));
-    expect(mcp.mcpServers["context-mode"].default_tools_approval_mode).toBe("approve");
+    expect(mcp.mcpServers["mcp"].default_tools_approval_mode).toBe("approve");
   });
 
   it("package.json bundle script builds cli.bundle.mjs", () => {
@@ -272,7 +272,7 @@ describe(".mcp.json — MCP server config", () => {
       encoding: "utf-8",
     });
     const plugin = JSON.parse(committed);
-    const args = plugin.mcpServers["context-mode"].args;
+    const args = plugin.mcpServers["mcp"].args;
     expect(args[0]).toContain("CLAUDE_PLUGIN_ROOT");
   });
 
@@ -286,7 +286,7 @@ describe(".mcp.json — MCP server config", () => {
     const example = JSON.parse(
       readFileSync(resolve(ROOT, ".mcp.json.example"), "utf-8"),
     );
-    const args = example.mcpServers["context-mode"].args;
+    const args = example.mcpServers["mcp"].args;
     expect(args[0]).toContain("${CLAUDE_PLUGIN_ROOT}");
     expect(args[0]).toContain("start.mjs");
   });
@@ -1003,7 +1003,7 @@ describe("Bin entry uses cli.bundle.mjs", () => {
   const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf-8"));
 
   it("package.json bin points to cli.bundle.mjs, not build/cli.js", () => {
-    expect(pkg.bin["context-mode"]).toBe("./cli.bundle.mjs");
+    expect(pkg.bin["ctxscribe"]).toBe("./cli.bundle.mjs");
   });
 
   it("package.json exports ./cli points to cli.bundle.mjs", () => {
@@ -1459,8 +1459,8 @@ describe("start.mjs CLI self-heal", () => {
     }
 
     // Build a fake CC plugin layout under a fresh tmp dir:
-    //   <root>/.claude/plugins/cache/context-mode/context-mode/<version>/
-    //   <root>/.claude/plugins/marketplaces/context-mode/
+    //   <root>/.claude/plugins/cache/wotjr1649/ctxscribe/<version>/
+    //   <root>/.claude/plugins/marketplaces/wotjr1649/
     // The marketplace clone gets a realistic package.json files[] pointing
     // at a few canned dirs + files so the heal has concrete sources to
     // copy. The cache dir starts empty so each test can populate the exact
@@ -1474,14 +1474,14 @@ describe("start.mjs CLI self-heal", () => {
       const pluginRoot = resolve(
         pluginsDir,
         "cache",
-        "context-mode",
-        "context-mode",
+        "wotjr1649",
+        "ctxscribe",
         version,
       );
       const marketplaceClonePath = resolve(
         pluginsDir,
         "marketplaces",
-        "context-mode",
+        "wotjr1649",
       );
       mkdirSync(marketplaceClonePath, { recursive: true });
       writeFileSync(
@@ -1529,7 +1529,7 @@ describe("start.mjs CLI self-heal", () => {
             name: "context-mode",
             version,
             mcpServers: {
-              "context-mode": {
+              "mcp": {
                 command: "node",
                 args: ["${CLAUDE_PLUGIN_ROOT}/start.mjs"],
               },
@@ -1631,9 +1631,9 @@ describe("start.mjs CLI self-heal", () => {
       const { deriveMarketplaceClonePath } = await import(
         "../../hooks/heal-partial-install.mjs"
       );
-      const cache = "/home/u/.claude/plugins/cache/context-mode/context-mode/1.0.150";
+      const cache = "/home/u/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.150";
       expect(deriveMarketplaceClonePath(cache)).toBe(
-        resolve("/home/u/.claude/plugins/marketplaces/context-mode"),
+        resolve("/home/u/.claude/plugins/marketplaces/wotjr1649"),
       );
     });
 
@@ -1641,9 +1641,9 @@ describe("start.mjs CLI self-heal", () => {
       const { deriveMarketplaceClonePath } = await import(
         "../../hooks/heal-partial-install.mjs"
       );
-      const cache = "/home/u/.claude/plugins/cache/context-mode/context-mode/1.0.150/";
+      const cache = "/home/u/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.150/";
       expect(deriveMarketplaceClonePath(cache)).toBe(
-        resolve("/home/u/.claude/plugins/marketplaces/context-mode"),
+        resolve("/home/u/.claude/plugins/marketplaces/wotjr1649"),
       );
     });
 
@@ -1791,10 +1791,10 @@ describe("start.mjs CLI self-heal", () => {
             name: "context-mode",
             version: "1.0.150",
             mcpServers: {
-              "context-mode": {
+              "mcp": {
                 command: "/usr/bin/bun",
                 args: [
-                  "/home/u/.claude/plugins/cache/context-mode/context-mode/1.0.146/start.mjs",
+                  "/home/u/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/start.mjs",
                 ],
               },
             },
@@ -1813,10 +1813,10 @@ describe("start.mjs CLI self-heal", () => {
       const fixed = readJson(
         join(pluginRoot, ".claude-plugin", "plugin.json"),
       ) as {
-        mcpServers: { "context-mode": { args: string[] } };
+        mcpServers: { "mcp": { args: string[] } };
       };
-      expect(fixed.mcpServers["context-mode"].args[0]).toContain("1.0.150");
-      expect(fixed.mcpServers["context-mode"].args[0]).not.toContain("1.0.146");
+      expect(fixed.mcpServers["mcp"].args[0]).toContain("1.0.150");
+      expect(fixed.mcpServers["mcp"].args[0]).not.toContain("1.0.146");
     });
 
     it.skipIf(process.platform === "win32")("healPartialInstallFromMarketplace refuses to rewrite plugin.json when it's a symlink", async () => {
@@ -1856,10 +1856,10 @@ describe("start.mjs CLI self-heal", () => {
           name: "context-mode",
           version: "1.0.150",
           mcpServers: {
-            "context-mode": {
+            "mcp": {
               command: "/attacker/payload.sh",
               args: [
-                "/home/u/.claude/plugins/cache/context-mode/context-mode/1.0.146/start.mjs",
+                "/home/u/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/start.mjs",
               ],
             },
           },
@@ -1896,7 +1896,7 @@ describe("start.mjs CLI self-heal", () => {
       const attackerStillThere = JSON.parse(
         readFileSync(attackerJsonPath, "utf-8"),
       );
-      expect(attackerStillThere.mcpServers["context-mode"].command).toBe(
+      expect(attackerStillThere.mcpServers["mcp"].command).toBe(
         "/attacker/payload.sh",
       );
     });
@@ -1914,7 +1914,7 @@ describe("start.mjs CLI self-heal", () => {
             name: "context-mode",
             version: "1.0.150",
             mcpServers: {
-              "context-mode": {
+              "mcp": {
                 command: "node",
                 args: ["${CLAUDE_PLUGIN_ROOT}/start.mjs"],
               },
@@ -1934,12 +1934,12 @@ describe("start.mjs CLI self-heal", () => {
       const fixed = readJson(
         join(pluginRoot, ".claude-plugin", "plugin.json"),
       ) as {
-        mcpServers: { "context-mode": { args: string[] } };
+        mcpServers: { "mcp": { args: string[] } };
       };
-      expect(fixed.mcpServers["context-mode"].args[0]).not.toContain(
+      expect(fixed.mcpServers["mcp"].args[0]).not.toContain(
         "${CLAUDE_PLUGIN_ROOT}",
       );
-      expect(fixed.mcpServers["context-mode"].args[0]).toContain("start.mjs");
+      expect(fixed.mcpServers["mcp"].args[0]).toContain("start.mjs");
     });
 
     it("healPartialInstallFromMarketplace leaves a healthy plugin.json alone", async () => {
@@ -1959,7 +1959,7 @@ describe("start.mjs CLI self-heal", () => {
             name: "context-mode",
             version: "1.0.150",
             mcpServers: {
-              "context-mode": {
+              "mcp": {
                 command: "node",
                 args: [healthyArgs0],
               },
@@ -2418,7 +2418,7 @@ describe("start.mjs CLI self-heal", () => {
             name: "context-mode",
             version: "1.0.150",
             mcpServers: {
-              "context-mode": {
+              "mcp": {
                 command: "/usr/bin/bun",
                 args: [
                   pluginRoot.replace("1.0.150", "1.0.146") + sep + "start.mjs",
@@ -2449,10 +2449,10 @@ describe("start.mjs CLI self-heal", () => {
       const plugin = readJson(
         join(pluginRoot, ".claude-plugin", "plugin.json"),
       ) as {
-        mcpServers: { "context-mode": { args: string[] } };
+        mcpServers: { "mcp": { args: string[] } };
       };
-      expect(plugin.mcpServers["context-mode"].args[0]).toContain("1.0.150");
-      expect(plugin.mcpServers["context-mode"].args[0]).not.toContain("1.0.146");
+      expect(plugin.mcpServers["mcp"].args[0]).toContain("1.0.150");
+      expect(plugin.mcpServers["mcp"].args[0]).not.toContain("1.0.146");
 
       // Non-files[] extras left alone.
       expect(
@@ -2628,10 +2628,10 @@ describe("statuslineForward survives stale getPluginRoot() (post-upgrade)", () =
     // After ctx-upgrade, the running CLI binary may live in a cache dir that
     // sessionstart.mjs (#181) has already cleaned, so getPluginRoot() resolves
     // to a directory whose bin/statusline.mjs has been removed. Falling back
-    // to the marketplace clone (~/.claude/plugins/marketplaces/context-mode)
+    // to the marketplace clone (~/.claude/plugins/marketplaces/wotjr1649)
     // keeps the statusline alive — that path is stable across upgrades and is
     // now refreshed every /ctx-upgrade per #418.
-    expect(fnBody).toMatch(/marketplaces[\\/]+["']?\s*,\s*["']?context-mode["']?|"marketplaces"\s*,\s*"context-mode"/);
+    expect(fnBody).toMatch(/marketplaces[\\/]+["']?\s*,\s*["']?wotjr1649["']?|"marketplaces"\s*,\s*"wotjr1649"/);
   });
 
   test("statuslineForward also tries installed_plugins.json install path", () => {
@@ -2687,11 +2687,11 @@ describe("ctx-upgrade syncs marketplace clone (#418)", () => {
   const upgradeStart = CLI_SOURCE.indexOf("async function upgrade");
   const upgradeBody = CLI_SOURCE.slice(upgradeStart);
 
-  test("upgrade() targets ~/.claude/plugins/marketplaces/context-mode for git refresh", () => {
+  test("upgrade() targets ~/.claude/plugins/marketplaces/wotjr1649 for git refresh", () => {
     // CC's marketplace clone (separate from cache dir) was previously left
     // pinned at the install-time commit; users running /ctx-upgrade never
     // received upstream changes through the marketplace metadata path.
-    expect(upgradeBody).toMatch(/marketplaces[\\/]+["']?\s*,\s*["']?context-mode["']?|"marketplaces"\s*,\s*"context-mode"/);
+    expect(upgradeBody).toMatch(/marketplaces[\\/]+["']?\s*,\s*["']?wotjr1649["']?|"marketplaces"\s*,\s*"wotjr1649"/);
   });
 
   test("upgrade() runs git fetch + reset against marketplace dir", () => {
@@ -2965,7 +2965,7 @@ describe("Self-heal hook-path rewriting (#187 + #415 follow-up)", () => {
   });
 
   test("pretooluse.mjs legacy stale-path rewrite still iterates ALL hook types (#187)", () => {
-    // The legacy else-branch (rewrites stale context-mode hook paths to current
+    // The legacy else-branch (rewrites stale ctxscribe hook paths to current
     // version dir when hooks.json is absent) must cover all hook types, not just
     // PreToolUse — that was the original #187 fix and remains intact.
     expect(PRETOOLUSE_SOURCE).not.toContain("settings.hooks?.PreToolUse");
@@ -3064,8 +3064,8 @@ describe("Codex CLI hook dispatch (#225)", () => {
     for (const [eventType, entries] of Object.entries(hooksJson.hooks)) {
       for (const entry of entries as any[]) {
         for (const hook of entry.hooks) {
-          // Command must use "context-mode hook codex <event>"
-          expect(hook.command).toMatch(/context-mode hook codex \w+/);
+          // Command must use "ctxscribe hook codex <event>"
+          expect(hook.command).toMatch(/ctxscribe hook codex \w+/);
         }
       }
     }
@@ -3112,7 +3112,7 @@ describe("Upgrade syncs skills to active install path (#228)", () => {
     // Registry key is derived (pluginKey), not the hardcoded upstream
     // literal — see derivePluginKey in scripts/heal-installed-plugins.mjs.
     expect(upgradeBody).toContain("pluginKey");
-    expect(upgradeBody).not.toContain('"context-mode@context-mode"');
+    expect(upgradeBody).not.toContain('"ctxscribe@wotjr1649"');
     expect(upgradeBody).toContain("installPath");
   });
 
@@ -3274,7 +3274,7 @@ describe("installed_plugins.json installPath containment", () => {
     const claudeRoot = mkdtempSync(join(tmpdir(), "installpath-containment-"));
     try {
       const cacheRoot = resolve(claudeRoot, "plugins", "cache");
-      const legitCacheDir = resolve(cacheRoot, "context-mode", "context-mode", "1.0.0");
+      const legitCacheDir = resolve(cacheRoot, "wotjr1649", "ctxscribe", "1.0.0");
       const attackerDir = resolve(claudeRoot, "outside-cache", "evil");
       mkdirSync(legitCacheDir, { recursive: true });
       mkdirSync(attackerDir, { recursive: true });
@@ -3356,7 +3356,7 @@ describe("installed_plugins.json installPath containment", () => {
 
       // Create the cache tree inside the real target.
       const realCacheRoot = resolve(realTarget, "plugins", "cache");
-      const versionDir = resolve(realCacheRoot, "context-mode", "context-mode", "1.0.161");
+      const versionDir = resolve(realCacheRoot, "wotjr1649", "ctxscribe", "1.0.161");
       mkdirSync(versionDir, { recursive: true });
 
       // Simulate ~/.claude → realTarget
@@ -3372,7 +3372,7 @@ describe("installed_plugins.json installPath containment", () => {
 
       // installPath as stored by the plugin registry: the physical path
       // under the real target (not the symlink path).
-      const physicalInstallPath = resolve(realTarget, "plugins", "cache", "context-mode", "context-mode", "1.0.161");
+      const physicalInstallPath = resolve(realTarget, "plugins", "cache", "wotjr1649", "ctxscribe", "1.0.161");
 
       // Verification 1 — OLD behaviour (lexical, no fix):
       // The lexical comparison fails because the physical installPath
@@ -3697,12 +3697,12 @@ describe("PR #620 slice 4 — doctor() surfaces persistence-tier bug class", () 
     // nesting per ISSUE-609-VERDICT path examples). cli.ts uses
     // path.join() so the literal appears as adjacent string args:
     //   join(homedir(), ".claude", "plugins", "cache",
-    //        "context-mode", "context-mode")
+    //        "wotjr1649", "ctxscribe")
     // We assert on both the cache anchor segments AND the join args
     // (Mert standing rule — use platform-neutral path joins, not literal
     // separators that fail on Windows).
     expect(body).toMatch(/"plugins"\s*,\s*"cache"/);
-    expect(body).toMatch(/"context-mode"\s*,\s*"context-mode"/);
+    expect(body).toMatch(/"wotjr1649"\s*,\s*"ctxscribe"/);
     // Must check for `.mcp.json` (the file that should not exist after
     // PR #620's architectural untrack — ISSUE-609-VERDICT §H1 → PR #618 → #620).
     const anchorIdx = body.indexOf("#609");

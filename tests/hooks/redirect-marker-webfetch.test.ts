@@ -73,7 +73,7 @@ describe("D2 Phase 4 — webfetch-redirected marker pattern", () => {
     // must apply the same normalization before SHA — otherwise on Windows the
     // expected hash uses backslashes while the hook uses slashes (#435 pattern).
     const projectHash = _hashCanonical(fakeProject.replace(/\\/g, "/"));
-    const dbDir = join(fakeHome, ".claude", "context-mode", "sessions");
+    const dbDir = join(fakeHome, ".claude", "ctxscribe", "sessions");
     mkdirSync(dbDir, { recursive: true });
     dbPath = join(dbDir, `${projectHash}.db`);
   });

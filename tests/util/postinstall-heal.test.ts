@@ -34,7 +34,7 @@ const REPO_ROOT = resolve(__dirname, "../..");
 const REPO_POSTINSTALL = resolve(REPO_ROOT, "scripts", "postinstall.mjs");
 const REPO_HEAL_IP = resolve(REPO_ROOT, "scripts", "heal-installed-plugins.mjs");
 const REPO_HEAL_SQLITE3 = resolve(REPO_ROOT, "scripts", "heal-better-sqlite3.mjs");
-const KEY = "context-mode@context-mode";
+const KEY = "ctxscribe@wotjr1649";
 
 /**
  * Simulate an `npm install -g` package layout: copy postinstall + its
@@ -68,7 +68,7 @@ function stagePostinstallPackage(layout: "cache" | "npm-global" = "cache"): {
   // making the staged global-install fixture look like a contributor checkout.
   const root = layout === "npm-global"
     ? join(base, "npm", "lib", "node_modules", "context-mode")
-    : join(base, "plugins", "cache", "context-mode", "context-mode", "1.0.0");
+    : join(base, "plugins", "cache", "wotjr1649", "ctxscribe", "1.0.0");
   const scriptsDir = join(root, "scripts");
   const hooksDir = join(root, "hooks");
   mkdirSync(scriptsDir, { recursive: true });
@@ -120,7 +120,7 @@ function buildFakeHome(opts: {
 }): FakeHome {
   const home = makeTmp("ctx-postinstall-home-");
   const pluginsRoot = resolve(home, ".claude", "plugins");
-  const cacheDir = resolve(pluginsRoot, "cache", "context-mode", "context-mode", opts.cacheVersion);
+  const cacheDir = resolve(pluginsRoot, "cache", "wotjr1649", "ctxscribe", opts.cacheVersion);
   mkdirSync(resolve(cacheDir, ".claude-plugin"), { recursive: true });
   writeFileSync(
     resolve(cacheDir, ".claude-plugin", "plugin.json"),
@@ -208,7 +208,7 @@ describe("postinstall — non-global install (contributor `npm install`)", () =>
 // is dangling (non-existent, under the cache root) it creates a
 // symlink/junction at that path. The fixture below plants exactly such an
 // entry under the upstream-literal key. If someone reintroduces
-// `derivePluginKey(pkgRoot) ?? "context-mode@context-mode"`, the block
+// `derivePluginKey(pkgRoot) ?? "ctxscribe@wotjr1649"`, the block
 // enters, symlinks the dangling installPath, and the existsSync tripwire
 // below fails. (Mutation-verified — see the Task 9 fix-round report.)
 //
@@ -231,7 +231,7 @@ describe("postinstall — Task 3b: npm-global layout (outside plugin cache) skip
     // <home>/.claude/plugins/cache so the traversal guard
     // (`resolve(rp).startsWith(cacheRoot + sep)`) would not skip it.
     const danglingPath = resolve(
-      fake.home, ".claude", "plugins", "cache", "context-mode", "context-mode", "9.9.9-dangling",
+      fake.home, ".claude", "plugins", "cache", "wotjr1649", "ctxscribe", "9.9.9-dangling",
     );
     const registry = JSON.parse(readFileSync(fake.registryPath, "utf-8")) as {
       plugins: Record<string, Array<Record<string, unknown>>>;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { isReapable, reap } from "../../hooks/orphan-reaper.mjs";
 
-const CACHE = "C:\\Users\\me\\.claude\\plugins\\cache\\context-mode-js\\context-mode";
+const CACHE = "C:\\Users\\me\\.claude\\plugins\\cache\\wotjr1649\\context-mode";
 
 describe("orphan-reaper isReapable — cache-root prefix, not substring", () => {
   it("reaps a plugin-cache orphan under the cache root", () => {

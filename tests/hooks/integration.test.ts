@@ -165,7 +165,7 @@ describe("Bash: Redirected Commands", () => {
       tool_name: "Bash",
       tool_input: { command: "curl -s http://example.com" },
     });
-    assertRedirect(result, "context-mode");
+    assertRedirect(result, "ctxscribe");
   });
 
   test("Bash + wget: redirected to echo via updatedInput", () => {
@@ -173,7 +173,7 @@ describe("Bash: Redirected Commands", () => {
       tool_name: "Bash",
       tool_input: { command: "wget http://example.com/file.tar.gz" },
     });
-    assertRedirect(result, "context-mode");
+    assertRedirect(result, "ctxscribe");
   });
 
   test("Bash + node -e with inline HTTP call: redirected to echo", () => {
@@ -181,7 +181,7 @@ describe("Bash: Redirected Commands", () => {
       tool_name: "Bash",
       tool_input: { command: `node -e "fetch('http://api.example.com/data')"` },
     });
-    assertRedirect(result, "context-mode");
+    assertRedirect(result, "ctxscribe");
   });
 
   test("Bash + ./gradlew build: redirected to execute sandbox (Issue #38)", () => {
@@ -313,8 +313,8 @@ describe("Read", () => {
     assertHookSpecificOutput(result, "additionalContext");
     const parsed = JSON.parse(result.stdout);
     assert.ok(
-      parsed.hookSpecificOutput.additionalContext.includes("context-mode"),
-      "Expected nudge to mention context-mode",
+      parsed.hookSpecificOutput.additionalContext.includes("ctxscribe"),
+      "Expected nudge to mention ctxscribe",
     );
     assert.ok(
       parsed.hookSpecificOutput.additionalContext.includes("<context_guidance>"),
@@ -332,8 +332,8 @@ describe("Grep", () => {
     assertHookSpecificOutput(result, "additionalContext");
     const parsed = JSON.parse(result.stdout);
     assert.ok(
-      parsed.hookSpecificOutput.additionalContext.includes("context-mode"),
-      "Expected nudge to mention context-mode",
+      parsed.hookSpecificOutput.additionalContext.includes("ctxscribe"),
+      "Expected nudge to mention ctxscribe",
     );
     assert.ok(
       parsed.hookSpecificOutput.additionalContext.includes("<context_guidance>"),
@@ -495,7 +495,7 @@ describe("Security Policy Enforcement", () => {
   test("Security: MCP execute + shell + sudo denied", () => {
     const result = runHook(
       {
-        tool_name: "mcp__plugin_context-mode_context-mode__ctx_execute",
+        tool_name: "mcp__plugin_ctxscribe_mcp__ctx_execute",
         tool_input: { language: "shell", code: "sudo rm -rf /" },
       },
       secEnv,
@@ -508,7 +508,7 @@ describe("Security Policy Enforcement", () => {
   test("Security: MCP execute + python (non-shell) passthrough", () => {
     const result = runHook(
       {
-        tool_name: "mcp__plugin_context-mode_context-mode__ctx_execute",
+        tool_name: "mcp__plugin_ctxscribe_mcp__ctx_execute",
         tool_input: { language: "python", code: "print('hello')" },
       },
       secEnv,
@@ -524,7 +524,7 @@ describe("Security Policy Enforcement", () => {
       const result = runHook(
         {
           cwd: worktree,
-          tool_name: "mcp__plugin_context-mode_context-mode__ctx_execute",
+          tool_name: "mcp__plugin_ctxscribe_mcp__ctx_execute",
           tool_input: { language: "shell", code: "pwd" },
         },
         { ...secEnv, CLAUDE_PROJECT_DIR: mainRepo },
@@ -542,7 +542,7 @@ describe("Security Policy Enforcement", () => {
   test("Security: MCP execute_file + .env path denied", () => {
     const result = runHook(
       {
-        tool_name: "mcp__plugin_context-mode_context-mode__ctx_execute_file",
+        tool_name: "mcp__plugin_ctxscribe_mcp__ctx_execute_file",
         tool_input: { path: ".env", language: "shell", code: "cat" },
       },
       secEnv,
@@ -556,7 +556,7 @@ describe("Security Policy Enforcement", () => {
   test("Security: MCP execute_file + safe path passthrough", () => {
     const result = runHook(
       {
-        tool_name: "mcp__plugin_context-mode_context-mode__ctx_execute_file",
+        tool_name: "mcp__plugin_ctxscribe_mcp__ctx_execute_file",
         tool_input: { path: "src/app.ts", language: "javascript", code: "console.log('ok')" },
       },
       secEnv,
@@ -568,7 +568,7 @@ describe("Security Policy Enforcement", () => {
   test("Security: MCP execute_file + safe path but sudo in shell code denied", () => {
     const result = runHook(
       {
-        tool_name: "mcp__plugin_context-mode_context-mode__ctx_execute_file",
+        tool_name: "mcp__plugin_ctxscribe_mcp__ctx_execute_file",
         tool_input: { path: "src/app.sh", language: "shell", code: "sudo rm -rf /" },
       },
       secEnv,
@@ -581,7 +581,7 @@ describe("Security Policy Enforcement", () => {
   test("Security: MCP batch_execute with sudo in one command denied", () => {
     const result = runHook(
       {
-        tool_name: "mcp__plugin_context-mode_context-mode__ctx_batch_execute",
+        tool_name: "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
         tool_input: {
           commands: [
             { label: "list", command: "ls -la" },
@@ -602,7 +602,7 @@ describe("Security Policy Enforcement", () => {
       const result = runHook(
         {
           cwd: worktree,
-          tool_name: "mcp__plugin_context-mode_context-mode__ctx_batch_execute",
+          tool_name: "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
           tool_input: {
             commands: [
               { label: "list", command: "ls -la" },
@@ -624,10 +624,10 @@ describe("Security Policy Enforcement", () => {
 describe("Plugin Tool Name Format in ROUTING_BLOCK", () => {
   // When installed via Claude Code plugin marketplace, tool names follow:
   //   mcp__plugin_<plugin-id>_<server-name>__<tool-name>
-  // For context-mode: mcp__plugin_context-mode_context-mode__<tool-name>
+  // For context-mode: mcp__plugin_ctxscribe_mcp__<tool-name>
   // The short form mcp__context-mode__* only works for direct MCP registration.
 
-  const PLUGIN_PREFIX = "mcp__plugin_context-mode_context-mode__";
+  const PLUGIN_PREFIX = "mcp__plugin_ctxscribe_mcp__";
   const SHORT_PREFIX = "mcp__context-mode__";
 
   test("Agent routing block uses plugin-format tool names", () => {
@@ -735,7 +735,7 @@ describe("UTF-8 BOM handling (core/stdin.mjs path)", () => {
       tool_name: "Bash",
       tool_input: { command: "curl -s http://example.com" },
     }, undefined, { bom: true });
-    assertRedirect(result, "context-mode");
+    assertRedirect(result, "ctxscribe");
   });
 });
 
@@ -810,7 +810,7 @@ describe("resolveConfigDir (#289)", () => {
         timeout: 10000,
       });
       expect(r.stdout).toContain(customDir);
-      expect(r.stdout).toContain("context-mode");
+      expect(r.stdout).toContain("ctxscribe");
       expect(r.stdout).toContain("sessions");
       expect(r.stdout).toMatch(/\.db$/);
     } finally {
@@ -1215,7 +1215,7 @@ describe("Issue #636: legacy settings.json rewrite quotes spaced paths", () => {
     if (
       command &&
       command.includes(".mjs") &&
-      command.includes("context-mode") &&
+      command.includes("ctxscribe") &&
       !command.includes(targetDir)
     ) {
       const scriptMatch = command.match(/([a-z]+\.mjs)\s*"?\s*$/);
@@ -1234,7 +1234,7 @@ describe("Issue #636: legacy settings.json rewrite quotes spaced paths", () => {
     "rewritten command keeps spaced path quoted so /bin/sh sees one arg",
     () => {
       const spacedTargetDir =
-        "/Users/foo/Library/CloudStorage/Dropbox-2olhares/Lucas Werneck/.claude/plugins/cache/context-mode/context-mode/1.0.140";
+        "/Users/foo/Library/CloudStorage/Dropbox-2olhares/Lucas Werneck/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.140";
       const staleCommand =
         "node /old/path/context-mode/0.5.0/hooks/pretooluse.mjs";
 
@@ -1270,7 +1270,7 @@ describe("Issue #636: legacy settings.json rewrite quotes spaced paths", () => {
       // This documents what the bug looked like — if anyone ever reverts the
       // fix, the assertion above flips and this one stays as the diagnostic.
       const spacedTargetDir =
-        "/Users/foo/Library/CloudStorage/Lucas Werneck/.claude/plugins/cache/context-mode/context-mode/1.0.140";
+        "/Users/foo/Library/CloudStorage/Lucas Werneck/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.140";
       const buggyForm =
         "node " + resolve(spacedTargetDir, "hooks", "pretooluse.mjs");
       const probe = spawnSync(

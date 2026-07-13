@@ -437,8 +437,8 @@ describe("getRealBytesStats (Phase 8 renderer source-of-truth)", () => {
     // (existsSync gate at the top of the loop) but the multi-adapter
     // aggregator should still pick up contentBytes from the sibling
     // content/ tree even when no session_events rows exist.
-    const claudeBase = join(home, ".claude", "context-mode");
-    const codexBase = join(home, ".codex", "context-mode");
+    const claudeBase = join(home, ".claude", "ctxscribe");
+    const codexBase = join(home, ".codex", "ctxscribe");
     mkdirSync(join(claudeBase, "sessions"), { recursive: true });
     mkdirSync(join(codexBase, "sessions"), { recursive: true });
     mkdirSync(join(claudeBase, "content"), { recursive: true });

@@ -49,7 +49,7 @@ import { rewriteShellSnapshots } from "../../hooks/cache-heal-utils.mjs";
 // fixture in this file uses the upstream `context-mode/context-mode/`
 // layout, so the real installed-tree pluginRoot names that same anchor.
 const PLUGIN_ROOT =
-  "/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.151";
+  "/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.151";
 
 const cleanups: string[] = [];
 
@@ -85,7 +85,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-1779542730786-abc123.sh");
     const original =
-      `export PATH='/usr/local/bin:/usr/bin:/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin:/opt/homebrew/bin'\n`;
+      `export PATH='/usr/local/bin:/usr/bin:/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin:/opt/homebrew/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
     const result = rewriteShellSnapshots({
@@ -97,7 +97,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     expect(result.rewritten).toEqual([file]);
     const after = readFileSync(file, "utf-8");
     expect(after).toBe(
-      `export PATH='/usr/local/bin:/usr/bin:/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.151/bin:/opt/homebrew/bin'\n`,
+      `export PATH='/usr/local/bin:/usr/bin:/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.151/bin:/opt/homebrew/bin'\n`,
     );
   });
 
@@ -105,7 +105,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-1.sh");
     const original =
-      `export PATH='/Users/x/.claude/plugins/cache/pm-skills/pm-toolkit/1.0.1/bin:/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin:/Users/x/.claude/plugins/cache/claude-adhd/claude-adhd/1.0.0/bin'\n`;
+      `export PATH='/Users/x/.claude/plugins/cache/pm-skills/pm-toolkit/1.0.1/bin:/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin:/Users/x/.claude/plugins/cache/claude-adhd/claude-adhd/1.0.0/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
     rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
@@ -113,11 +113,11 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const after = readFileSync(file, "utf-8");
     // context-mode bumped, siblings untouched
     expect(after).toContain(
-      "/cache/context-mode/context-mode/1.0.151/bin",
+      "/cache/wotjr1649/ctxscribe/1.0.151/bin",
     );
     expect(after).toContain("/cache/pm-skills/pm-toolkit/1.0.1/bin");
     expect(after).toContain("/cache/claude-adhd/claude-adhd/1.0.0/bin");
-    expect(after).not.toContain("context-mode/context-mode/1.0.146");
+    expect(after).not.toContain("wotjr1649/ctxscribe/1.0.146");
   });
 
   test("snapshot without context-mode entry — no-op, byte-identical", () => {
@@ -144,7 +144,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-current.sh");
     const original =
-      `export PATH='/usr/bin:/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.151/bin'\n`;
+      `export PATH='/usr/bin:/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.151/bin'\n`;
     writeFileSync(file, original, "utf-8");
     const beforeMtime = statSync(file).mtimeMs;
 
@@ -164,14 +164,14 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-double.sh");
     const original =
-      `export PATH='/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.140/bin:/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin'\n`;
+      `export PATH='/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.140/bin:/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
     rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     const after = readFileSync(file, "utf-8");
     expect(after).toBe(
-      `export PATH='/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.151/bin:/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.151/bin'\n`,
+      `export PATH='/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.151/bin:/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.151/bin'\n`,
     );
   });
 
@@ -179,16 +179,16 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-bash-win.sh");
     const original =
-      `export PATH="C:\\Users\\me\\.claude\\plugins\\cache\\context-mode\\context-mode\\1.0.146\\bin;C:\\WINDOWS\\system32"\n`;
+      `export PATH="C:\\Users\\me\\.claude\\plugins\\cache\\wotjr1649\\ctxscribe\\1.0.146\\bin;C:\\WINDOWS\\system32"\n`;
     writeFileSync(file, original, "utf-8");
 
     rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     const after = readFileSync(file, "utf-8");
     expect(after).toContain(
-      "C:\\Users\\me\\.claude\\plugins\\cache\\context-mode\\context-mode\\1.0.151\\bin",
+      "C:\\Users\\me\\.claude\\plugins\\cache\\wotjr1649\\ctxscribe\\1.0.151\\bin",
     );
-    expect(after).not.toContain("context-mode\\context-mode\\1.0.146");
+    expect(after).not.toContain("wotjr1649\\ctxscribe\\1.0.146");
     expect(after).toContain("C:\\WINDOWS\\system32");
   });
 
@@ -196,14 +196,14 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-bash-msys.sh");
     const original =
-      `export PATH='/c/Users/me/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin:/usr/bin'\n`;
+      `export PATH='/c/Users/me/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin:/usr/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
     rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
     const after = readFileSync(file, "utf-8");
     expect(after).toBe(
-      `export PATH='/c/Users/me/.claude/plugins/cache/context-mode/context-mode/1.0.151/bin:/usr/bin'\n`,
+      `export PATH='/c/Users/me/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.151/bin:/usr/bin'\n`,
     );
   });
 
@@ -242,7 +242,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const other = join(snapshotsDir, "README.md");
     writeFileSync(
       sh,
-      `export PATH='/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin'\n`,
+      `export PATH='/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin'\n`,
       "utf-8",
     );
     writeFileSync(
@@ -257,7 +257,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       "context-mode/context-mode/1.0.146 — do not touch",
     );
     expect(readFileSync(sh, "utf-8")).toContain(
-      "context-mode/context-mode/1.0.151/bin",
+      "wotjr1649/ctxscribe/1.0.151/bin",
     );
   });
 
@@ -266,7 +266,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const file = join(snapshotsDir, "snapshot-zsh-atomic.sh");
     writeFileSync(
       file,
-      `export PATH='/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin'\n`,
+      `export PATH='/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin'\n`,
       "utf-8",
     );
 
@@ -283,9 +283,9 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     // Defensive: a malicious plugin manifest could create
     // `.../cache/evil-owner/context-mode/1.0.146/bin`. Even with the
     // legit anchor explicitly supplied (PLUGIN_ROOT names
-    // `cache/context-mode/context-mode/`), the derived prefix must not
+    // `cache/wotjr1649/ctxscribe/`), the derived prefix must not
     // match `evil-owner/context-mode/...` — the entry stays byte-identical.
-    // `evil-owner` and the fork's `context-mode-js` are the same shape; the
+    // `evil-owner` and the fork's `wotjr1649` are the same shape; the
     // heal only rewrites the tree pluginRoot actually names.
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-spoof.sh");
@@ -312,7 +312,7 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-x.sh");
     const original =
-      `export PATH='/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.146/bin'\n`;
+      `export PATH='/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin'\n`;
     writeFileSync(file, original, "utf-8");
 
     let result: { rewritten: string[] } | undefined;
@@ -350,7 +350,7 @@ describe("rewriteShellSnapshots — concurrent-read safety", () => {
     const snapshotsDir = makeSnapshotsDir();
     const file = join(snapshotsDir, "snapshot-zsh-concurrent.sh");
     const before =
-      `export PATH='/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.140/bin:/usr/bin'\n`;
+      `export PATH='/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.140/bin:/usr/bin'\n`;
     writeFileSync(file, before, "utf-8");
 
     rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
@@ -358,7 +358,7 @@ describe("rewriteShellSnapshots — concurrent-read safety", () => {
     // Target file exists, has new content, sibling tmp does not exist.
     expect(existsSync(file)).toBe(true);
     expect(readFileSync(file, "utf-8")).toContain(
-      "context-mode/context-mode/1.0.151/bin",
+      "wotjr1649/ctxscribe/1.0.151/bin",
     );
     const tmpSiblings = readdirSync(snapshotsDir).filter((n) =>
       n.includes(".tmp"),

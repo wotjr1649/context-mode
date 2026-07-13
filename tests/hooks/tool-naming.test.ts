@@ -64,7 +64,7 @@ afterEach(() => {
 describe("getToolName", () => {
   it("returns correct name for claude-code", () => {
     expect(getToolName("claude-code", "ctx_fetch_and_index")).toBe(
-      "mcp__plugin_context-mode_context-mode__ctx_fetch_and_index",
+      "mcp__plugin_ctxscribe_mcp__ctx_fetch_and_index",
     );
   });
 
@@ -74,7 +74,7 @@ describe("getToolName", () => {
 
   it("falls back to claude-code for unknown platforms", () => {
     expect(getToolName("unknown-platform", "ctx_search")).toBe(
-      "mcp__plugin_context-mode_context-mode__ctx_search",
+      "mcp__plugin_ctxscribe_mcp__ctx_search",
     );
   });
 });
@@ -82,8 +82,8 @@ describe("getToolName", () => {
 describe("createToolNamer", () => {
   it("returns a function that produces correct names", () => {
     const t = createToolNamer("claude-code");
-    expect(t("ctx_execute")).toBe("mcp__plugin_context-mode_context-mode__ctx_execute");
-    expect(t("ctx_search")).toBe("mcp__plugin_context-mode_context-mode__ctx_search");
+    expect(t("ctx_execute")).toBe("mcp__plugin_ctxscribe_mcp__ctx_execute");
+    expect(t("ctx_search")).toBe("mcp__plugin_ctxscribe_mcp__ctx_search");
   });
 });
 
@@ -119,40 +119,40 @@ describe("createExternalMcpGuidance (#529)", () => {
 describe("backward compat static exports", () => {
   it("ROUTING_BLOCK uses claude-code naming", () => {
     expect(ROUTING_BLOCK).toContain(
-      "mcp__plugin_context-mode_context-mode__ctx_batch_execute",
+      "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
     );
     expect(ROUTING_BLOCK).toContain(
-      "mcp__plugin_context-mode_context-mode__ctx_search",
+      "mcp__plugin_ctxscribe_mcp__ctx_search",
     );
   });
 
   it("READ_GUIDANCE uses claude-code naming", () => {
     expect(READ_GUIDANCE).toContain(
-      "mcp__plugin_context-mode_context-mode__ctx_execute_file",
+      "mcp__plugin_ctxscribe_mcp__ctx_execute_file",
     );
   });
 
   it("GREP_GUIDANCE uses claude-code naming", () => {
     expect(GREP_GUIDANCE).toContain(
-      "mcp__plugin_context-mode_context-mode__ctx_execute",
+      "mcp__plugin_ctxscribe_mcp__ctx_execute",
     );
   });
 
   it("BASH_GUIDANCE uses claude-code naming", () => {
     expect(BASH_GUIDANCE).toContain(
-      "mcp__plugin_context-mode_context-mode__ctx_batch_execute",
+      "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
     );
   });
 
   it("EXTERNAL_MCP_GUIDANCE uses claude-code naming and matches the factory (#529)", () => {
     expect(EXTERNAL_MCP_GUIDANCE).toContain(
-      "mcp__plugin_context-mode_context-mode__ctx_execute",
+      "mcp__plugin_ctxscribe_mcp__ctx_execute",
     );
     expect(EXTERNAL_MCP_GUIDANCE).toContain(
-      "mcp__plugin_context-mode_context-mode__ctx_fetch_and_index",
+      "mcp__plugin_ctxscribe_mcp__ctx_fetch_and_index",
     );
     expect(EXTERNAL_MCP_GUIDANCE).toContain(
-      "mcp__plugin_context-mode_context-mode__ctx_search",
+      "mcp__plugin_ctxscribe_mcp__ctx_search",
     );
     // Drift guard: the static export must equal the factory output with the
     // default (claude-code) namer — they share a single template.
@@ -170,7 +170,7 @@ describe("routePreToolUse with platform parameter", () => {
     const result = routePreToolUse("Bash", { command: "curl https://example.com" }, "/tmp");
     expect(result).not.toBeNull();
     const cmd = (result!.updatedInput as Record<string, string>).command;
-    expect(cmd).toContain("mcp__plugin_context-mode_context-mode__ctx_fetch_and_index");
+    expect(cmd).toContain("mcp__plugin_ctxscribe_mcp__ctx_fetch_and_index");
   });
 
   it("Task is no longer routed — returns null (#241)", () => {

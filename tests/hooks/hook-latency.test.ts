@@ -79,7 +79,7 @@ const PRETOOL_CASES = [
   { name: "Grep search", tool: "Grep", input: { pattern: "TODO", path: "/tmp" } },
   { name: "Write file", tool: "Write", input: { file_path: "/tmp/out.ts", content: "hello" } },
   { name: "Edit file", tool: "Edit", input: { file_path: "/tmp/out.ts", old_string: "a", new_string: "b" } },
-  { name: "MCP tool (passthrough)", tool: "mcp__plugin_context-mode_context-mode__ctx_execute", input: { language: "javascript", code: "1+1" } },
+  { name: "MCP tool (passthrough)", tool: "mcp__plugin_ctxscribe_mcp__ctx_execute", input: { language: "javascript", code: "1+1" } },
   { name: "Glob search", tool: "Glob", input: { pattern: "**/*.ts" } },
 ];
 

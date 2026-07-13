@@ -62,7 +62,7 @@ describe("runHook wrapper", () => {
     expect(r.stdout).toContain("called=true");
   });
 
-  it("logs to ~/.claude/context-mode/hook-errors.log when handler throws, then exits 0", () => {
+  it("logs to ~/.claude/ctxscribe/hook-errors.log when handler throws, then exits 0", () => {
     const script = `
       import { runHook } from ${JSON.stringify(RUN_HOOK_URL)};
       await runHook(async () => { throw new Error("boom-handler"); });
@@ -73,7 +73,7 @@ describe("runHook wrapper", () => {
     // After process.exit(0) the trailing console.log should NOT print.
     expect(r.stdout).not.toContain("after-runHook");
 
-    const logPath = join(tmpHome, ".claude", "context-mode", "hook-errors.log");
+    const logPath = join(tmpHome, ".claude", "ctxscribe", "hook-errors.log");
     expect(existsSync(logPath)).toBe(true);
     const log = readFileSync(logPath, "utf-8");
     expect(log).toContain("boom-handler");
@@ -107,7 +107,7 @@ describe("runHook wrapper", () => {
     // No MODULE_NOT_FOUND propagation
     expect(r.stderr).not.toContain("MODULE_NOT_FOUND");
 
-    const logPath = join(tmpHome, ".claude", "context-mode", "hook-errors.log");
+    const logPath = join(tmpHome, ".claude", "ctxscribe", "hook-errors.log");
     expect(existsSync(logPath)).toBe(true);
     const log = readFileSync(logPath, "utf-8");
     expect(log).toContain("poisoned-suppress");
@@ -134,13 +134,13 @@ describe("runHook wrapper", () => {
     // We exit 0 from inside the uncaughtException handler — "survived" should NOT print
     expect(r.stdout).not.toContain("survived");
 
-    const logPath = join(tmpHome, ".claude", "context-mode", "hook-errors.log");
+    const logPath = join(tmpHome, ".claude", "ctxscribe", "hook-errors.log");
     expect(existsSync(logPath)).toBe(true);
     const log = readFileSync(logPath, "utf-8");
     expect(log).toContain("late-uncaught");
   });
 
-  it("logs to $CLAUDE_CONFIG_DIR/context-mode/hook-errors.log when env var is set (#453)", () => {
+  it("logs to $CLAUDE_CONFIG_DIR/ctxscribe/hook-errors.log when env var is set (#453)", () => {
     const customCfg = join(tmpHome, "custom-claude-cfg");
     const script = `
       import { runHook } from ${JSON.stringify(RUN_HOOK_URL)};
@@ -154,12 +154,12 @@ describe("runHook wrapper", () => {
     expect(r.status).toBe(0);
 
     // New location honored
-    const newLogPath = join(customCfg, "context-mode", "hook-errors.log");
+    const newLogPath = join(customCfg, "ctxscribe", "hook-errors.log");
     expect(existsSync(newLogPath)).toBe(true);
     expect(readFileSync(newLogPath, "utf-8")).toContain("boom-cfgdir");
 
     // Legacy location NOT written
-    const legacyLogPath = join(tmpHome, ".claude", "context-mode", "hook-errors.log");
+    const legacyLogPath = join(tmpHome, ".claude", "ctxscribe", "hook-errors.log");
     expect(existsSync(legacyLogPath)).toBe(false);
   });
 });

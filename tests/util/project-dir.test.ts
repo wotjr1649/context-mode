@@ -63,15 +63,15 @@ function runCompiledResolver(command: string, args: string[]): string {
 
 describe("isPluginInstallPath", () => {
   it("matches macOS / Linux plugin cache paths", () => {
-    expect(isPluginInstallPath("/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.112")).toBe(true);
+    expect(isPluginInstallPath("/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.112")).toBe(true);
     expect(isPluginInstallPath("/home/x/.claude/plugins/cache/foo/foo/1.0.0")).toBe(true);
-    expect(isPluginInstallPath("/Users/x/.codex/plugins/cache/context-mode/context-mode/1.0.151")).toBe(true);
+    expect(isPluginInstallPath("/Users/x/.codex/plugins/cache/wotjr1649/ctxscribe/1.0.151")).toBe(true);
     expect(isPluginInstallPath("/home/x/.codex/plugins/cache/foo/foo/1.0.0")).toBe(true);
   });
 
   it("matches plugin marketplace paths", () => {
-    expect(isPluginInstallPath("/Users/x/.claude/plugins/marketplaces/context-mode")).toBe(true);
-    expect(isPluginInstallPath("/Users/x/.codex/plugins/marketplaces/context-mode")).toBe(true);
+    expect(isPluginInstallPath("/Users/x/.claude/plugins/marketplaces/wotjr1649")).toBe(true);
+    expect(isPluginInstallPath("/Users/x/.codex/plugins/marketplaces/wotjr1649")).toBe(true);
   });
 
   it("matches Windows plugin cache paths (backslash + drive letter)", () => {
@@ -88,7 +88,7 @@ describe("isPluginInstallPath", () => {
   it("returns false for unrelated .claude subpaths (e.g. session storage)", () => {
     // This path is under .claude but NOT under .claude/plugins/* — must not match.
     expect(isPluginInstallPath("/Users/x/.claude/projects/-Users-x-proj")).toBe(false);
-    expect(isPluginInstallPath("/Users/x/.claude/context-mode/sessions/abc.db")).toBe(false);
+    expect(isPluginInstallPath("/Users/x/.claude/ctxscribe/sessions/abc.db")).toBe(false);
   });
 
   it("returns false for empty / null-ish inputs", () => {
@@ -125,10 +125,10 @@ describe("resolveProjectDir", () => {
   it("rejects Codex plugin path env vars and falls through to the next source", () => {
     const result = resolveProjectDir({
       env: {
-        CLAUDE_PROJECT_DIR: "/Users/x/.codex/plugins/cache/context-mode/context-mode/1.0.151",
-        CONTEXT_MODE_PROJECT_DIR: "/Users/x/.codex/plugins/cache/context-mode/context-mode/1.0.151",
+        CLAUDE_PROJECT_DIR: "/Users/x/.codex/plugins/cache/wotjr1649/ctxscribe/1.0.151",
+        CONTEXT_MODE_PROJECT_DIR: "/Users/x/.codex/plugins/cache/wotjr1649/ctxscribe/1.0.151",
       },
-      cwd: "/Users/x/.codex/plugins/cache/context-mode/context-mode/1.0.151",
+      cwd: "/Users/x/.codex/plugins/cache/wotjr1649/ctxscribe/1.0.151",
       pwd: "/Users/x/Work/Dev/ucw",
     });
     expect(result).toBe("/Users/x/Work/Dev/ucw");

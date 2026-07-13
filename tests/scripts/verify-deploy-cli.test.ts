@@ -91,7 +91,7 @@ function makeCfg(opts: CfgOpts = {}): string {
   const cfg = mkdtempSync(join(tmpdir(), "vd-cli-"));
   created.push(cfg);
   const pluginsDir = join(cfg, "plugins");
-  const cacheDir = join(pluginsDir, "cache", "context-mode-js", "context-mode");
+  const cacheDir = join(pluginsDir, "cache", "wotjr1649", "ctxscribe");
   mkdirSync(cacheDir, { recursive: true });
 
   const version = opts.installVersion === undefined ? "1.0.2" : opts.installVersion;
@@ -108,7 +108,7 @@ function makeCfg(opts: CfgOpts = {}): string {
 
   if (!opts.noRegistry) {
     const registryText = opts.registryText ??
-      JSON.stringify({ plugins: { "context-mode@context-mode-js": [{ installPath }] } });
+      JSON.stringify({ plugins: { "ctxscribe@wotjr1649": [{ installPath }] } });
     writeFileSync(join(pluginsDir, "installed_plugins.json"), registryText);
   }
   return cfg;
@@ -144,7 +144,7 @@ describe("verify-deploy CLI — exit codes and verdict text", () => {
     // installPath = the cfg root, which sits ABOVE the cache dir → rejected.
     writeFileSync(
       join(cfg, "plugins", "installed_plugins.json"),
-      JSON.stringify({ plugins: { "context-mode@context-mode-js": [{ installPath: cfg }] } }),
+      JSON.stringify({ plugins: { "ctxscribe@wotjr1649": [{ installPath: cfg }] } }),
     );
     expectFail(run(["1.0.2"], cfg), "directly under the plugin cache");
   });
@@ -174,12 +174,12 @@ describe("verify-deploy CLI — exit codes and verdict text", () => {
       writeFileSync(join(evil, "package.json"), JSON.stringify({ version: "1.0.2" }));
       writeFileSync(join(evil, ".claude-plugin", "plugin.json"), JSON.stringify({ version: "1.0.2" }));
       // A junction that lexically sits directly under the cache but resolves to evil.
-      const cacheDir = join(cfg, "plugins", "cache", "context-mode-js", "context-mode");
+      const cacheDir = join(cfg, "plugins", "cache", "wotjr1649", "ctxscribe");
       const junction = join(cacheDir, "1.0.2");
       symlinkSync(evil, junction, "junction");
       writeFileSync(
         join(cfg, "plugins", "installed_plugins.json"),
-        JSON.stringify({ plugins: { "context-mode@context-mode-js": [{ installPath: junction }] } }),
+        JSON.stringify({ plugins: { "ctxscribe@wotjr1649": [{ installPath: junction }] } }),
       );
       // realpathSync resolves the junction out of the cache → reader returns null
       // → "cannot read deployed package.json", NOT a false PASS on the escaped tree.

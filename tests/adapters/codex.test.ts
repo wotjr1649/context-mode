@@ -19,7 +19,7 @@ function pluginEnabledSettings(extra = ""): string {
   return `[features]
 hooks = true
 
-[plugins."context-mode@context-mode"]
+[plugins."ctxscribe@wotjr1649"]
 enabled = true
 
 ${extra}`;
@@ -27,10 +27,10 @@ ${extra}`;
 
 function pluginListOutput(pluginRoot: string): string {
   return `Marketplace \`context-mode\`
-/Users/test/.codex/.tmp/marketplaces/context-mode/.agents/plugins/marketplace.json
+/Users/test/.codex/.tmp/marketplaces/wotjr1649/.agents/plugins/marketplace.json
 
 PLUGIN                    STATUS              VERSION  PATH
-context-mode@context-mode  installed, enabled  1.0.162  ${pluginRoot}
+ctxscribe@wotjr1649  installed, enabled  1.0.162  ${pluginRoot}
 `;
 }
 
@@ -298,7 +298,7 @@ describe("CodexAdapter", () => {
       expect(adapter.getSettingsPath()).toContain("config.toml");
     });
 
-    it("session dir is under ~/.codex/context-mode/sessions/", () => {
+    it("session dir is under ~/.codex/ctxscribe/sessions/", () => {
       expect(adapter.getSessionDir()).toContain(".codex");
       expect(adapter.getSessionDir()).toContain("sessions");
     });
@@ -316,7 +316,7 @@ describe("CodexAdapter", () => {
         });
         expect(customAdapter.getSettingsPath()).toBe(join(codexHome, "config.toml"));
         expect(customAdapter.getHooksPath()).toBe(join(codexHome, "hooks.json"));
-        expect(customAdapter.getSessionDir()).toBe(join(codexHome, "context-mode", "sessions"));
+        expect(customAdapter.getSessionDir()).toBe(join(codexHome, "ctxscribe", "sessions"));
       } finally {
         if (savedCodexHome === undefined) delete process.env.CODEX_HOME;
         else process.env.CODEX_HOME = savedCodexHome;
@@ -343,7 +343,7 @@ describe("CodexAdapter", () => {
     });
 
     it("parses the context-mode runtime root from `codex plugin list` output", () => {
-      const pluginRoot = join(homedir(), ".codex", ".tmp", "marketplaces", "context-mode");
+      const pluginRoot = join(homedir(), ".codex", ".tmp", "marketplaces", "wotjr1649");
       expect(parseCodexContextModePluginRoot(pluginListOutput(pluginRoot))).toBe(pluginRoot);
     });
 
@@ -378,9 +378,9 @@ describe("CodexAdapter", () => {
       expect(config.PreToolUse[0]?.matcher).toContain("ctx_batch_execute");
       expect(config.PreToolUse[0]?.matcher).toMatch(/(^|\|)mcp__$/);
       expect(config.PreToolUse[0]?.matcher).not.toMatch(/(^|\|)Read(\||$)/);
-      expect(config.PreToolUse[0]?.matcher).not.toContain("mcp__plugin_context-mode_context-mode__");
-      expect(config.PreCompact[0]?.hooks[0]?.command).toBe("context-mode hook codex precompact");
-      expect(config.UserPromptSubmit[0]?.hooks[0]?.command).toBe("context-mode hook codex userpromptsubmit");
+      expect(config.PreToolUse[0]?.matcher).not.toContain("mcp__plugin_ctxscribe_mcp__");
+      expect(config.PreCompact[0]?.hooks[0]?.command).toBe("ctxscribe hook codex precompact");
+      expect(config.UserPromptSubmit[0]?.hooks[0]?.command).toBe("ctxscribe hook codex userpromptsubmit");
     });
   });
 
@@ -407,20 +407,20 @@ describe("CodexAdapter", () => {
       expect(written.hooks.PreToolUse[0]?.matcher).toContain("ctx_execute");
       expect(written.hooks.PreToolUse[0]?.matcher).toMatch(/(^|\|)mcp__$/);
       expect(written.hooks.PreToolUse[0]?.matcher).not.toMatch(/(^|\|)Read(\||$)/);
-      expect(written.hooks.PreToolUse[0]?.matcher).not.toContain("mcp__plugin_context-mode_context-mode__");
-      expect(written.hooks.PreCompact[0]?.hooks[0]?.command).toBe("context-mode hook codex precompact");
-      expect(written.hooks.Stop[0]?.hooks[0]?.command).toBe("context-mode hook codex stop");
+      expect(written.hooks.PreToolUse[0]?.matcher).not.toContain("mcp__plugin_ctxscribe_mcp__");
+      expect(written.hooks.PreCompact[0]?.hooks[0]?.command).toBe("ctxscribe hook codex precompact");
+      expect(written.hooks.Stop[0]?.hooks[0]?.command).toBe("ctxscribe hook codex stop");
       expect(readFileSync(join(codexDir, "config.toml"), "utf-8")).toContain("hooks = true");
     });
 
-    it("preserves unrelated hook entries while updating context-mode hooks", () => {
+    it("preserves unrelated hook entries while updating ctxscribe hooks", () => {
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           PreToolUse: [
             { matcher: "", hooks: [{ type: "command", command: "node /tmp/context-mode/hooks/pretooluse.mjs" }] },
           ],
           SessionStart: [
-            { hooks: [{ type: "command", command: "context-mode hook codex sessionstart" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex sessionstart" }] },
             { matcher: "startup|resume", hooks: [{ type: "command", command: "node C:/tools/extra-hook.js" }] },
           ],
         },
@@ -517,7 +517,7 @@ describe("CodexAdapter", () => {
     // Reported by jowch + skbsasikumar-rgb: after a context-mode upgrade,
     // ~/.codex/hooks.json carries TWO context-mode entries for the same
     // hook event (e.g., a legacy `node /path/.../hooks/codex/pretooluse.mjs`
-    // alongside the new `context-mode hook codex pretooluse`). Codex then
+    // alongside the new `ctxscribe hook codex pretooluse`). Codex then
     // fires both, doubling work and historically saturating the MCP
     // transport / inflating codex-tui.log. `configureAllHooks` must collapse
     // these to exactly one canonical entry per event.
@@ -527,12 +527,12 @@ describe("CodexAdapter", () => {
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           PreToolUse: [
-            { matcher: "old-matcher-A", hooks: [{ type: "command", command: "context-mode hook codex pretooluse" }] },
-            { matcher: "old-matcher-B", hooks: [{ type: "command", command: "context-mode hook codex pretooluse" }] },
+            { matcher: "old-matcher-A", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
+            { matcher: "old-matcher-B", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
           ],
           SessionStart: [
-            { hooks: [{ type: "command", command: "context-mode hook codex sessionstart" }] },
-            { hooks: [{ type: "command", command: "context-mode hook codex sessionstart" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex sessionstart" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex sessionstart" }] },
           ],
         },
       }, null, 2));
@@ -544,9 +544,9 @@ describe("CodexAdapter", () => {
       };
 
       expect(written.hooks.PreToolUse).toHaveLength(1);
-      expect(written.hooks.PreToolUse[0]?.hooks[0]?.command).toBe("context-mode hook codex pretooluse");
+      expect(written.hooks.PreToolUse[0]?.hooks[0]?.command).toBe("ctxscribe hook codex pretooluse");
       expect(written.hooks.SessionStart).toHaveLength(1);
-      expect(written.hooks.SessionStart[0]?.hooks[0]?.command).toBe("context-mode hook codex sessionstart");
+      expect(written.hooks.SessionStart[0]?.hooks[0]?.command).toBe("ctxscribe hook codex sessionstart");
       expect(changes.some((c) => c.includes("Removed duplicate"))).toBe(true);
     });
 
@@ -558,11 +558,11 @@ describe("CodexAdapter", () => {
         hooks: {
           PreToolUse: [
             { matcher: "", hooks: [{ type: "command", command: "node /Users/foo/.nvm/versions/node/v20/lib/node_modules/context-mode/hooks/codex/pretooluse.mjs" }] },
-            { matcher: "", hooks: [{ type: "command", command: "context-mode hook codex pretooluse" }] },
+            { matcher: "", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
           ],
           PostToolUse: [
             { hooks: [{ type: "command", command: "/opt/homebrew/bin/node /opt/homebrew/lib/node_modules/context-mode/hooks/posttooluse.mjs" }] },
-            { hooks: [{ type: "command", command: "context-mode hook codex posttooluse" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex posttooluse" }] },
           ],
         },
       }, null, 2));
@@ -574,9 +574,9 @@ describe("CodexAdapter", () => {
       };
 
       expect(written.hooks.PreToolUse).toHaveLength(1);
-      expect(written.hooks.PreToolUse[0]?.hooks[0]?.command).toBe("context-mode hook codex pretooluse");
+      expect(written.hooks.PreToolUse[0]?.hooks[0]?.command).toBe("ctxscribe hook codex pretooluse");
       expect(written.hooks.PostToolUse).toHaveLength(1);
-      expect(written.hooks.PostToolUse[0]?.hooks[0]?.command).toBe("context-mode hook codex posttooluse");
+      expect(written.hooks.PostToolUse[0]?.hooks[0]?.command).toBe("ctxscribe hook codex posttooluse");
     });
 
     it("dedups plugin-cache legacy entry left by /ctx-upgrade with canonical entry (#603)", () => {
@@ -584,11 +584,11 @@ describe("CodexAdapter", () => {
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           UserPromptSubmit: [
-            { hooks: [{ type: "command", command: "node /Users/foo/.claude/plugins/cache/context-mode/context-mode/1.0.124/hooks/codex/userpromptsubmit.mjs" }] },
-            { hooks: [{ type: "command", command: "context-mode hook codex userpromptsubmit" }] },
+            { hooks: [{ type: "command", command: "node /Users/foo/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.124/hooks/codex/userpromptsubmit.mjs" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex userpromptsubmit" }] },
           ],
           Stop: [
-            { hooks: [{ type: "command", command: "/usr/bin/node /Users/foo/.claude/plugins/marketplaces/context-mode/hooks/codex/stop.mjs" }] },
+            { hooks: [{ type: "command", command: "/usr/bin/node /Users/foo/.claude/plugins/marketplaces/wotjr1649/hooks/codex/stop.mjs" }] },
           ],
         },
       }, null, 2));
@@ -600,9 +600,9 @@ describe("CodexAdapter", () => {
       };
 
       expect(written.hooks.UserPromptSubmit).toHaveLength(1);
-      expect(written.hooks.UserPromptSubmit[0]?.hooks[0]?.command).toBe("context-mode hook codex userpromptsubmit");
+      expect(written.hooks.UserPromptSubmit[0]?.hooks[0]?.command).toBe("ctxscribe hook codex userpromptsubmit");
       expect(written.hooks.Stop).toHaveLength(1);
-      expect(written.hooks.Stop[0]?.hooks[0]?.command).toBe("context-mode hook codex stop");
+      expect(written.hooks.Stop[0]?.hooks[0]?.command).toBe("ctxscribe hook codex stop");
     });
 
     it("removes context-mode user hooks when the Codex plugin owns hooks", () => {
@@ -614,11 +614,11 @@ describe("CodexAdapter", () => {
         hooks: {
           PreToolUse: [
             { matcher: "Bash", hooks: [{ type: "command", command: "node /opt/homebrew/lib/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js" }] },
-            { matcher: "local_shell|shell|ctx_execute|mcp__", hooks: [{ type: "command", command: "context-mode hook codex pretooluse" }] },
+            { matcher: "local_shell|shell|ctx_execute|mcp__", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
           ],
           SessionStart: [
             { matcher: "startup|resume", hooks: [{ type: "command", command: "node /opt/homebrew/lib/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js" }] },
-            { hooks: [{ type: "command", command: "context-mode hook codex sessionstart" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex sessionstart" }] },
           ],
         },
       }, null, 2), "utf-8");
@@ -632,7 +632,7 @@ describe("CodexAdapter", () => {
       expect(written.hooks.PreToolUse[0]?.hooks[0]?.command).toContain("oh-my-codex");
       expect(written.hooks.SessionStart).toHaveLength(1);
       expect(written.hooks.SessionStart[0]?.hooks[0]?.command).toContain("oh-my-codex");
-      expect(JSON.stringify(written)).not.toContain("context-mode hook codex");
+      expect(JSON.stringify(written)).not.toContain("ctxscribe hook codex");
       expect(changes.some((change) => change.includes("Removed duplicate context-mode user hooks"))).toBe(true);
     });
 
@@ -658,9 +658,9 @@ describe("CodexAdapter", () => {
       };
       expect(written.hooks.PreToolUse).toHaveLength(2);
       expect(written.hooks.PreToolUse.some((entry) =>
-        entry.hooks[0]?.command === "context-mode hook codex pretooluse",
+        entry.hooks[0]?.command === "ctxscribe hook codex pretooluse",
       )).toBe(true);
-      expect(written.hooks.PostToolUse[0]?.hooks[0]?.command).toBe("context-mode hook codex posttooluse");
+      expect(written.hooks.PostToolUse[0]?.hooks[0]?.command).toBe("ctxscribe hook codex posttooluse");
       expect(changes.some((change) => change.includes("Removed duplicate context-mode user hooks"))).toBe(false);
       expect(changes).toContain("Wrote native Codex hooks to " + hooksPath);
     });
@@ -678,11 +678,11 @@ describe("CodexAdapter", () => {
         },
       }, null, 2), "utf-8");
       writeFileSync(join(codexDir, "config.toml"), pluginEnabledSettings(`
-[mcp_servers.context-mode]
+[mcp_servers.mcp]
 command = "npx"
 args = ["-y", "context-mode"]
 
-[mcp_servers.context-mode.tools.ctx_execute]
+[mcp_servers.mcp.tools.ctx_execute]
 approval_mode = "approve"
 
 [hooks.state."${stateHooksPath}:pre_tool_use:0:0"]
@@ -695,8 +695,8 @@ trusted_hash = "sha256:stale"
       const changes = adapter.configureAllHooks(pluginRoot);
 
       const settings = readFileSync(join(codexDir, "config.toml"), "utf-8");
-      expect(settings).not.toContain("[mcp_servers.context-mode]");
-      expect(settings).not.toContain("[mcp_servers.context-mode.tools.ctx_execute]");
+      expect(settings).not.toContain("[mcp_servers.mcp]");
+      expect(settings).not.toContain("[mcp_servers.mcp.tools.ctx_execute]");
       expect(settings).toContain(`${stateHooksPath}:pre_tool_use:0:0`);
       expect(settings).not.toContain(`${stateHooksPath}:pre_tool_use:1:0`);
       expect(changes).toContain("Removed standalone Codex context-mode MCP registration");
@@ -736,14 +736,14 @@ trusted_hash = "sha256:stale"
       expect(results.map((result) => result.check)).toContain("Stop hook");
     });
 
-    it("passes via Codex plugin hooks and warns when user config still has context-mode hooks", () => {
+    it("passes via Codex plugin hooks and warns when user config still has ctxscribe hooks", () => {
       const pluginRoot = join(codexDir, "plugin-root");
       writeCodexPluginManifest(pluginRoot);
       writeFileSync(join(codexDir, "config.toml"), pluginEnabledSettings(), "utf-8");
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           PreToolUse: [
-            { matcher: "local_shell|shell|ctx_execute|mcp__", hooks: [{ type: "command", command: "context-mode hook codex pretooluse" }] },
+            { matcher: "local_shell|shell|ctx_execute|mcp__", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
           ],
         },
       }, null, 2), "utf-8");
@@ -752,7 +752,7 @@ trusted_hash = "sha256:stale"
 
       const preTool = results.find((result) => result.check === "PreToolUse hook");
       expect(preTool?.status).toBe("pass");
-      expect(preTool?.message).toMatch(/context-mode@context-mode plugin/);
+      expect(preTool?.message).toMatch(/ctxscribe@wotjr1649 plugin/);
       const duplicate = results.find((result) => result.check === "PreToolUse plugin duplicate");
       expect(duplicate?.status).toBe("warn");
       expect(duplicate?.message).toMatch(/configured in both/);
@@ -811,7 +811,7 @@ trusted_hash = "sha256:stale"
       adapter = adapterWithCodexPluginRoot(pluginRoot);
       writeCodexPluginManifest(pluginRoot);
       writeFileSync(join(codexDir, "config.toml"), pluginEnabledSettings(`
-[mcp_servers.context-mode]
+[mcp_servers.mcp]
 command = "npx"
 args = ["-y", "context-mode"]
 `), "utf-8");
@@ -850,24 +850,24 @@ args = ["-y", "context-mode"]
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           PreToolUse: [
-            { matcher: "", hooks: [{ type: "command", command: "context-mode hook codex pretooluse" }] },
+            { matcher: "", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
             { matcher: "", hooks: [{ type: "command", command: "node /Users/foo/.nvm/versions/node/v20/lib/node_modules/context-mode/hooks/codex/pretooluse.mjs" }] },
           ],
           PostToolUse: [
-            { hooks: [{ type: "command", command: "context-mode hook codex posttooluse" }] },
-            { hooks: [{ type: "command", command: "context-mode hook codex posttooluse" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex posttooluse" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex posttooluse" }] },
           ],
           SessionStart: [
-            { hooks: [{ type: "command", command: "context-mode hook codex sessionstart" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex sessionstart" }] },
           ],
           PreCompact: [
-            { hooks: [{ type: "command", command: "context-mode hook codex precompact" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex precompact" }] },
           ],
           UserPromptSubmit: [
-            { hooks: [{ type: "command", command: "context-mode hook codex userpromptsubmit" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex userpromptsubmit" }] },
           ],
           Stop: [
-            { hooks: [{ type: "command", command: "context-mode hook codex stop" }] },
+            { hooks: [{ type: "command", command: "ctxscribe hook codex stop" }] },
           ],
         },
       }, null, 2), "utf-8");
@@ -1156,7 +1156,7 @@ describe("Codex sessionstart hook script", () => {
 //   1. configs/codex/hooks.json PreToolUse matcher equals
 //      PRE_TOOL_USE_MATCHER_PATTERN in src/adapters/codex/index.ts
 //   2. configs/codex/hooks.json declares a PreCompact entry that routes
-//      to `context-mode hook codex precompact`
+//      to `ctxscribe hook codex precompact`
 //   3. README.md documents the same matcher (JSON-escaped form)
 describe("Codex matcher parity + config integrity", () => {
   const repoRoot = resolve(__dirname, "..", "..");
@@ -1188,7 +1188,7 @@ describe("Codex matcher parity + config integrity", () => {
     };
     expect(parsed.hooks.PreCompact).toBeDefined();
     const entry = parsed.hooks.PreCompact?.[0];
-    expect(entry?.hooks?.[0]?.command).toBe("context-mode hook codex precompact");
+    expect(entry?.hooks?.[0]?.command).toBe("ctxscribe hook codex precompact");
   });
 
   it("README documents the same Codex PreToolUse matcher as the adapter", () => {

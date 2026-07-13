@@ -1,6 +1,6 @@
 /**
  * Issue #523 — cli.ts upgrade() MUST guarantee .claude-plugin/plugin.json's
- * mcpServers["context-mode"].args[0] is the literal ${CLAUDE_PLUGIN_ROOT}
+ * mcpServers["mcp"].args[0] is the literal ${CLAUDE_PLUGIN_ROOT}
  * placeholder before declaring upgrade success.
  *
  * Sibling of cli-upgrade-verification.test.ts (v1.0.114 hotfix). Same

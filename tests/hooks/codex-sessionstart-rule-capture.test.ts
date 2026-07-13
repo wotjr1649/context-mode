@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CODEX_SESSIONSTART_PATH = join(__dirname, "..", "..", "hooks", "codex", "sessionstart.mjs");
 
 function readRuleRows(codexHome: string) {
-  const sessionDir = join(codexHome, "context-mode", "sessions");
+  const sessionDir = join(codexHome, "ctxscribe", "sessions");
   const dbFiles = readdirSync(sessionDir).filter((file) => file.endsWith(".db"));
   const Database = loadDatabase();
   const rows: Array<{ type: string; data: string }> = [];

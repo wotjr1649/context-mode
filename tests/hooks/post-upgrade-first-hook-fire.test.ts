@@ -107,7 +107,7 @@ function seedFixture(dir: string): {
       name: "context-mode",
       version: "1.0.149",
       mcpServers: {
-        "context-mode": {
+        "mcp": {
           command: "node",
           args: ["${CLAUDE_PLUGIN_ROOT}/start.mjs"],
         },

@@ -16,7 +16,7 @@ import { getLifetimeStats } from "../../src/session/analytics.js";
  * aggregated counts, not paths), but we CAN pin the contract by:
  *   1. Set `CLAUDE_CONFIG_DIR=/tmp/X` (empty dir → 0 sessions, 0 events).
  *   2. Confirm the call returns the empty-result shape — no crash on
- *      missing `~/.claude/context-mode/sessions`, no fall-through to homedir.
+ *      missing `~/.claude/ctxscribe/sessions`, no fall-through to homedir.
  *   3. With whitespace-only env, must fall back without crashing.
  */
 describe("getLifetimeStats CLAUDE_CONFIG_DIR routing (#460 round-3)", () => {

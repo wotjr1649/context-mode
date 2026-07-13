@@ -83,15 +83,15 @@ function buildFakeRegistry(opts: {
   pluginSlug?: string;
 }): FakeRegistry {
   const root = makeTmp();
-  const owner = opts.ownerSlug ?? "context-mode";
-  const plugin = opts.pluginSlug ?? "context-mode";
+  const owner = opts.ownerSlug ?? "wotjr1649";
+  const plugin = opts.pluginSlug ?? "ctxscribe";
   const cacheRoot = resolve(root, "cache");
   const cacheDir = resolve(cacheRoot, owner, plugin, opts.cacheVersion);
   const claudePluginDir = resolve(cacheDir, ".claude-plugin");
   mkdirSync(claudePluginDir, { recursive: true });
   writeFileSync(
     resolve(claudePluginDir, "plugin.json"),
-    JSON.stringify({ name: "context-mode", version: opts.cacheVersion }, null, 2),
+    JSON.stringify({ name: "ctxscribe", version: opts.cacheVersion }, null, 2),
   );
   const registry: Record<string, unknown> = {
     version: opts.registryVersionField ?? 2,
@@ -119,7 +119,7 @@ function readRegistry(p: string): Record<string, unknown> {
   return JSON.parse(readFileSync(p, "utf-8"));
 }
 
-const KEY = "context-mode@context-mode";
+const KEY = "ctxscribe@wotjr1649";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Slice 1 — HEAL 3: per-plugin entry.version syncs from cache plugin.json
@@ -315,13 +315,13 @@ describe("healSettingsEnabledPlugins (v1.0.116)", () => {
 
     const result = healSettingsEnabledPlugins({
       settingsPath,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("enabled-plugins");
     const after = JSON.parse(readFileSync(settingsPath, "utf-8"));
     expect(after.theme).toBe("dark"); // unrelated state preserved
-    expect(after.enabledPlugins).toEqual({ "context-mode@context-mode": true });
+    expect(after.enabledPlugins).toEqual({ "ctxscribe@wotjr1649": true });
   });
 
   it("adds the key when section exists but ours is missing", () => {
@@ -331,14 +331,14 @@ describe("healSettingsEnabledPlugins (v1.0.116)", () => {
 
     const result = healSettingsEnabledPlugins({
       settingsPath,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("enabled-plugins");
     const after = JSON.parse(readFileSync(settingsPath, "utf-8"));
     expect(after.enabledPlugins).toEqual({
       "other@other": true,
-      "context-mode@context-mode": true,
+      "ctxscribe@wotjr1649": true,
     });
   });
 
@@ -347,13 +347,13 @@ describe("healSettingsEnabledPlugins (v1.0.116)", () => {
     const settingsPath = join(dir, "settings.json");
     writeFileSync(
       settingsPath,
-      JSON.stringify({ enabledPlugins: { "context-mode@context-mode": true } }, null, 2),
+      JSON.stringify({ enabledPlugins: { "ctxscribe@wotjr1649": true } }, null, 2),
     );
     const before = readFileSync(settingsPath, "utf-8");
 
     const result = healSettingsEnabledPlugins({
       settingsPath,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toEqual([]);
@@ -365,24 +365,24 @@ describe("healSettingsEnabledPlugins (v1.0.116)", () => {
     const settingsPath = join(dir, "settings.json");
     writeFileSync(
       settingsPath,
-      JSON.stringify({ enabledPlugins: { "context-mode@context-mode": false } }, null, 2),
+      JSON.stringify({ enabledPlugins: { "ctxscribe@wotjr1649": false } }, null, 2),
     );
 
     const result = healSettingsEnabledPlugins({
       settingsPath,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toEqual([]);
     expect(result.skipped).toBe("explicit-opt-out");
     const after = JSON.parse(readFileSync(settingsPath, "utf-8"));
-    expect(after.enabledPlugins["context-mode@context-mode"]).toBe(false);
+    expect(after.enabledPlugins["ctxscribe@wotjr1649"]).toBe(false);
   });
 
   it("returns silent skip when settings.json does not exist (user not on Claude Code)", () => {
     const result = healSettingsEnabledPlugins({
       settingsPath: "/nonexistent/path/settings.json",
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
     expect(result.healed).toEqual([]);
     expect(result.skipped).toBe("no-settings");
@@ -392,7 +392,7 @@ describe("healSettingsEnabledPlugins (v1.0.116)", () => {
 // ─────────────────────────────────────────────────────────────────────────
 // healPluginJsonMcpServers — Issue #523 (v1.0.119)
 // /ctx-upgrade in v1.0.118 left ~/.claude/plugins/cache/.../.claude-plugin/
-// plugin.json with mcpServers["context-mode"].args[0] pointing at the
+// plugin.json with mcpServers["ctxscribe"].args[0] pointing at the
 // upgrade tmpdir (e.g. /var/folders/.../T/context-mode-upgrade-1747000000000/
 // start.mjs). After the temp dir is reaped, MCP fails to spawn with ENOENT
 // and the user has no /ctx-upgrade escape hatch. Sibling of #411 (which
@@ -412,10 +412,10 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     mkdirSync(resolve(opts.pluginRoot, ".claude-plugin"), { recursive: true });
     const path = resolve(opts.pluginRoot, ".claude-plugin", "plugin.json");
     const content = {
-      name: "context-mode",
+      name: "ctxscribe",
       version: "1.0.118",
       mcpServers: {
-        "context-mode": {
+        "ctxscribe": {
           command: "node",
           args: [opts.args0],
         },
@@ -432,8 +432,8 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const cacheRoot = makeTmp("ctx-issue523-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.118",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -447,12 +447,12 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const result = healPluginJsonMcpServers({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["context-mode"].args).toEqual([
+    expect(after.mcpServers["ctxscribe"].args).toEqual([
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     ]);
   });
@@ -462,8 +462,8 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const cacheRoot = makeTmp("ctx-issue523-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.118",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -485,12 +485,12 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const result = healPluginJsonMcpServers({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["context-mode"].args[0]).toBe(
+    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -500,8 +500,8 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const cacheRoot = makeTmp("ctx-issue523-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.118",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -514,7 +514,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const result = healPluginJsonMcpServers({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toEqual([]);
@@ -537,7 +537,7 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const result = healPluginJsonMcpServers({
       pluginRoot: escapedRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toEqual([]);
@@ -551,8 +551,8 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const cacheRoot = makeTmp("ctx-issue523-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.118",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -570,13 +570,13 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const result = healPluginJsonMcpServers({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
     // Our entry healed.
-    expect(after.mcpServers["context-mode"].args[0]).toBe(
+    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
     // Sibling untouched (we don't own it).
@@ -591,8 +591,8 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const cacheRoot = makeTmp("ctx-issue523-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.118",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -606,12 +606,12 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const result = healPluginJsonMcpServers({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["context-mode"].args[0]).toBe(
+    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -623,13 +623,13 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const cacheRoot = makeTmp("ctx-issue711-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.151",
     );
     mkdirSync(pluginRoot, { recursive: true });
     const stalePath =
-      resolve(cacheRoot, "context-mode", "context-mode", "1.0.103", "start.mjs");
+      resolve(cacheRoot, "wotjr1649", "ctxscribe", "1.0.103", "start.mjs");
     const pluginJsonPath = buildPoisonedPluginJson({
       pluginRoot,
       args0: stalePath,
@@ -638,12 +638,12 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const result = healPluginJsonMcpServers({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["context-mode"].args[0]).toBe(
+    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -653,13 +653,13 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const cacheRoot = makeTmp("ctx-issue711-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.151",
     );
     mkdirSync(pluginRoot, { recursive: true });
     const winStalePath =
-      "C:\\Users\\Mert\\.claude\\plugins\\cache\\context-mode\\context-mode\\1.0.103\\start.mjs";
+      "C:\\Users\\Mert\\.claude\\plugins\\cache\\wotjr1649\\ctxscribe\\1.0.103\\start.mjs";
     const pluginJsonPath = buildPoisonedPluginJson({
       pluginRoot,
       args0: winStalePath,
@@ -668,12 +668,12 @@ describe("healPluginJsonMcpServers (Issue #523)", () => {
     const result = healPluginJsonMcpServers({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("plugin-json-args");
     const after = JSON.parse(readFileSync(pluginJsonPath, "utf-8"));
-    expect(after.mcpServers["context-mode"].args[0]).toBe(
+    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -704,7 +704,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const path = resolve(opts.pluginRoot, ".mcp.json");
     const content = {
       mcpServers: {
-        "context-mode": {
+        "ctxscribe": {
           command: "node",
           args: [opts.args0],
         },
@@ -720,8 +720,8 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const cacheRoot = makeTmp("ctx-issue531-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.121",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -733,12 +733,12 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const result = healMcpJsonArgs({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
-    expect(after.mcpServers["context-mode"].args).toEqual([
+    expect(after.mcpServers["ctxscribe"].args).toEqual([
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     ]);
   });
@@ -748,8 +748,8 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const cacheRoot = makeTmp("ctx-issue531-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.121",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -763,12 +763,12 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const result = healMcpJsonArgs({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
-    expect(after.mcpServers["context-mode"].args[0]).toBe(
+    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -777,8 +777,8 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const cacheRoot = makeTmp("ctx-issue531-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.121",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -792,12 +792,12 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const result = healMcpJsonArgs({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
-    expect(after.mcpServers["context-mode"].args[0]).toBe(
+    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -807,8 +807,8 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const cacheRoot = makeTmp("ctx-issue531-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.121",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -821,7 +821,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const result = healMcpJsonArgs({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toEqual([]);
@@ -843,7 +843,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const result = healMcpJsonArgs({
       pluginRoot: escapedRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toEqual([]);
@@ -857,8 +857,8 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const cacheRoot = makeTmp("ctx-issue531-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.121",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -876,13 +876,13 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const result = healMcpJsonArgs({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
     // Our entry healed.
-    expect(after.mcpServers["context-mode"].args[0]).toBe(
+    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
     // Sibling untouched (we don't own it).
@@ -897,8 +897,8 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const cacheRoot = makeTmp("ctx-issue531-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.121",
     );
     mkdirSync(pluginRoot, { recursive: true });
@@ -907,7 +907,7 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const result = healMcpJsonArgs({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toEqual([]);
@@ -919,13 +919,13 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const cacheRoot = makeTmp("ctx-issue711-mcp-cache-");
     const pluginRoot = resolve(
       cacheRoot,
-      "context-mode",
-      "context-mode",
+      "wotjr1649",
+      "ctxscribe",
       "1.0.151",
     );
     mkdirSync(pluginRoot, { recursive: true });
     const stalePath =
-      resolve(cacheRoot, "context-mode", "context-mode", "1.0.103", "start.mjs");
+      resolve(cacheRoot, "wotjr1649", "ctxscribe", "1.0.103", "start.mjs");
     const mcpJsonPath = buildPoisonedMcpJson({
       pluginRoot,
       args0: stalePath,
@@ -934,12 +934,12 @@ describe("healMcpJsonArgs (Issue #531)", () => {
     const result = healMcpJsonArgs({
       pluginRoot,
       pluginCacheRoot: cacheRoot,
-      pluginKey: "context-mode@context-mode",
+      pluginKey: "ctxscribe@wotjr1649",
     });
 
     expect(result.healed).toContain("mcp-json-args");
     const after = JSON.parse(readFileSync(mcpJsonPath, "utf-8"));
-    expect(after.mcpServers["context-mode"].args[0]).toBe(
+    expect(after.mcpServers["ctxscribe"].args[0]).toBe(
       "${CLAUDE_PLUGIN_ROOT}/start.mjs",
     );
   });
@@ -957,7 +957,7 @@ import {
 describe("healClaudeJsonMcpArgs", () => {
   it("updates stale version path in args to new pluginRoot", () => {
     const tmp = makeTmp("ctx-claude-json-");
-    const cacheParent = join(tmp, "plugins", "cache", "context-mode", "context-mode");
+    const cacheParent = join(tmp, "plugins", "cache", "wotjr1649", "ctxscribe");
     const oldPluginRoot = join(cacheParent, "1.0.134");
     const newPluginRoot = join(cacheParent, "1.0.135");
     mkdirSync(newPluginRoot, { recursive: true });
@@ -983,7 +983,7 @@ describe("healClaudeJsonMcpArgs", () => {
 
   it("no-ops when args already point at the new version", () => {
     const tmp = makeTmp("ctx-claude-json-noop-");
-    const cacheParent = join(tmp, "plugins", "cache", "context-mode", "context-mode");
+    const cacheParent = join(tmp, "plugins", "cache", "wotjr1649", "ctxscribe");
     const newPluginRoot = join(cacheParent, "1.0.135");
     mkdirSync(newPluginRoot, { recursive: true });
 
@@ -1027,7 +1027,7 @@ describe("healClaudeJsonMcpArgs", () => {
 
   it("ignores args that are not inside the context-mode cache", () => {
     const tmp = makeTmp("ctx-claude-json-unrelated-");
-    const cacheParent = join(tmp, "plugins", "cache", "context-mode", "context-mode");
+    const cacheParent = join(tmp, "plugins", "cache", "wotjr1649", "ctxscribe");
     const newPluginRoot = join(cacheParent, "1.0.135");
     mkdirSync(newPluginRoot, { recursive: true });
 
@@ -1057,7 +1057,7 @@ describe("healClaudeJsonMcpArgs", () => {
     // as the new MCP spawn target. The post-resolve startsWith guard
     // rejects the mutation; the arg is left untouched.
     const tmp = makeTmp("ctx-claude-json-traversal-");
-    const cacheParent = join(tmp, ".claude", "plugins", "cache", "context-mode", "context-mode");
+    const cacheParent = join(tmp, ".claude", "plugins", "cache", "wotjr1649", "ctxscribe");
     const oldPluginRoot = join(cacheParent, "1.0.0");
     const newPluginRoot = join(cacheParent, "1.0.1");
     mkdirSync(oldPluginRoot, { recursive: true });
@@ -1102,7 +1102,7 @@ describe("healClaudeJsonMcpArgs", () => {
 // ─────────────────────────────────────────────────────────────────────────
 // derivePluginKey / derivePluginCacheParent — Task 3a
 //
-// Upstream hardcodes the registry key "context-mode@context-mode", which
+// Upstream hardcodes the registry key "ctxscribe@wotjr1649", which
 // silently disables every self-heal under any other marketplace name.
 // start.mjs derives it from __dirname (241a864); this promotes that
 // derivation to a shared helper other call sites adopt in the next task.
@@ -1113,22 +1113,22 @@ import { derivePluginKey, derivePluginCacheParent } from "../../scripts/heal-ins
 
 describe("derivePluginKey", () => {
   it("derives <plugin>@<marketplace> from a cache install path", () => {
-    expect(derivePluginKey("/h/.claude/plugins/cache/context-mode-js/context-mode/1.0.0"))
-      .toBe("context-mode@context-mode-js");
+    expect(derivePluginKey("/h/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.0"))
+      .toBe("ctxscribe@wotjr1649");
   });
 
   it("handles Windows separators", () => {
-    expect(derivePluginKey("C:\\Users\\js\\.claude\\plugins\\cache\\context-mode-js\\context-mode\\1.0.0"))
-      .toBe("context-mode@context-mode-js");
+    expect(derivePluginKey("C:\\Users\\js\\.claude\\plugins\\cache\\wotjr1649\\ctxscribe\\1.0.0"))
+      .toBe("ctxscribe@wotjr1649");
   });
 
-  it("still yields context-mode@context-mode on the upstream layout", () => {
-    expect(derivePluginKey("/h/.claude/plugins/cache/context-mode/context-mode/1.0.169"))
-      .toBe("context-mode@context-mode");
+  it("still yields ctxscribe@wotjr1649 on the upstream layout", () => {
+    expect(derivePluginKey("/h/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.169"))
+      .toBe("ctxscribe@wotjr1649");
   });
 
   it("returns null outside the plugin cache — never a hardcoded fallback", () => {
-    expect(derivePluginKey("/h/src/context-mode")).toBeNull();
+    expect(derivePluginKey("/h/src/ctxscribe")).toBeNull();
   });
 
   it("returns null for a true npm-global pkgRoot (…/npm/lib/node_modules/context-mode)", () => {
@@ -1136,8 +1136,8 @@ describe("derivePluginKey", () => {
     // npm-global shape postinstall-heal.test.ts's Slice 6b stages: a real
     // `npm install -g` puts pkgRoot outside any plugins/cache tree, so the
     // derivation MUST yield null — never the upstream literal fallback.
-    expect(derivePluginKey("/tmp/base/npm/lib/node_modules/context-mode")).toBeNull();
-    expect(derivePluginKey("C:\\Program Files\\nodejs\\node_modules\\context-mode")).toBeNull();
+    expect(derivePluginKey("/tmp/base/npm/lib/node_modules/ctxscribe")).toBeNull();
+    expect(derivePluginKey("C:\\Program Files\\nodejs\\node_modules\\ctxscribe")).toBeNull();
   });
 
   it("returns null for a non-string", () => {
@@ -1147,8 +1147,8 @@ describe("derivePluginKey", () => {
 
 describe("derivePluginCacheParent", () => {
   it("returns <cache>/<marketplace>/<plugin>", () => {
-    expect(derivePluginCacheParent("/h/.claude/plugins/cache/context-mode-js/context-mode/1.0.0"))
-      .toBe("/h/.claude/plugins/cache/context-mode-js/context-mode");
+    expect(derivePluginCacheParent("/h/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.0"))
+      .toBe("/h/.claude/plugins/cache/wotjr1649/ctxscribe");
   });
 
   it("returns null outside the plugin cache", () => {

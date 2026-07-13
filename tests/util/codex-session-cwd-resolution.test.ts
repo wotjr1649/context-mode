@@ -156,7 +156,7 @@ describe("resolveCodexSessionCwd", () => {
     writeSession(
       codexHome,
       "poisoned",
-      "/Users/x/.claude/plugins/cache/context-mode/context-mode/1.0.148",
+      "/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.148",
     );
     expect(resolveCodexSessionCwd({ codexHome })).toBeNull();
   });
@@ -166,7 +166,7 @@ describe("resolveCodexSessionCwd", () => {
     writeSession(
       codexHome,
       "poisoned-codex",
-      "/Users/x/.codex/plugins/cache/context-mode/context-mode/1.0.151",
+      "/Users/x/.codex/plugins/cache/wotjr1649/ctxscribe/1.0.151",
     );
     expect(resolveCodexSessionCwd({ codexHome })).toBeNull();
   });
@@ -176,7 +176,7 @@ describe("resolveCodexSessionCwd", () => {
     writeDesktopSession(
       codexHome,
       "rollout-poisoned",
-      "/Users/x/.codex/plugins/cache/context-mode/context-mode/1.0.151",
+      "/Users/x/.codex/plugins/cache/wotjr1649/ctxscribe/1.0.151",
     );
     expect(resolveCodexSessionCwd({ codexHome })).toBeNull();
   });
@@ -257,7 +257,7 @@ describe("resolveProjectDir({strictPlatform: 'codex'})", () => {
 
     const result = resolveProjectDir({
       env: {},
-      cwd: "/Users/x/.codex/plugins/cache/context-mode/context-mode/1.0.151",
+      cwd: "/Users/x/.codex/plugins/cache/wotjr1649/ctxscribe/1.0.151",
       pwd: undefined,
       strictPlatform: "codex",
       codexHome,

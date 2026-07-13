@@ -2118,7 +2118,7 @@ describe("External Ref Events", () => {
     // honest-savings stats line is non-zero. Without this, indexed bytes
     // never reach the session_events.bytes_avoided column.
     const input = {
-      tool_name: "mcp__plugin_context-mode_context-mode__ctx_fetch_and_index",
+      tool_name: "mcp__plugin_ctxscribe_mcp__ctx_fetch_and_index",
       tool_input: { url: "https://example.com/guide" },
       tool_response:
         "Fetched and indexed **5 sections** (47.50KB) from: example-guide\n" +

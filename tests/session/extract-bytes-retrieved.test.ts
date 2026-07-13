@@ -9,7 +9,7 @@
  * work-output, NOT retrieval — it must NOT carry bytes_retrieved.
  *
  * Suffix-match note: MCP tool names are host-prefixed
- * (`mcp__plugin_context-mode_context-mode__ctx_search`); we match by suffix,
+ * (`mcp__plugin_ctxscribe_mcp__ctx_search`); we match by suffix,
  * char-algorithmically, never by regex.
  */
 
@@ -28,7 +28,7 @@ describe("extractMcpToolCall — bytes_retrieved (retrieval cost)", () => {
   test("ctx_search PostToolUse carries bytes_retrieved = response byte length", () => {
     const response = "matched section A\nmatched section B — retrieved content";
     const events = mcpEventsOf(
-      "mcp__plugin_context-mode_context-mode__ctx_search",
+      "mcp__plugin_ctxscribe_mcp__ctx_search",
       response,
     );
 
@@ -39,7 +39,7 @@ describe("extractMcpToolCall — bytes_retrieved (retrieval cost)", () => {
   test("ctx_fetch_and_index carries bytes_retrieved = response byte length", () => {
     const response = "Fetched and indexed 4 sections (12.5KB)\n…matched windows…";
     const events = mcpEventsOf(
-      "mcp__plugin_context-mode_context-mode__ctx_fetch_and_index",
+      "mcp__plugin_ctxscribe_mcp__ctx_fetch_and_index",
       response,
     );
 
@@ -50,7 +50,7 @@ describe("extractMcpToolCall — bytes_retrieved (retrieval cost)", () => {
   test("multibyte tool_response is measured in BYTES, not chars", () => {
     const response = "café — 文字 — 🎯"; // multibyte: bytes > chars
     const events = mcpEventsOf(
-      "mcp__plugin_context-mode_context-mode__ctx_search",
+      "mcp__plugin_ctxscribe_mcp__ctx_search",
       response,
     );
 
@@ -60,7 +60,7 @@ describe("extractMcpToolCall — bytes_retrieved (retrieval cost)", () => {
 
   test("ctx_execute (sandbox compute) does NOT carry bytes_retrieved", () => {
     const events = mcpEventsOf(
-      "mcp__plugin_context-mode_context-mode__ctx_execute",
+      "mcp__plugin_ctxscribe_mcp__ctx_execute",
       "stdout: 47 files analyzed",
     );
 
@@ -70,7 +70,7 @@ describe("extractMcpToolCall — bytes_retrieved (retrieval cost)", () => {
 
   test("ctx_batch_execute (sandbox compute) does NOT carry bytes_retrieved", () => {
     const events = mcpEventsOf(
-      "mcp__plugin_context-mode_context-mode__ctx_batch_execute",
+      "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
       "Executed 4 commands. Indexed 39 sections.",
     );
 
@@ -79,7 +79,7 @@ describe("extractMcpToolCall — bytes_retrieved (retrieval cost)", () => {
 
   test("ctx_search with empty tool_response does NOT carry bytes_retrieved", () => {
     const events = mcpEventsOf(
-      "mcp__plugin_context-mode_context-mode__ctx_search",
+      "mcp__plugin_ctxscribe_mcp__ctx_search",
       "",
     );
 

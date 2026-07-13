@@ -304,18 +304,18 @@ describe("statusline.mjs — multi-adapter aggregation", () => {
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "ctx-statusline-multi-"));
-    // Mirror real adapter layout: ~/.claude/context-mode/sessions for
+    // Mirror real adapter layout: ~/.claude/ctxscribe/sessions for
     // claude-code, plus a legacy upstream-era dir left on disk.
-    claudeRoot = join(home, ".claude", "context-mode");
+    claudeRoot = join(home, ".claude", "ctxscribe");
     claudeSessionsDir = join(claudeRoot, "sessions");
     mkdirSync(claudeSessionsDir, { recursive: true });
-    mkdirSync(join(home, ".gemini", "context-mode", "sessions"), {
+    mkdirSync(join(home, ".gemini", "ctxscribe", "sessions"), {
       recursive: true,
     });
     // The other KEPT adapter (codex) — seeded by the 2+ adapter test below.
     // Left empty in the single-adapter test: an empty kept-platform dir must
     // not count as "real" either.
-    mkdirSync(join(home, ".codex", "context-mode", "sessions"), {
+    mkdirSync(join(home, ".codex", "ctxscribe", "sessions"), {
       recursive: true,
     });
   });
@@ -385,11 +385,11 @@ describe("statusline.mjs — multi-adapter aggregation", () => {
   // multi-adapter walk multiplies the cost. The previously-hardcoded 60s
   // tripped on Windows runner load (CI #401 observed 186s with retry x2).
   test("renders 'across N tools' when 2+ real adapters detected", { timeout: STATUSLINE_SQLITE_TIMEOUT_MS }, () => {
-    seedRealAdapter(join(home, ".claude", "context-mode", "sessions"), "claude");
+    seedRealAdapter(join(home, ".claude", "ctxscribe", "sessions"), "claude");
     // Hard fork: codex is the only other enumerated adapter (analytics.ts
     // enumerateAdapterDirs walks exactly .claude + .codex). Seeding a removed
     // platform's dir (.gemini) can never count as a real adapter again.
-    seedRealAdapter(join(home, ".codex", "context-mode", "sessions"), "codex");
+    seedRealAdapter(join(home, ".codex", "ctxscribe", "sessions"), "codex");
 
     const { stdout } = runStatusline({
       // statusline must use HOME for multi-adapter walk
@@ -409,7 +409,7 @@ describe("statusline.mjs — multi-adapter aggregation", () => {
 
   // Slice 2 cont: with only ONE real adapter, do NOT show "across N tools".
   test("single real adapter: no 'across N tools' suffix", () => {
-    seedRealAdapter(join(home, ".claude", "context-mode", "sessions"), "claude");
+    seedRealAdapter(join(home, ".claude", "ctxscribe", "sessions"), "claude");
 
     const { stdout } = runStatusline({
       HOME: home,

@@ -82,7 +82,7 @@ describe("precompact.mjs — snapshot-built event (D2 PRD Phase 6.1)", () => {
     // must apply the same normalization before SHA — otherwise on Windows the
     // expected hash uses backslashes while the hook uses slashes (#435 pattern).
     const projectHash = _hashCanonical(fakeProject.replace(/\\/g, "/"));
-    const dbDir = join(fakeHome, ".claude", "context-mode", "sessions");
+    const dbDir = join(fakeHome, ".claude", "ctxscribe", "sessions");
     require("node:fs").mkdirSync(dbDir, { recursive: true });
     const dbPath = join(dbDir, `${projectHash}.db`);
 

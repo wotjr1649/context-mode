@@ -51,7 +51,7 @@ describe("Claude Code stop hook", () => {
   beforeAll(() => {
     tempDir = realpathSync(mkdtempSync(join(tmpdir(), "claude-stop-hook-test-")));
     const hash = hashCanonical(normalizeProjectPathForSessionHash(tempDir));
-    dbPath = join(fakeHome, ".claude", "context-mode", "sessions", `${hash}.db`);
+    dbPath = join(fakeHome, ".claude", "ctxscribe", "sessions", `${hash}.db`);
   });
 
   afterAll(() => {

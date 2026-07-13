@@ -189,7 +189,7 @@ describe("normalizePluginJson", () => {
       {
         name: "context-mode",
         mcpServers: {
-          "context-mode": {
+          "mcp": {
             command: "node",
             args: ["${CLAUDE_PLUGIN_ROOT}/start.mjs"],
           },
@@ -205,10 +205,10 @@ describe("normalizePluginJson", () => {
     const out = normalizePluginJson(input, fakeNode, fakeRoot);
     const parsed = JSON.parse(out);
 
-    expect(parsed.mcpServers["context-mode"].command).toBe(
+    expect(parsed.mcpServers["mcp"].command).toBe(
       "C:/Program Files/nodejs/node.exe",
     );
-    expect(parsed.mcpServers["context-mode"].args).toEqual([
+    expect(parsed.mcpServers["mcp"].args).toEqual([
       "D:/plugins/context-mode/1.0.103/start.mjs",
     ]);
   });
@@ -218,7 +218,7 @@ describe("normalizePluginJson", () => {
       {
         name: "context-mode",
         mcpServers: {
-          "context-mode": {
+          "mcp": {
             command: "C:/Program Files/nodejs/node.exe",
             args: ["D:/plugins/x/start.mjs"],
           },
@@ -325,7 +325,7 @@ describe("normalizeHooksOnStartup", () => {
       {
         name: "context-mode",
         mcpServers: {
-          "context-mode": {
+          "mcp": {
             command: "node",
             args: ["${CLAUDE_PLUGIN_ROOT}/start.mjs"],
           },
@@ -345,7 +345,7 @@ describe("normalizeHooksOnStartup", () => {
     const after = readFileSync(pluginPath, "utf-8");
     expect(after).not.toContain("${CLAUDE_PLUGIN_ROOT}");
     const parsed = JSON.parse(after);
-    expect(parsed.mcpServers["context-mode"].command).toBe(
+    expect(parsed.mcpServers["mcp"].command).toBe(
       "C:/Program Files/nodejs/node.exe",
     );
   });
@@ -422,8 +422,8 @@ describe("normalizeHooksOnStartup", () => {
 
 describe("normalize-hooks survives a version bump (#604)", () => {
   const NODE = "/usr/bin/node";
-  const ROOT_V135 = "/cache/context-mode/context-mode/1.0.135";
-  const ROOT_V136 = "/cache/context-mode/context-mode/1.0.136";
+  const ROOT_V135 = "/cache/wotjr1649/ctxscribe/1.0.135";
+  const ROOT_V136 = "/cache/wotjr1649/ctxscribe/1.0.136";
   const PLACEHOLDER_SOURCE = JSON.stringify({
     hooks: {
       SessionStart: [
@@ -471,8 +471,8 @@ describe("normalize-hooks survives a version bump (#604)", () => {
 
   test("normalizeHooksOnStartup self-heals stale hooks.json on next boot (end-to-end)", () => {
     const cacheBase = makeTmp();
-    const v135Dir = join(cacheBase, "context-mode", "context-mode", "1.0.135");
-    const v136Dir = join(cacheBase, "context-mode", "context-mode", "1.0.136");
+    const v135Dir = join(cacheBase, "wotjr1649", "ctxscribe", "1.0.135");
+    const v136Dir = join(cacheBase, "wotjr1649", "ctxscribe", "1.0.136");
     mkdirSync(join(v135Dir, "hooks"), { recursive: true });
     mkdirSync(join(v136Dir, "hooks"), { recursive: true });
 

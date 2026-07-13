@@ -27,7 +27,7 @@ const fixtureDir = join(__dirname, "fixtures");
 function createStore(): ContentStore {
   const path = join(
     tmpdir(),
-    `context-mode-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+    `ctxscribe-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
   );
   return new ContentStore(path);
 }
@@ -52,7 +52,7 @@ describe("Schema & Lifecycle", () => {
   test("Fresh DB creates new FTS5 schema with 8 columns", () => {
     const dbPath = join(
       tmpdir(),
-      `context-mode-test-fresh-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+      `ctxscribe-test-fresh-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
     );
     const store = new ContentStore(dbPath);
 
@@ -96,7 +96,7 @@ describe("Schema & Lifecycle", () => {
   test("Old schema detected and migrated to new schema", () => {
     const dbPath = join(
       tmpdir(),
-      `context-mode-test-migrate-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+      `ctxscribe-test-migrate-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
     );
 
     // Step 1: Create a DB with the OLD schema (4-column FTS5)
@@ -280,7 +280,7 @@ describe("Basic Indexing", () => {
     // FK to session_events that powers per-session honest-savings stats.
     const dbPath = join(
       tmpdir(),
-      `context-mode-attrfk-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+      `ctxscribe-attrfk-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
     );
     const store = new ContentStore(dbPath);
     store.index({
@@ -1139,7 +1139,7 @@ describe("Smart Chunk Titles", () => {
 describe("DB Cleanup", () => {
   test("cleanupStaleDBs removes files for dead PIDs", () => {
     const fakePid = 99999;
-    const fakePath = join(tmpdir(), `context-mode-${fakePid}.db`);
+    const fakePath = join(tmpdir(), `ctxscribe-${fakePid}.db`);
     writeFileSync(fakePath, "fake");
     writeFileSync(fakePath + "-wal", "fake");
     writeFileSync(fakePath + "-shm", "fake");
@@ -1152,7 +1152,7 @@ describe("DB Cleanup", () => {
   });
 
   test("cleanupStaleDBs does not remove current process DB", () => {
-    const myPath = join(tmpdir(), `context-mode-${process.pid}.db`);
+    const myPath = join(tmpdir(), `ctxscribe-${process.pid}.db`);
     writeFileSync(myPath, "current");
 
     cleanupStaleDBs();
@@ -1168,7 +1168,7 @@ describe("DB Cleanup", () => {
     store.index({ content: "# Test\n\nCleanup test content.", source: "cleanup-test" });
 
     // Get the DB path by creating a known-path store
-    const knownPath = join(tmpdir(), `context-mode-cleanup-test-${Date.now()}.db`);
+    const knownPath = join(tmpdir(), `ctxscribe-cleanup-test-${Date.now()}.db`);
     const knownStore = new ContentStore(knownPath);
     knownStore.index({ content: "# Data\n\nSome data.", source: "known" });
 
@@ -1183,7 +1183,7 @@ describe("DB Cleanup", () => {
   });
 
   test("store.cleanup() is safe to call multiple times", () => {
-    const path = join(tmpdir(), `context-mode-cleanup-idempotent-${Date.now()}.db`);
+    const path = join(tmpdir(), `ctxscribe-cleanup-idempotent-${Date.now()}.db`);
     const store = new ContentStore(path);
     store.cleanup();
     // Second call should not throw

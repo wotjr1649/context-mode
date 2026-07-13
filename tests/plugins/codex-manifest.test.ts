@@ -47,12 +47,12 @@ describe(".codex-plugin/mcp.json", () => {
   it("declares the context-mode server entry", () => {
     const servers = mcp.mcpServers as Record<string, unknown>;
     expect(servers).toBeTypeOf("object");
-    expect(servers).toHaveProperty("context-mode");
+    expect(servers).toHaveProperty("mcp");
   });
 
   it("launches via `node` with relative `./start.mjs`", () => {
     const servers = mcp.mcpServers as Record<string, { command: string; args: string[] }>;
-    const entry = servers["context-mode"];
+    const entry = servers["mcp"];
     expect(entry.command).toBe("node");
     expect(entry.args).toEqual(["./start.mjs"]);
   });
@@ -62,7 +62,7 @@ describe(".codex-plugin/mcp.json", () => {
     // the spawned `node ./start.mjs` resolves correctly inside the
     // installed plugin directory.
     const servers = mcp.mcpServers as Record<string, { cwd?: string }>;
-    const entry = servers["context-mode"];
+    const entry = servers["mcp"];
     expect(entry.cwd).toBe(".");
   });
 
@@ -71,7 +71,7 @@ describe(".codex-plugin/mcp.json", () => {
     // The MCP server needs the same signal so storage and doctor output do
     // not fall back to ~/.claude on machines that have both agents installed.
     const servers = mcp.mcpServers as Record<string, { env?: Record<string, string> }>;
-    const entry = servers["context-mode"];
+    const entry = servers["mcp"];
     expect(entry.env?.CONTEXT_MODE_PLATFORM).toBe("codex");
   });
 
