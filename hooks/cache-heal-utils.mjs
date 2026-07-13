@@ -181,7 +181,7 @@ export function selfHealCacheHealHook({
     if (!Array.isArray(inner)) continue;
     for (const h of inner) {
       if (typeof h?.command !== "string") continue;
-      if (!h.command.includes("context-mode-cache-heal")) continue;
+      if (!h.command.includes("ctxscribe-cache-heal")) continue;
       if (!isStaleNodePath(h.command)) continue;
 
       // Stale → rewrite.

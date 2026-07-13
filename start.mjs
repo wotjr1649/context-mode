@@ -321,15 +321,21 @@ try {
   // disables the heal AND creates an unwanted ~/.claude directory.
   const claudeConfigDir = resolveClaudeConfigDir();
   const globalHooksDir = resolve(claudeConfigDir, "hooks");
-  const healHookPath = resolve(globalHooksDir, "context-mode-cache-heal.mjs");
+  const healHookPath = resolve(globalHooksDir, "ctxscribe-cache-heal.mjs");
   // Clean up old bash version if it exists
   const oldBashHook = resolve(globalHooksDir, "context-mode-cache-heal.sh");
   if (existsSync(oldBashHook)) {
     try { unlinkSync(oldBashHook); } catch {}
   }
+  // Clean up old .mjs version (renamed to ctxscribe-cache-heal.mjs) if it exists.
+  // "context-mode-cache-heal.mjs" here is intentionally the OLD name.
+  const oldMjsHook = resolve(globalHooksDir, "context-mode-cache-heal.mjs");
+  if (existsSync(oldMjsHook)) {
+    try { unlinkSync(oldMjsHook); } catch {}
+  }
   if (!existsSync(globalHooksDir)) mkdirSync(globalHooksDir, { recursive: true });
   const healScript = `#!/usr/bin/env node
-// context-mode plugin cache self-heal (auto-deployed)
+// ctxscribe plugin cache self-heal (auto-deployed)
 // Fixes anthropics/claude-code#46915: auto-update breaks CLAUDE_PLUGIN_ROOT
 // Issue #727: also normalizes stale version paths in existing installPaths
 // Honors CLAUDE_CONFIG_DIR (#577) — checked at this script's runtime so users
@@ -400,9 +406,21 @@ try{
   if (existsSync(settingsPath)) {
     const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
     const hooks = settings.hooks ?? {};
-    const sessionStart = hooks.SessionStart ?? [];
+    let sessionStart = hooks.SessionStart ?? [];
+    let changed = false;
+
+    // Prune stale old-named cache-heal SessionStart entries (renamed to
+    // ctxscribe-cache-heal). "context-mode-cache-heal" is intentionally the OLD name.
+    const pruned = sessionStart.filter(
+      (h) => !h.hooks?.some((hh) => hh.command?.includes("context-mode-cache-heal")),
+    );
+    if (pruned.length !== sessionStart.length) {
+      sessionStart = pruned;
+      changed = true;
+    }
+
     const alreadyRegistered = sessionStart.some((h) =>
-      h.hooks?.some((hh) => hh.command?.includes("context-mode-cache-heal")),
+      h.hooks?.some((hh) => hh.command?.includes("ctxscribe-cache-heal")),
     );
     if (!alreadyRegistered) {
       sessionStart.push({
@@ -417,6 +435,9 @@ try{
           },
         ],
       });
+      changed = true;
+    }
+    if (changed) {
       hooks.SessionStart = sessionStart;
       settings.hooks = hooks;
       writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n", "utf-8");
