@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "context-mode": {
+    "mcp": {
       "command": "node",
       "args": ["./start.mjs"],
       "cwd": ".",

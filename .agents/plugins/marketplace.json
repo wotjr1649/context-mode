@@ -1,11 +1,11 @@
 {
-  "name": "context-mode",
+  "name": "wotjr1649",
   "interface": {
-    "displayName": "context-mode"
+    "displayName": "wotjr1649"
   },
   "plugins": [
     {
-      "name": "context-mode",
+      "name": "ctxscribe",
       "source": {
         "source": "url",
         "url": "./"

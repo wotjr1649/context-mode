@@ -99,12 +99,12 @@ const PRE_TOOL_USE_MATCHER_PATTERN =
   "local_shell|shell|shell_command|exec_command|Bash|Shell|apply_patch|Edit|Write|grep_files|ctx_execute|ctx_execute_file|ctx_batch_execute|ctx_fetch_and_index|ctx_search|ctx_index|mcp__";
 
 const CODEX_HOOK_COMMANDS = {
-  PreToolUse: "context-mode hook codex pretooluse",
-  PostToolUse: "context-mode hook codex posttooluse",
-  SessionStart: "context-mode hook codex sessionstart",
-  PreCompact: "context-mode hook codex precompact",
-  UserPromptSubmit: "context-mode hook codex userpromptsubmit",
-  Stop: "context-mode hook codex stop",
+  PreToolUse: "ctxscribe hook codex pretooluse",
+  PostToolUse: "ctxscribe hook codex posttooluse",
+  SessionStart: "ctxscribe hook codex sessionstart",
+  PreCompact: "ctxscribe hook codex precompact",
+  UserPromptSubmit: "ctxscribe hook codex userpromptsubmit",
+  Stop: "ctxscribe hook codex stop",
 } as const;
 
 const LEGACY_HOOK_PATH_SUFFIXES: Record<keyof typeof CODEX_HOOK_COMMANDS, string[]> = {
@@ -163,7 +163,7 @@ export function probeCodexCliVersion(runCommand: CodexVersionRunner = execFileSy
 
 export function parseCodexContextModePluginRoot(raw: string): string | null {
   for (const line of raw.split(/\r?\n/)) {
-    const match = line.match(/^\s*context-mode@context-mode\s+installed,\s+enabled\s+\S+\s+(.+?)\s*$/);
+    const match = line.match(/^\s*ctxscribe@wotjr1649\s+installed,\s+enabled\s+\S+\s+(.+?)\s*$/);
     if (match?.[1]) return match[1].trim();
   }
   return null;
@@ -198,12 +198,12 @@ function hasDeprecatedCodexHooksFeature(raw: string): boolean {
 }
 
 function hasCodexPluginEnabled(raw: string): boolean {
-  const plugin = getTomlSection(raw, 'plugins."context-mode@context-mode"');
+  const plugin = getTomlSection(raw, 'plugins."ctxscribe@wotjr1649"');
   return plugin !== null && /^\s*enabled\s*=\s*true\s*(?:#.*)?$/mi.test(plugin);
 }
 
 function hasStandaloneContextModeMcp(raw: string): boolean {
-  return getTomlSection(raw, "mcp_servers.context-mode") !== null;
+  return getTomlSection(raw, "mcp_servers.mcp") !== null;
 }
 
 function ensureCodexHooksFeature(raw: string): { text: string; changed: boolean } {
@@ -634,8 +634,8 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       results.push({
         check: "Codex plugin root",
         status: "warn",
-        message: "context-mode@context-mode is enabled, but `codex plugin list` did not report its runtime root",
-        fix: "Restart Codex or verify `codex plugin list` shows context-mode@context-mode installed and enabled",
+        message: "ctxscribe@wotjr1649 is enabled, but `codex plugin list` did not report its runtime root",
+        fix: "Restart Codex or verify `codex plugin list` shows ctxscribe@wotjr1649 installed and enabled",
       });
     }
     if (codexPluginEnabled && !codexPluginHooksAvailable) {
@@ -651,7 +651,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       results.push({
         check: "Standalone MCP duplicate",
         status: "warn",
-        message: "[mcp_servers.context-mode] is still registered while context-mode@context-mode is enabled; Codex may start both plugin and standalone MCP surfaces",
+        message: "[mcp_servers.mcp] is still registered while ctxscribe@wotjr1649 is enabled; Codex may start both plugin and standalone MCP surfaces",
         fix: "context-mode upgrade (removes the standalone Codex MCP registration when the plugin owns context-mode)",
       });
     }
@@ -662,7 +662,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
         const pluginHookChecks = Object.keys(expected).map((hookName) => ({
           check: `${hookName} hook`,
           status: "pass" as const,
-          message: `${hookName} hook provided by context-mode@context-mode plugin`,
+          message: `${hookName} hook provided by ctxscribe@wotjr1649 plugin`,
         }));
         return results.concat(pluginHookChecks);
       }
@@ -704,7 +704,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       ? Object.keys(expected).map((hookName) => ({
         check: `${hookName} hook`,
         status: "pass" as const,
-        message: `${hookName} hook provided by context-mode@context-mode plugin`,
+        message: `${hookName} hook provided by ctxscribe@wotjr1649 plugin`,
       }))
       : Object.entries(expected).map(([hookName, entries]) => {
         const actualEntries = hookConfig.config.hooks?.[hookName];
@@ -769,7 +769,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
         return {
           check: "MCP registration",
           status: "warn",
-          message: "context-mode@context-mode plugin is enabled, but standalone [mcp_servers.context-mode] is also configured",
+          message: "ctxscribe@wotjr1649 plugin is enabled, but standalone [mcp_servers.mcp] is also configured",
           fix: "context-mode upgrade",
         };
       }
@@ -778,7 +778,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
         return {
           check: "MCP registration",
           status: "pass",
-          message: "context-mode@context-mode plugin enabled",
+          message: "ctxscribe@wotjr1649 plugin enabled",
         };
       }
 
@@ -804,7 +804,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
         check: "MCP registration",
         status: "fail",
         message: "No [mcp_servers] section in config.toml",
-        fix: `Add [mcp_servers.context-mode] to ${this.getSettingsPath()}`,
+        fix: `Add [mcp_servers.mcp] to ${this.getSettingsPath()}`,
       };
     } catch {
       return {
@@ -878,8 +878,8 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
     const enabledSettingsChanged = settingsText !== settingsRaw;
     if (codexPluginOwnsHooks) {
       const removedMcp = removeTomlSections(settingsText, (sectionName) =>
-        sectionName === "mcp_servers.context-mode"
-        || sectionName.startsWith("mcp_servers.context-mode.tools."),
+        sectionName === "mcp_servers.mcp"
+        || sectionName.startsWith("mcp_servers.mcp.tools."),
       );
       if (removedMcp.removed.length > 0) {
         settingsText = removedMcp.text;

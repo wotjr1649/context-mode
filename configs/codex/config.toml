@@ -4,5 +4,5 @@
 [features]
 hooks = true
 
-[mcp_servers.context-mode]
-command = "context-mode"
+[mcp_servers.mcp]
+command = "ctxscribe"
