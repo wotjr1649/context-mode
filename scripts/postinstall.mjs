@@ -69,11 +69,11 @@ const PLUGIN_KEY = derivePluginKey(pkgRoot);
       "\n" +
       "  Fix: upgrade Node (recommended)\n" +
       "    nvm install 22.5 && nvm use 22.5\n" +
-      "    npm install -g context-mode\n" +
+      "    claude plugin install ctxscribe@wotjr1649\n" +
       "\n" +
       "  Or: run under Bun\n" +
       "    curl -fsSL https://bun.sh/install | bash\n" +
-      "    bun add -g context-mode\n" +
+      "    claude plugin install ctxscribe@wotjr1649\n" +
       "\n",
     );
     process.exit(1);
