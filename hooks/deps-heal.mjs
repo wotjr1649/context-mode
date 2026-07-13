@@ -157,7 +157,7 @@ function activeInstallPath() {
     const ip = JSON.parse(readFileSync(f, "utf8"));
     const plugins = (ip && ip.plugins) || {};
     const key = Object.keys(plugins).find((k) => {
-      if (!k.startsWith("context-mode@")) return false;
+      if (!k.startsWith("ctxscribe@")) return false;
       const p = plugins[k] && plugins[k][0] && plugins[k][0].installPath;
       return typeof p === "string" && existsSync(p);
     });

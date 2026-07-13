@@ -332,9 +332,9 @@ function rewritePluginJsonArgs(pluginRoot) {
   if (!servers || typeof servers !== "object") return false;
 
   const safeRoot = String(pluginRoot).replace(/\\/g, "/");
-  const versionM = /context-mode\/context-mode\/([0-9]+\.[0-9]+\.[0-9]+)(?:\/|$)/.exec(safeRoot);
+  const versionM = /wotjr1649\/ctxscribe\/([0-9]+\.[0-9]+\.[0-9]+)(?:\/|$)/.exec(safeRoot);
   const currentVersion = versionM ? versionM[1] : null;
-  const STALE_VERSION_RE = /context-mode\/context-mode\/([0-9]+\.[0-9]+\.[0-9]+)(?=\/)/g;
+  const STALE_VERSION_RE = /wotjr1649\/ctxscribe\/([0-9]+\.[0-9]+\.[0-9]+)(?=\/)/g;
   const PLACEHOLDER = "${CLAUDE_PLUGIN_ROOT}";
 
   let mutated = false;
@@ -362,7 +362,7 @@ function rewritePluginJsonArgs(pluginRoot) {
         if (hasStale) {
           next = fwd.replace(
             STALE_VERSION_RE,
-            `context-mode/context-mode/${currentVersion}`,
+            `wotjr1649/ctxscribe/${currentVersion}`,
           );
         }
       }

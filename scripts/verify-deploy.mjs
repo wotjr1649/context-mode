@@ -20,7 +20,7 @@
 // (fail-closed defaults) and the CLI wrapper supplies the real values.
 import { resolve, relative } from "node:path";
 
-const PLUGIN_KEY = "context-mode@context-mode-js";
+const PLUGIN_KEY = "ctxscribe@wotjr1649";
 
 /**
  * True iff installPath resolves to a version directory DIRECTLY under cacheDir
@@ -100,7 +100,7 @@ if (import.meta.url === (await import("node:url")).pathToFileURL(process.argv[1]
   const cfg = process.env.CLAUDE_CONFIG_DIR
     ? resolve(process.env.CLAUDE_CONFIG_DIR.replace(/^~[/\\]?/, homedir() + "/"))
     : resolve(homedir(), ".claude");
-  const cacheDir = resolve(cfg, "plugins", "cache", "context-mode-js", "context-mode");
+  const cacheDir = resolve(cfg, "plugins", "cache", "wotjr1649", "ctxscribe");
   let registry;
   try {
     registry = JSON.parse(readFileSync(resolve(cfg, "plugins", "installed_plugins.json"), "utf8"));

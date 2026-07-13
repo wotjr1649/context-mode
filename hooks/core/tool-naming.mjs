@@ -5,12 +5,12 @@
  * Evidence-based naming conventions (from official docs):
  * | Platform           | Pattern                                                    |
  * |--------------------|------------------------------------------------------------|
- * | Claude Code        | mcp__plugin_context-mode_context-mode__<tool>               |
+ * | Claude Code        | mcp__plugin_ctxscribe_mcp__<tool>               |
  * | Codex              | bare <tool>                                                |
  */
 
 const TOOL_PREFIXES = {
-  "claude-code":    (tool) => `mcp__plugin_context-mode_context-mode__${tool}`,
+  "claude-code":    (tool) => `mcp__plugin_ctxscribe_mcp__${tool}`,
   "codex":          (tool) => tool,
 };
 

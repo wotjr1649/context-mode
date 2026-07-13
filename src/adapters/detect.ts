@@ -50,7 +50,7 @@ function claudeCodeHasContextModePlugin(): boolean {
       ...Object.keys(parsed.plugins ?? {}),
       ...Object.keys(parsed.enabledPlugins ?? {}),
     ];
-    const hasCM = keys.some((k) => k.includes("context-mode"));
+    const hasCM = keys.some((k) => k.includes("ctxscribe"));
     claudeCodePluginCache = { hasCM };
     return hasCM;
   } catch {

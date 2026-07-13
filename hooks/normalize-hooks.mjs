@@ -24,7 +24,7 @@ const PLACEHOLDER = "${CLAUDE_PLUGIN_ROOT}";
 // cleaned up. `/g` so a single content blob with multiple stale references is
 // fully covered. Forward-slash only — callers convert beforehand.
 const CACHE_VERSION_RE =
-  /context-mode\/context-mode\/([0-9]+\.[0-9]+\.[0-9]+)(?=\/)/g;
+  /wotjr1649\/ctxscribe\/([0-9]+\.[0-9]+\.[0-9]+)(?=\/)/g;
 
 /** Convert any path string to forward slashes (MSYS-safe). */
 function fwd(p) {
@@ -40,7 +40,7 @@ function fwd(p) {
 function pluginRootVersion(pluginRoot) {
   if (!pluginRoot) return null;
   const m =
-    /context-mode\/context-mode\/([0-9]+\.[0-9]+\.[0-9]+)(?:\/|$)/.exec(
+    /wotjr1649\/ctxscribe\/([0-9]+\.[0-9]+\.[0-9]+)(?:\/|$)/.exec(
       fwd(pluginRoot),
     );
   return m ? m[1] : null;
@@ -139,7 +139,7 @@ export function normalizeHooksJson(content, nodePath, pluginRoot) {
           // form so MSYS-mangled paths heal as well.
           next = fwd(next).replace(
             CACHE_VERSION_RE,
-            `context-mode/context-mode/${currentVersion}`,
+            `wotjr1649/ctxscribe/${currentVersion}`,
           );
         }
         h.command = next;
@@ -196,7 +196,7 @@ export function normalizePluginJson(content, nodePath, pluginRoot) {
         if (hasStaleCacheVersionSegment(next, currentVersion)) {
           next = fwd(next).replace(
             CACHE_VERSION_RE,
-            `context-mode/context-mode/${currentVersion}`,
+            `wotjr1649/ctxscribe/${currentVersion}`,
           );
         }
         return next;

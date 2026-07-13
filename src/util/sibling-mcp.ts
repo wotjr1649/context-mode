@@ -72,7 +72,7 @@ export interface KillReport {
 // Both can be alive concurrently — VERDICT R1 dump confirmed all four
 // PIDs simultaneously across three different versions on a real Mac.
 const POSIX_PGREP_PATTERN =
-  "node.*plugins/(cache|marketplaces)/.*context-mode.*start\\.mjs";
+  "node.*plugins/(cache|marketplaces)/.*wotjr1649.*start\\.mjs";
 
 // Windows: PowerShell + Get-CimInstance (wmic deprecated since Win11 22H2).
 // Filter on CommandLine because Win32_Process.Name is just "node.exe".
@@ -81,7 +81,7 @@ const POSIX_PGREP_PATTERN =
 const WIN_PS_SCRIPT =
   "Get-CimInstance Win32_Process " +
   "-Filter \"Name='node.exe'\" | " +
-  "Where-Object { $_.CommandLine -match 'plugins[\\\\/](cache|marketplaces)[\\\\/].*context-mode.*start\\.mjs' } | " +
+  "Where-Object { $_.CommandLine -match 'plugins[\\\\/](cache|marketplaces)[\\\\/].*wotjr1649.*start\\.mjs' } | " +
   "Select-Object -ExpandProperty ProcessId";
 
 const defaultRun: RunCommand = (cmd, args) =>

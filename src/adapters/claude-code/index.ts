@@ -380,7 +380,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
     }
 
     const pluginKey = Object.keys(enabledPlugins).find((k) =>
-      k.startsWith("context-mode"),
+      k.startsWith("ctxscribe"),
     );
 
     if (pluginKey && enabledPlugins[pluginKey]) {
@@ -409,7 +409,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
       const ipRaw = JSON.parse(readFileSync(ipPath, "utf-8"));
       const plugins = ipRaw.plugins ?? {};
       for (const [key, entries] of Object.entries(plugins)) {
-        if (!key.toLowerCase().includes("context-mode")) continue;
+        if (!key.toLowerCase().includes("ctxscribe")) continue;
         const arr = entries as Array<Record<string, unknown>>;
         if (arr.length > 0 && typeof arr[0].version === "string") {
           return arr[0].version;
@@ -436,8 +436,8 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
         base,
         "plugins",
         "cache",
-        "context-mode",
-        "context-mode",
+        "wotjr1649",
+        "ctxscribe",
       );
       try {
         const entries = readdirSync(cacheDir);
@@ -527,7 +527,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
         const isCtxModeCommand = (cmd?: string): boolean =>
           cmd != null &&
           (ctxScriptNames.some((s) => cmd.includes(s)) ||
-            cmd.includes("context-mode hook"));
+            cmd.includes("ctxscribe hook"));
         for (const hookType of Object.keys(hooks)) {
           const entries = hooks[hookType];
           if (!Array.isArray(entries)) continue;
@@ -642,7 +642,7 @@ export class ClaudeCodeAdapter extends ClaudeCodeBaseAdapter implements HookAdap
       );
       const ipRaw = JSON.parse(readFileSync(ipPath, "utf-8"));
       for (const [key, entries] of Object.entries(ipRaw.plugins || {})) {
-        if (!key.toLowerCase().includes("context-mode")) continue;
+        if (!key.toLowerCase().includes("ctxscribe")) continue;
         for (const entry of entries as Array<Record<string, unknown>>) {
           entry.installPath = pluginRoot;
           entry.version = version;

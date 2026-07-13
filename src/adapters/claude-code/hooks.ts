@@ -60,9 +60,9 @@ export const PRE_TOOL_USE_MATCHERS = [
   "Read",
   "Grep",
   "Agent",
-  "mcp__plugin_context-mode_context-mode__ctx_execute",
-  "mcp__plugin_context-mode_context-mode__ctx_execute_file",
-  "mcp__plugin_context-mode_context-mode__ctx_batch_execute",
+  "mcp__plugin_ctxscribe_mcp__ctx_execute",
+  "mcp__plugin_ctxscribe_mcp__ctx_execute_file",
+  "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
   EXTERNAL_MCP_MATCHER_PATTERN,
 ] as const;
 

@@ -88,7 +88,7 @@ await runHook(async () => {
       if (existsSync(ipPath)) {
         const ip = JSON.parse(readFileSync(ipPath, "utf-8"));
         for (const [key, entries] of Object.entries(ip.plugins || {})) {
-          if (!key.toLowerCase().includes("context-mode")) continue;
+          if (!key.toLowerCase().includes("ctxscribe")) continue;
           for (const entry of entries) {
             entry.installPath = targetDir;
             entry.version = myVersion;
@@ -123,7 +123,7 @@ await runHook(async () => {
               }
               // Rewrite stale context-mode hook paths to point to current version
               for (const h of (entry.hooks || [])) {
-                if (h.command && h.command.includes(".mjs") && h.command.includes("context-mode") && !h.command.includes(targetDir)) {
+                if (h.command && h.command.includes(".mjs") && h.command.includes("ctxscribe") && !h.command.includes(targetDir)) {
                   // Extract the script filename (e.g., sessionstart.mjs, pretooluse.mjs)
                   const scriptMatch = h.command.match(/([a-z]+\.mjs)\s*"?\s*$/);
                   if (scriptMatch) {

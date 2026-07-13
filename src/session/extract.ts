@@ -1080,7 +1080,7 @@ const RETRIEVAL_TOOL_SUFFIXES = ["ctx_search", "ctx_fetch_and_index"];
 /**
  * True when `toolName` ends with one of the retrieval suffixes. Char-level
  * suffix comparison via String.prototype.endsWith — no regex. MCP host names
- * arrive prefixed (e.g. `mcp__plugin_context-mode_context-mode__ctx_search`),
+ * arrive prefixed (e.g. `mcp__plugin_ctxscribe_mcp__ctx_search`),
  * so an exact-name check would miss them; suffix match is host-agnostic.
  */
 function isRetrievalToolName(toolName: string): boolean {
