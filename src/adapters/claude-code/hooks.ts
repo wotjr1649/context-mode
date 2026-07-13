@@ -167,7 +167,7 @@ export function buildHookCommand(hookType: HookType, pluginRoot?: string): strin
     const scriptName = HOOK_SCRIPTS[hookType];
     return buildHookRuntimeCommand(`${pluginRoot}/hooks/${scriptName}`);
   }
-  return `context-mode hook claude-code ${hookType.toLowerCase()}`;
+  return `ctxscribe hook claude-code ${hookType.toLowerCase()}`;
 }
 
 /**
@@ -209,7 +209,7 @@ export function isAnyContextModeHook(
     entry.hooks?.some((h) =>
       h.command != null &&
       (scriptNames.some((s) => h.command!.includes(s)) ||
-        h.command.includes("context-mode hook")),
+        h.command.includes("ctxscribe hook")),
     ) ?? false
   );
 }

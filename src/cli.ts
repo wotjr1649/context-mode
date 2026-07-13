@@ -6,7 +6,7 @@
  *   context-mode                              → Start MCP server (stdio)
  *   context-mode doctor                       → Diagnose runtime issues, hooks, FTS5, version
  *   context-mode upgrade                      → Fix hooks, permissions, and settings
- *   context-mode hook <platform> <event>      → Dispatch a hook script (used by platform hook configs)
+ *   ctxscribe hook <platform> <event>      → Dispatch a hook script (used by platform hook configs)
  *   CONTEXT_MODE_DIR=/abs/path context-mode   → Override sessions/content storage root
  *     Empty/whitespace is ignored; non-empty values must be absolute.
  *
@@ -78,7 +78,7 @@ export function isForkOrigin(originUrl: string): boolean {
 }
 
 /* -------------------------------------------------------
- * Hook dispatcher — `context-mode hook <platform> <event>`
+ * Hook dispatcher — `ctxscribe hook <platform> <event>`
  * ------------------------------------------------------- */
 
 const HOOK_MAP: Record<string, Record<string, string>> = {
@@ -115,7 +115,7 @@ async function hookDispatch(platform: string, event: string): Promise<void> {
   const scriptPath = HOOK_MAP[platform]?.[event];
   if (!scriptPath) {
     // Fail OPEN. context-mode has no hook for this platform/event — most often
-    // because a newer adapter's hook command (`context-mode hook <platform> …`)
+    // because a newer adapter's hook command (`ctxscribe hook <platform> …`)
     // is running against an OLDER global binary that predates that adapter
     // (version skew). Exit 0 (no decision) so the host ALLOWS the tool. Exiting
     // non-zero here makes some hosts treat it as a hook ERROR and DENY the tool:
@@ -143,7 +143,7 @@ function printHelp(): void {
     "  context-mode search <query...>       Search the current project's FTS5 knowledge base",
     "  context-mode doctor                  Diagnose runtime issues, hooks, FTS5, version",
     "  context-mode upgrade                 Fix hooks, permissions, and settings",
-    "  context-mode hook <platform> <event> Dispatch a configured hook script",
+    "  ctxscribe hook <platform> <event> Dispatch a configured hook script",
     "  context-mode statusline              Print Claude Code status line",
     "",
     "Index options:",
@@ -641,8 +641,8 @@ async function doctor(): Promise<number> {
             "\n  context-mode requires Node.js >= 22.5 (or Bun) on Linux to avoid the" +
             "\n  V8 madvise(MADV_DONTNEED) SIGSEGV in better-sqlite3 (1-4/hour)." +
             "\n  Ref: https://github.com/nodejs/node/issues/62515" +
-            "\n  Fix:  nvm install 22.5 && nvm use 22.5 && npm install -g context-mode" +
-            "\n  Or:   curl -fsSL https://bun.sh/install | bash && bun add -g context-mode",
+            "\n  Fix:  nvm install 22.5 && nvm use 22.5, then reinstall: claude plugin install ctxscribe@wotjr1649" +
+            "\n  Or:   curl -fsSL https://bun.sh/install | bash (install Bun), then: claude plugin install ctxscribe@wotjr1649",
           ),
       );
     }
@@ -1070,7 +1070,7 @@ async function upgrade(opts?: { platform?: string }) {
   // Step 1: Pull latest from GitHub
   p.log.step("Pulling latest from GitHub...");
   const localVersion = getLocalVersion();
-  const tmpDir = join(tmpdir(), `context-mode-upgrade-${Date.now()}`);
+  const tmpDir = join(tmpdir(), `ctxscribe-upgrade-${Date.now()}`);
 
   // Charter D9: clone the FORK, never upstream mksglu — cloning upstream would
   // overwrite this hard fork with upstream code on `ctx upgrade`. (The version

@@ -167,19 +167,19 @@ if (process.platform === "win32" && process.env.npm_config_global === "true") {
 
     // Detect stale shim locations via `where` command
     try {
-      const whereOutput = execSync("where context-mode.cmd", {
+      const whereOutput = execSync("where ctxscribe.cmd", {
         encoding: "utf-8",
         stdio: ["pipe", "pipe", "pipe"],
       }).trim();
       for (const line of whereOutput.split(/\r?\n/)) {
-        if (line.endsWith("context-mode.cmd")) {
+        if (line.endsWith("ctxscribe.cmd")) {
           shimDirs.add(dirname(line));
         }
       }
     } catch { /* where may fail if not installed yet */ }
 
     for (const shimDir of shimDirs) {
-      const expectedPkgDir = join(shimDir, "node_modules", "context-mode");
+      const expectedPkgDir = join(shimDir, "node_modules", "ctxscribe");
 
       if (
         resolve(expectedPkgDir).toLowerCase() !== resolve(actualPkgDir).toLowerCase() &&
@@ -207,12 +207,12 @@ if (process.platform === "win32" && process.env.npm_config_global === "true") {
 
     // Also fix stale shims that reference old bin entry (build/cli.js → cli.bundle.mjs)
     try {
-      const whereOutput = execSync("where context-mode.cmd", {
+      const whereOutput = execSync("where ctxscribe.cmd", {
         encoding: "utf-8",
         stdio: ["pipe", "pipe", "pipe"],
       }).trim();
       for (const line of whereOutput.split(/\r?\n/)) {
-        if (line.endsWith("context-mode.cmd")) {
+        if (line.endsWith("ctxscribe.cmd")) {
           const content = readFileSync(line, "utf-8");
           if (content.includes("build\\cli.js") || content.includes("build/cli.js")) {
             // Rewrite stale shim to use cli.bundle.mjs
@@ -255,7 +255,7 @@ try { healBetterSqlite3Binding(pkgRoot); } catch { /* best effort — don't bloc
 // Reuses `isGlobalInstall()`; the `.git` walk inside it is what keeps
 // contributor / CI installs untouched.
 //
-// Guard 2: /ctx-upgrade clones the repo to `<tmpdir>/context-mode-upgrade-<epoch>/`
+// Guard 2: /ctx-upgrade clones the repo to `<tmpdir>/ctxscribe-upgrade-<epoch>/`
 // and runs `npm install` there before `cpSync`-ing files into the real pluginRoot
 // (src/cli.ts). The tmpdir has no `.git`, so `isGlobalInstall()` returns
 // true there — we need this second check to skip the staging dir. Without
@@ -264,7 +264,7 @@ try { healBetterSqlite3Binding(pkgRoot); } catch { /* best effort — don't bloc
 // dir → tmpdir is later cleaned → every hook fires with MODULE_NOT_FOUND.
 // start.mjs normalizes correctly on the next MCP boot from the real
 // pluginRoot anyway.
-const TMPDIR_UPGRADE_RE = /[/\\]context-mode-upgrade-\d+[/\\]?$/;
+const TMPDIR_UPGRADE_RE = /[/\\]ctxscribe-upgrade-\d+[/\\]?$/;
 if (isGlobalInstall() && !TMPDIR_UPGRADE_RE.test(pkgRoot)) {
   try {
     // #738: probe for Bun ≥1.0 so the post-install hooks.json rewrite picks

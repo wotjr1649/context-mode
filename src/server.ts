@@ -143,7 +143,7 @@ if (process.env.CONTEXT_MODE_EMBEDDED_PLUGIN_TOOLS !== "1") {
 const runtimes = detectRuntimes();
 const available = getAvailableLanguages(runtimes);
 export const server = new McpServer({
-  name: "context-mode",
+  name: "ctxscribe",
   version: VERSION,
 });
 

@@ -108,9 +108,9 @@ function isToolError(input: HookInput): boolean {
   //     (`echo "context-mode: …"`), so we also match the command shape
   const command = String(input.tool_input?.command ?? "");
   if (
-    response.startsWith("context-mode:") ||
-    command.startsWith('echo "context-mode:') ||
-    command.startsWith("echo 'context-mode:")
+    response.startsWith("ctxscribe:") ||
+    command.startsWith('echo "ctxscribe:') ||
+    command.startsWith("echo 'ctxscribe:")
   ) {
     return false;
   }

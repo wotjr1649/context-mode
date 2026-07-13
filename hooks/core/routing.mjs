@@ -560,7 +560,7 @@ function matchesContextModeTool(toolName, ctxName, legacyName) {
   const leaf = toolLeafName(raw);
   if (leaf === ctxName) return true;
   if (raw.startsWith("MCP:") && leaf === legacyName) return true;
-  return raw.includes("context-mode") && leaf === legacyName;
+  return raw.includes("ctxscribe") && leaf === legacyName;
 }
 
 // External MCP detection (#529 + 15-adapter coverage follow-up).
@@ -573,16 +573,16 @@ function matchesContextModeTool(toolName, ctxName, legacyName) {
 // routing branches above (ctx_execute, ctx_execute_file, ctx_batch_execute)
 // and re-routing them here would double-process the call.
 const MCP_PREFIX = "mcp__";
-const CONTEXT_MODE_SUBSTRING = "context-mode";
+const OWN_TOOL_LEAF = "ctx_";
 
 function isExternalMcpTool(toolName) {
   const raw = String(toolName ?? "");
 
-  // Claude / Codex wire shape.
+  // Claude / Codex wire shape. Our own tools carry a stable `ctx_` leaf
+  // (rename invariant) regardless of the MCP server segment, so key the
+  // own/external split off the tool-name leaf, not the server substring.
   if (raw.startsWith(MCP_PREFIX)) {
-    const server = raw.slice(MCP_PREFIX.length).split("__")[0];
-    if (!server) return false;
-    return !server.includes(CONTEXT_MODE_SUBSTRING);
+    return !toolLeafName(raw).startsWith(OWN_TOOL_LEAF);
   }
 
   return false;
@@ -653,7 +653,7 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
     return {
       action: "deny",
       reason:
-        "context-mode: security module unavailable and CONTEXT_MODE_REQUIRE_SECURITY=1 — fail-closed engaged. " +
+        "ctxscribe: security module unavailable and CONTEXT_MODE_REQUIRE_SECURITY=1 — fail-closed engaged. " +
         "Run `npm run build` (or reinstall context-mode) to restore security enforcement. " +
         "To bypass, unset or set CONTEXT_MODE_REQUIRE_SECURITY=0.",
     };
@@ -739,7 +739,7 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
         return mcpRedirect({
           action: "modify",
           updatedInput: {
-            command: `echo "context-mode: curl/wget redirected. Call ${t("ctx_execute")}(language, code) to fetch the URL, derive your answer in code, and print only the result — the raw HTTP body stays in the sandbox instead of entering your conversation. Or call ${t("ctx_fetch_and_index")}(url, source) when you want to query the response later via ${t("ctx_search")}. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH)."`,
+            command: `echo "ctxscribe: curl/wget redirected. Call ${t("ctx_execute")}(language, code) to fetch the URL, derive your answer in code, and print only the result — the raw HTTP body stays in the sandbox instead of entering your conversation. Or call ${t("ctx_fetch_and_index")}(url, source) when you want to query the response later via ${t("ctx_search")}. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH)."`,
           },
           // D2 PRD Phase 3.1: marker payload for PostToolUse byte accounting.
           redirectMeta: {
@@ -770,7 +770,7 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
       return mcpRedirect({
         action: "modify",
         updatedInput: {
-          command: `echo "context-mode: Inline HTTP redirected. Call ${t("ctx_execute")}(language, code) to fetch, derive your answer in code, and console.log() only the result — the raw response body stays in the sandbox instead of entering your conversation. Full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH)."`,
+          command: `echo "ctxscribe: Inline HTTP redirected. Call ${t("ctx_execute")}(language, code) to fetch, derive your answer in code, and console.log() only the result — the raw response body stays in the sandbox instead of entering your conversation. Full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH)."`,
         },
       }, mcpToolsAvailable);
     }
@@ -783,7 +783,7 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
       return mcpRedirect({
         action: "modify",
         updatedInput: {
-          command: `echo "context-mode: Build tool redirected. Call ${t("ctx_execute")}(language: \\"shell\\", code: \\"${safeCmd} 2>&1 | tail -30\\") to run the build and print only the tail — the verbose build log stays in the sandbox instead of entering your conversation. For more targeted output, replace \\"tail -30\\" with \\"grep -E '(error|warning|FAIL|✗|×)'\\" or similar, so only the lines that matter come back."`,
+          command: `echo "ctxscribe: Build tool redirected. Call ${t("ctx_execute")}(language: \\"shell\\", code: \\"${safeCmd} 2>&1 | tail -30\\") to run the build and print only the tail — the verbose build log stays in the sandbox instead of entering your conversation. For more targeted output, replace \\"tail -30\\" with \\"grep -E '(error|warning|FAIL|✗|×)'\\" or similar, so only the lines that matter come back."`,
         },
       }, mcpToolsAvailable);
     }
@@ -847,7 +847,7 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
     const url = getWebFetchUrl(toolInput);
     return mcpRedirect({
       action: "deny",
-      reason: `context-mode: WebFetch redirected. Call ${t("ctx_fetch_and_index")}(url: "${url}", source: "...") to fetch + index the page, then ${t("ctx_search")}(queries: [...]) to query the indexed content — the raw page bytes stay in storage instead of entering your conversation. Or call ${t("ctx_execute")}(language, code) when you want to derive your answer in one round trip (parse, extract, count) without persisting the response. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).`,
+      reason: `ctxscribe: WebFetch redirected. Call ${t("ctx_fetch_and_index")}(url: "${url}", source: "...") to fetch + index the page, then ${t("ctx_search")}(queries: [...]) to query the indexed content — the raw page bytes stay in storage instead of entering your conversation. Or call ${t("ctx_execute")}(language, code) when you want to derive your answer in one round trip (parse, extract, count) without persisting the response. Both have full network access. Retry the same call on a transient DNS error (EAI_AGAIN, ETIMEDOUT, ENETUNREACH).`,
       // D2 PRD Phase 4.1: marker payload for PostToolUse byte accounting.
       redirectMeta: {
         tool: "WebFetch",

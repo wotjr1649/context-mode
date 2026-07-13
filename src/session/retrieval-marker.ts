@@ -29,7 +29,7 @@ import { basename, join } from "node:path";
  * negligible.
  */
 export function retrievalMarkerPath(sessionDbPath: string, tmpDir: string = tmpdir()): string {
-  return join(tmpDir, `context-mode-retrieval-${basename(sessionDbPath)}.txt`);
+  return join(tmpDir, `ctxscribe-retrieval-${basename(sessionDbPath)}.txt`);
 }
 
 /**

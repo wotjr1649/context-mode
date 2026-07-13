@@ -185,7 +185,7 @@ await runHook(async () => {
     // the forward stream). Consume + emit one forwardable event so the platform
     // kept_out_pct goes "measured". Mirrors the redirect-marker handshake above.
     try {
-      const marker = resolve(tmpdir(), `context-mode-retrieval-${basename(dbPath)}.txt`);
+      const marker = resolve(tmpdir(), `ctxscribe-retrieval-${basename(dbPath)}.txt`);
       let retrievedBytes = 0;
       try {
         const raw = readFileSync(marker, "utf-8");
