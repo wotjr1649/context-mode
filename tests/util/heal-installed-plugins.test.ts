@@ -965,7 +965,7 @@ describe("healClaudeJsonMcpArgs", () => {
     const dotClaudeJsonPath = join(tmp, ".claude.json");
     writeFileSync(dotClaudeJsonPath, JSON.stringify({
       mcpServers: {
-        plugin_context_mode: {
+        plugin_ctxscribe_mcp: {
           type: "stdio",
           command: "/home/user/.bun/bin/bun",
           args: [join(oldPluginRoot, "start.mjs")],
@@ -978,7 +978,7 @@ describe("healClaudeJsonMcpArgs", () => {
 
     expect(result.healed).toEqual(["claude-json-mcp-args"]);
     const updated = JSON.parse(readFileSync(dotClaudeJsonPath, "utf-8"));
-    expect(updated.mcpServers.plugin_context_mode.args[0]).toBe(join(newPluginRoot, "start.mjs"));
+    expect(updated.mcpServers.plugin_ctxscribe_mcp.args[0]).toBe(join(newPluginRoot, "start.mjs"));
   });
 
   it("no-ops when args already point at the new version", () => {
@@ -990,7 +990,7 @@ describe("healClaudeJsonMcpArgs", () => {
     const dotClaudeJsonPath = join(tmp, ".claude.json");
     const original = JSON.stringify({
       mcpServers: {
-        plugin_context_mode: {
+        plugin_ctxscribe_mcp: {
           args: [join(newPluginRoot, "start.mjs")],
         },
       },

@@ -207,7 +207,7 @@ export function healSettingsEnabledPlugins({ settingsPath, pluginKey }) {
 // /ctx-upgrade in v1.0.118 wrote `.mcp.json` with the literal
 // `${CLAUDE_PLUGIN_ROOT}` placeholder (#411) but did NOT touch
 // `.claude-plugin/plugin.json`. On Windows, start.mjs's `normalizeHooksOnStartup`
-// (#378) rewrites that file's `mcpServers["ctxscribe"].args[0]` to an
+// (#378) rewrites that file's `mcpServers["mcp"].args[0]` to an
 // absolute path. If `pluginRoot` happens to be the upgrade tmpdir at the time
 // of normalization (or an earlier upgrade left absolute paths in place), the
 // resulting plugin.json carries a `<tmpdir>/ctxscribe-upgrade-<epoch>/start.mjs`
@@ -324,7 +324,10 @@ export function healPluginJsonMcpServers({ pluginRoot, pluginCacheRoot, pluginKe
 //
 // Same regex, same placeholder, same traversal guard as #523. Only difference:
 //   - Target: `<pluginRoot>/.mcp.json` (flat shape, no `.claude-plugin/` subdir)
-//   - Structure: `.mcpServers.<pluginName>.args[]`
+//   - Structure: `.mcpServers.mcp.args[]` — the server key is the FIXED literal
+//     `mcp`, NOT the plugin name (see `ourServerName` below; the ctxscribe rename
+//     decoupled them). Deriving it from the plugin name looks up a key that does
+//     not exist and silently no-ops the heal.
 //   - Additional drift shape: bare relative `./start.mjs` (the #253 regression)
 //     that healPluginJsonMcpServers's tmpdir-only check would not catch.
 //

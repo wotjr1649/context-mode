@@ -263,8 +263,9 @@ try {
   try { healSettingsEnabledPlugins({ settingsPath, pluginKey }); }
   catch { /* best effort */ }
   // v1.0.119 — Layer 5b (Issue #523): heal .claude-plugin/plugin.json's
-  // mcpServers["ctxscribe"].args[0] when /ctx-upgrade left a tmpdir-prefixed
-  // path baked in. Iterates EVERY installed cache entry's installPath so
+  // mcpServers["mcp"].args[0] (fixed server key, NOT the plugin name) when
+  // /ctx-upgrade left a tmpdir-prefixed path baked in. Iterates EVERY
+  // installed cache entry's installPath so
   // multi-version installs all self-recover. Each call is independently wrapped
   // because one poisoned entry must not block heals on the others. Best effort.
   try {

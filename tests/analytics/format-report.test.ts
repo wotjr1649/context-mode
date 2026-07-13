@@ -932,7 +932,7 @@ describe("PR-B: stats UX fixes", () => {
       const output = formatReport(report, "1.0.108", null, {
         mcpUsage: [
           {
-            tool_name: "mcp__context_mode__ctx_batch_execute",
+            tool_name: "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
             calls: 43,
             median_concurrency: 3,
             max_concurrency: 5,
@@ -942,7 +942,7 @@ describe("PR-B: stats UX fixes", () => {
 
       expect(output).toContain("Parallel I/O");
       expect(output).toContain("ctx_batch_execute"); // bare name
-      expect(output).not.toContain("mcp__context_mode__"); // namespace stripped
+      expect(output).not.toContain("mcp__plugin_ctxscribe_mcp__"); // namespace stripped
       expect(output).not.toContain("MCP concurrency usage"); // engineer-speak gone
       expect(output).not.toContain("median="); // engineer-speak gone
     });
@@ -960,7 +960,7 @@ describe("PR-B: stats UX fixes", () => {
       const output = formatReport(report, "1.0.108", null, {
         mcpUsage: [
           {
-            tool_name: "mcp__context_mode__ctx_search",
+            tool_name: "mcp__plugin_ctxscribe_mcp__ctx_search",
             calls: 5,
             median_concurrency: 1,
             max_concurrency: 1,

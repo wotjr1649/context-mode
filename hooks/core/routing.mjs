@@ -468,7 +468,7 @@ export function isSecurityInitFailed() {
 export function buildSecurityWarningContext() {
   if (!securityInitFailed) return null;
   return [
-    "<context_mode_security_warning>",
+    "<ctxscribe_security_warning>",
     "  <severity>HIGH</severity>",
     "  <issue>",
     "    The ctxscribe security module failed to load.",
@@ -486,7 +486,7 @@ export function buildSecurityWarningContext() {
     "    via CI). To opt in to fail-CLOSED instead, set CONTEXT_MODE_REQUIRE_SECURITY=1.",
     "    To silence this warning while you investigate, set CONTEXT_MODE_SUPPRESS_SECURITY_WARNING=1.",
     "  </fix>",
-    "</context_mode_security_warning>",
+    "</ctxscribe_security_warning>",
   ].join("\n");
 }
 

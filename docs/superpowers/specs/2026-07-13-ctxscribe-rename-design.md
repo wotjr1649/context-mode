@@ -44,7 +44,18 @@ functional is renamed (incl. the active on-disk data dir → `ctxscribe/`, §4d)
 | version | `1.0.3` | **`1.0.0`** (new-project reset) — §9 |
 
 **Kept (invariant, §4b)**: `ctx_*` tool names, `ctx-*` skill sub-names; `CONTEXT_MODE_*` env
-vars; ELv2 attribution; legacy `~/.context-mode` dot-dir.
+vars; ELv2 attribution; legacy `~/.context-mode` dot-dir; **`Symbol.for("__context_mode_live_dbs_v3__")`**
+(`src/db-base.ts`).
+
+> **`__context_mode_live_dbs_v3__` — DO NOT RENAME.** It is a *globalThis registry key*, not a
+> brand token. During `/ctx-upgrade` an OLD bundle and the NEW one can be live in the SAME
+> process; this SHARED `Symbol.for` slot is what lets the single process-exit hook close EVERY
+> live SQLite handle. A `ctxscribe`-flavoured name is a DIFFERENT slot, so each bundle would
+> register its own set and close only its own DBs — **splitting the registry and leaking SQLite
+> handles across the upgrade boundary**, exactly the failure the symbol's own `_v3_` bump comment
+> describes. It survived the rename only by accident (the identity gate greped hyphens only);
+> the gate's pattern is now `context[-_]mode(-js)?`, so the site is visible and explicitly
+> whitelisted in `scripts/assert-identity-clean.mjs`.
 
 ## 3. Verified facts (confirmed across both review rounds)
 

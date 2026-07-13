@@ -1,10 +1,10 @@
 # Platform Support Matrix
 
-This document describes the platforms supported by context-mode — a hard fork that supports **Claude Code** and **Codex CLI** only — including their hook paradigms, capabilities, configuration, and known limitations.
+This document describes the platforms supported by ctxscribe — a hard fork that supports **Claude Code** and **Codex CLI** only — including their hook paradigms, capabilities, configuration, and known limitations.
 
 ## Overview
 
-context-mode supports two client platforms, both on the same hook paradigm:
+ctxscribe supports two client platforms, both on the same hook paradigm:
 
 | Paradigm | Platforms |
 |----------|-----------|
@@ -17,13 +17,13 @@ The MCP server layer is 100% portable and needs no adapter. Only the hook layer 
 Codex CLI requires a global install; Claude Code can use either the plugin install (Claude plugin registry) or the global binary:
 
 ```bash
-npm install -g context-mode
+npm install -g ctxscribe
 ```
 
-This puts the `context-mode` binary in PATH, which is required for:
-- **MCP server:** `"command": "context-mode"` (replaces ephemeral `npx -y context-mode`)
-- **Hook dispatcher:** `context-mode hook <platform> <event>` (replaces `node ./node_modules/...` paths)
-- **Utility commands:** `context-mode doctor`, `context-mode upgrade`
+This puts the `ctxscribe` binary in PATH, which is required for:
+- **MCP server:** `"command": "ctxscribe"` (replaces ephemeral `npx -y ctxscribe`)
+- **Hook dispatcher:** `ctxscribe hook <platform> <event>` (replaces `node ./node_modules/...` paths)
+- **Utility commands:** `ctxscribe doctor`, `ctxscribe upgrade`
 - **Persistent upgrades:** `ctx-upgrade` updates the global binary in-place
 
 ---
@@ -46,11 +46,11 @@ This puts the `context-mode` binary in PATH, which is required for:
 | **Session ID field** | `session_id` | N/A |
 | **Project dir env** | `CLAUDE_PROJECT_DIR` | N/A |
 | **MCP/tool naming** | `mcp__server__tool` | `mcp__server__tool` |
-| **Hook command format** | `context-mode hook claude-code <event>` | `context-mode hook codex <event>` |
+| **Hook command format** | `ctxscribe hook claude-code <event>` | `ctxscribe hook codex <event>` |
 | **Hook registration** | settings.json hooks object | `~/.codex/hooks.json` |
-| **MCP server command** | `context-mode` (or plugin auto) | `context-mode` |
+| **MCP server command** | `ctxscribe` (or plugin auto) | `ctxscribe` |
 | **Plugin distribution** | Claude plugin registry | npm global |
-| **Session dir** | `~/.claude/context-mode/sessions/` | `~/.codex/context-mode/sessions/` |
+| **Session dir** | `~/.claude/ctxscribe/sessions/` | `~/.codex/ctxscribe/sessions/` |
 
 ### Legend
 
@@ -67,7 +67,7 @@ This puts the `context-mode` binary in PATH, which is required for:
 
 **Hook Paradigm:** JSON stdin/stdout
 
-Claude Code is the primary platform for context-mode. All hooks communicate via JSON on stdin/stdout. The adapter reads raw JSON input, normalizes it into platform-agnostic events, and formats responses back into Claude Code's expected output format.
+Claude Code is the primary platform for ctxscribe. All hooks communicate via JSON on stdin/stdout. The adapter reads raw JSON input, normalizes it into platform-agnostic events, and formats responses back into Claude Code's expected output format.
 
 **Hook Names:**
 - `PreToolUse` -- fires before a tool is executed
@@ -91,11 +91,11 @@ Claude Code is the primary platform for context-mode. All hooks communicate via 
 
 **Hook Commands:**
 ```
-context-mode hook claude-code pretooluse
-context-mode hook claude-code posttooluse
-context-mode hook claude-code precompact
-context-mode hook claude-code sessionstart
-context-mode hook claude-code userpromptsubmit
+ctxscribe hook claude-code pretooluse
+ctxscribe hook claude-code posttooluse
+ctxscribe hook claude-code precompact
+ctxscribe hook claude-code sessionstart
+ctxscribe hook claude-code userpromptsubmit
 ```
 
 **Known Issues:** None significant.
@@ -132,29 +132,33 @@ Codex CLI's Rust backend (codex-rs) includes a hook system using the same JSON s
 
 **Hook Commands:**
 ```
-context-mode hook codex pretooluse
-context-mode hook codex posttooluse
-context-mode hook codex precompact
-context-mode hook codex sessionstart
-context-mode hook codex userpromptsubmit
-context-mode hook codex stop
+ctxscribe hook codex pretooluse
+ctxscribe hook codex posttooluse
+ctxscribe hook codex precompact
+ctxscribe hook codex sessionstart
+ctxscribe hook codex userpromptsubmit
+ctxscribe hook codex stop
 ```
 
 **Known Issues / Caveats:**
 - PreToolUse `additionalContext` is unsupported — context injection works via PostToolUse and SessionStart instead. The codex formatter handles this automatically (deny works, context is dropped). Source: `codex-rs/hooks/src/engine/output_parser.rs:267`.
 - PreToolUse input rewriting still needs upstream `updatedInput` support. Track: [openai/codex#18491](https://github.com/openai/codex/issues/18491).
-- PreCompact support is runtime-gated: context-mode configures it and treats a missing registration as a warning, because older Codex builds may not emit the event. The hook stores the resume snapshot out-of-band and SessionStart restores it.
-- Codex emits structured tool names such as `Bash` and `apply_patch`; context-mode only normalizes legacy shell aliases.
+- PreCompact support is runtime-gated: ctxscribe configures it and treats a missing registration as a warning, because older Codex builds may not emit the event. The hook stores the resume snapshot out-of-band and SessionStart restores it.
+- Codex emits structured tool names such as `Bash` and `apply_patch`; ctxscribe only normalizes legacy shell aliases.
 - updatedInput and updatedMCPToolOutput are in the schema but NOT implemented
 - Default hook timeout: 600 seconds
-- Older context-mode releases used a `plugins/context-mode -> ..` symlink shim
+- **Historical (pre-rename) — names below are the OLD identity on purpose.** Releases
+  made before the ctxscribe rename used a `plugins/context-mode -> ..` symlink shim
   because Codex rejects the repository root (`"./"`) as an empty local plugin
   source path. On native Windows, Git can check that symlink out as a regular
-  file containing only `..`, which makes `codex plugin add context-mode@context-mode`
+  file containing only `..`, which made the then-current `codex plugin add context-mode@context-mode`
   fail with `missing plugin.json`. Current releases avoid this by declaring the
   Codex marketplace plugin as a relative Git source (`url: "./"`), so Codex
   materializes the installed marketplace root and finds `.codex-plugin/plugin.json`
-  without any symlink or junction.
+  without any symlink or junction. `tests/codex/marketplace-layout.test.ts` keeps a
+  regression guard on the OLD `plugins/context-mode` path — the shim predates the
+  rename, so only that name can ever come back (via a revert or an upstream port).
+  Install today with `codex plugin marketplace add wotjr1649/ctxscribe` (see README).
 
   After installation succeeds, verify that Codex hooks are enabled in
   `%USERPROFILE%\.codex\config.toml`:
@@ -220,7 +224,7 @@ context-mode hook codex stop
 Both hook-based platforms use the CLI dispatcher pattern instead of direct `node` paths:
 
 ```
-context-mode hook <platform> <event>
+ctxscribe hook <platform> <event>
 ```
 
 The dispatcher resolves the hook script relative to the installed package and dynamically imports it. Stdin/stdout flow through naturally since it runs in the same process.
@@ -228,7 +232,7 @@ The dispatcher resolves the hook script relative to the installed package and dy
 **Advantages over `node ./node_modules/...` paths:**
 - Works from any directory (no per-project `npm install` needed)
 - Single global install serves all projects
-- `context-mode upgrade` updates hooks in-place
+- `ctxscribe upgrade` updates hooks in-place
 - Short, portable command strings in settings files
 
 **Supported dispatches:**
@@ -242,7 +246,7 @@ The dispatcher resolves the hook script relative to the installed package and dy
 
 ## SQLite Backend Selection
 
-context-mode automatically selects the best SQLite backend at runtime based on the environment:
+ctxscribe automatically selects the best SQLite backend at runtime based on the environment:
 
 | Priority | Condition | Backend | Why |
 |----------|-----------|---------|-----|
@@ -252,7 +256,7 @@ context-mode automatically selects the best SQLite backend at runtime based on t
 
 **Why node:sqlite on Linux?** Node.js's V8 garbage collector can call `madvise(MADV_DONTNEED)` on memory ranges that overlap `better-sqlite3`'s native addon `.got.plt` section, corrupting resolved symbol addresses and causing sporadic SIGSEGV crashes (1-4/hour on Node v22-v24). `node:sqlite` is compiled into the Node.js binary itself — no separate `.node` file, no `dlopen()`, no `.got.plt` to corrupt.
 
-**Fallback:** If `node:sqlite` is unavailable (Node < 22.5), context-mode silently falls back to `better-sqlite3`. No user configuration needed.
+**Fallback:** If `node:sqlite` is unavailable (Node < 22.5), ctxscribe silently falls back to `better-sqlite3`. No user configuration needed.
 
 **Override:** Not currently supported — backend selection is automatic. If you need to force a specific backend, open an issue.
 

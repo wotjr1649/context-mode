@@ -21,11 +21,11 @@ description: |
 
 ## MANDATORY RULE
 
-<context_mode_logic>
+<ctxscribe_logic>
   <mandatory_rule>
     Default to ctxscribe for ALL commands. Only use Bash for guaranteed-small-output operations.
   </mandatory_rule>
-</context_mode_logic>
+</ctxscribe_logic>
 
 Bash whitelist (safe to run directly):
 - **File mutations**: `mkdir`, `mv`, `cp`, `rm`, `touch`, `chmod`

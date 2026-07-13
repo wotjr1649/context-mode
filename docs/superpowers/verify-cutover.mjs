@@ -1,5 +1,13 @@
 #!/usr/bin/env node
 /**
+ * SUPERSEDED by the ctxscribe rename — DO NOT RUN. Kept as a phase-2 historical
+ * artifact. Every key below (`context-mode@context-mode-js`, marketplace
+ * `context-mode-js`) is now the OLD identity: the current key is
+ * `ctxscribe@wotjr1649`. Running this against the renamed tree fails confusingly.
+ * The live equivalent is `scripts/verify-deploy.mjs`, and `npm run build`'s
+ * `assert-identity-clean` gate is what enforces the rename's completeness.
+ *
+ * ── original header ──────────────────────────────────────────────────────
  * Phase-2 cutover gate for the context-mode hard fork.
  *
  * Run AFTER the cutover and AFTER restarting Claude Code:

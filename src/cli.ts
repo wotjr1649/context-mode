@@ -1353,7 +1353,8 @@ async function upgrade(opts?: { platform?: string }) {
       }
 
       // v1.0.119 — Issue #523 — Layer 5 heal: assert .claude-plugin/plugin.json's
-      // mcpServers["ctxscribe"].args[0] is the literal ${CLAUDE_PLUGIN_ROOT}/start.mjs
+      // mcpServers["mcp"].args[0] (fixed server key, NOT the plugin name) is the
+      // literal ${CLAUDE_PLUGIN_ROOT}/start.mjs
       // placeholder, not a tmpdir-prefixed absolute path. cli.ts already wrote .mcp.json
       // with the placeholder (#411 fix), but plugin.json was never touched here — and
       // start.mjs's normalize-hooks (Windows + #378) can bake in absolute paths that

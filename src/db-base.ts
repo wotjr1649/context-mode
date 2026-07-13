@@ -509,6 +509,15 @@ export function renameCorruptDB(dbPath: string): void {
 // Set<DatabaseInstance>. A persistent global slot from a v1.0.128 or
 // v1.0.129 module would deserialize as the wrong shape and crash the
 // exit hook iteration.
+//
+// DO NOT RENAME — cross-version globalThis dedupe key; renaming splits the
+// registry and leaks SQLite handles across an in-process upgrade. During
+// /ctx-upgrade an OLD bundle and the NEW one can be live in the SAME process;
+// this SHARED symbol is what lets the single exit hook close EVERY live handle.
+// A `ctxscribe`-flavoured name would be a DIFFERENT Symbol.for() slot, so each
+// bundle would register its own set and close only its own DBs — exactly the
+// split-registry failure the `_v3_` bump above describes. The identity gate
+// whitelists this line by name (spec §4b invariant).
 const _kLiveDBs = Symbol.for("__context_mode_live_dbs_v3__");
 const _liveDBs: Set<DatabaseInstance> = (() => {
   const g = globalThis as Record<symbol, Set<DatabaseInstance> | undefined>;

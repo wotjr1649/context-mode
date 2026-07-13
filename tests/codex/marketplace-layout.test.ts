@@ -135,7 +135,7 @@ describe("Codex marketplace discovery contract — v0.130.0", () => {
         source.source,
         "local",
         `Plugin '${plugin.name}' must not use a local source path. The old ` +
-          `./plugins/${plugin.name} symlink checked out as a regular '..' file on Windows.`,
+          `./plugins/context-mode symlink checked out as a regular '..' file on Windows.`,
       );
     }
   });

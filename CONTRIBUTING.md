@@ -21,7 +21,8 @@ identifier re-enters the source, configs, docs, or product copy.
 
 ```bash
 npm install
-npm run build     # tsc → 7 esbuild bundles → assert-bundle → asymmetric-drift → removed-platform scan
+npm run build     # tsc → 7 esbuild bundles → 5 gates: assert-bundle → asymmetric-drift →
+                  # removed-platform scan → no-upstream-mksglu → identity-clean
 git config core.hooksPath .githooks   # once per clone — installs the bundle-freshness pre-commit guard
 ```
 

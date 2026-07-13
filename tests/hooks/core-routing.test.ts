@@ -1242,7 +1242,7 @@ describe("buildSecurityWarningContext — agent-facing security warning (#558)",
     // a recognizable XML-ish wrapper so the agent can parse / scope it.
     expect(r.parsed.warning).toMatch(/security/i);
     expect(r.parsed.warning).toMatch(/permissions\.deny|deny pattern/i);
-    expect(r.parsed.warning).toMatch(/<context_mode_security_warning>|security_warning/);
+    expect(r.parsed.warning).toMatch(/<ctxscribe_security_warning>|security_warning/);
     // Must point users at the actionable fix.
     expect(r.parsed.warning).toMatch(/npm run bundle|security\.bundle\.mjs|reinstall/i);
   });
