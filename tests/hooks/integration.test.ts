@@ -776,7 +776,15 @@ describe("resolveConfigDir (#289)", () => {
   });
 
   test("CLAUDE_CONFIG_DIR overrides Claude Code config path", async () => {
-    const result = await loadHelpers({ CLAUDE_CONFIG_DIR: "/custom/claude-work" });
+    // CODEX_HOME is explicitly emptied (as in the defaults test above) so the
+    // codex side sits at its documented fallback. vitest.config.ts pins a real
+    // CODEX_HOME for test isolation, and it would otherwise be inherited here
+    // via `...process.env` — masking the actual assertion, which is that
+    // CLAUDE_CONFIG_DIR does not bleed into another platform's config path.
+    const result = await loadHelpers({
+      CLAUDE_CONFIG_DIR: "/custom/claude-work",
+      CODEX_HOME: "",
+    });
     expect(result.claude_default).toBe("/custom/claude-work");
     // Other platforms unaffected
     const home = process.env.HOME || process.env.USERPROFILE || "";

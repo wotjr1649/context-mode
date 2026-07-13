@@ -73,6 +73,14 @@ function runHook(hookFile: string, input: Record<string, unknown>, env?: Record<
       // Isolate DB writes to fake HOME
       HOME: fakeHomeDir,
       USERPROFILE: fakeHomeDir,
+      // $CLAUDE_CONFIG_DIR / $CODEX_HOME take PRECEDENCE over homedir() when the
+      // hook resolves its config dir, and vitest.config.ts pins both globally so
+      // that unisolated suites can't reach the real ~/.claude. Redirecting HOME
+      // alone would therefore no longer steer the spawned hook: it would write
+      // its session DB into the global test config dir, not sessionDBDir. Point
+      // them at this suite's fake home so env and homedir() agree.
+      CLAUDE_CONFIG_DIR: join(fakeHomeDir, ".claude"),
+      CODEX_HOME: join(fakeHomeDir, ".codex"),
       ...env,
     },
   });

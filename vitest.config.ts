@@ -1,10 +1,47 @@
+import { mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { defineConfig } from "vitest/config";
 
 const isCI = !!process.env.CI;
 
+/**
+ * Global config-dir containment (test-isolation safety net).
+ *
+ * Adapter code resolves its config dir from env FIRST and only falls back to
+ * `homedir()`:
+ *   - `src/util/claude-config.ts::resolveClaudeConfigDir` → $CLAUDE_CONFIG_DIR
+ *   - `src/adapters/codex/paths.ts`                       → $CODEX_HOME
+ *   - `hooks/session-helpers.mjs::resolveConfigDir`, `start.mjs`  → both
+ *
+ * Neither var is normally set on a dev machine, so both resolved to the
+ * developer's REAL ~/.claude and ~/.codex. Only ~10% of suites opt into
+ * `tests/setup-home.ts` (which redirects HOME); every other suite — and, more
+ * damagingly, every subprocess it spawns (start.mjs, hooks) — wrote session
+ * state, healed hooks and rewrote settings.json in the user's live config dirs.
+ *
+ * Pinning both vars at config-load time makes containment the DEFAULT: a suite
+ * now has to opt OUT to reach the real home, rather than opt IN to avoid it.
+ * Suites that need a per-suite home still override this (setup-home.ts and
+ * `withIsolatedEnv()` both re-point these two vars at their own fake home).
+ *
+ * Regression-guarded by `tests/test-isolation.test.ts` — delete this block and
+ * that suite fails loudly.
+ */
+const testConfigRoot = mkdtempSync(join(tmpdir(), "ctxscribe-test-cfg-"));
+const claudeConfigDir = join(testConfigRoot, ".claude");
+const codexHome = join(testConfigRoot, ".codex");
+mkdirSync(claudeConfigDir, { recursive: true });
+mkdirSync(codexHome, { recursive: true });
+
 export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
+    env: {
+      CLAUDE_CONFIG_DIR: claudeConfigDir,
+      CODEX_HOME: codexHome,
+    },
     testTimeout: 30_000,
     // afterAll cleanup loops over many better-sqlite3 handles on Windows
     // and can exceed vitest's default 10s hookTimeout under fork contention

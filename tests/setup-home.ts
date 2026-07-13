@@ -18,6 +18,18 @@ process.env.USERPROFILE = fakeHome;
 process.env.HOMEDRIVE = root.replace(/[\\/]+$/, "");
 process.env.HOMEPATH = fakeHome.slice(root.length) || root;
 
+// Adapter config-dir overrides must follow HOME into the fake home.
+//
+// `vitest.config.ts` pins CLAUDE_CONFIG_DIR / CODEX_HOME to a global temp dir
+// so that suites which opt into NO isolation at all still can't touch the
+// developer's real ~/.claude / ~/.codex. But those vars WIN over homedir()
+// inside `resolveClaudeConfigDir()` — so without re-pointing them here, a
+// setup-home suite would get the node:os mock saying "fakeHome" and the env
+// saying "global temp dir", and config I/O would land outside the fakeHome the
+// suite seeds its fixtures into. Re-point them so both agree.
+process.env.CLAUDE_CONFIG_DIR = join(fakeHome, ".claude");
+process.env.CODEX_HOME = join(fakeHome, ".codex");
+
 // Prevent CONTEXT_MODE_BRIDGE_DEPTH from leaking in when an MCP bridge child
 // spawned with depth=1 and that env persisted into the test runner.
 delete process.env.CONTEXT_MODE_BRIDGE_DEPTH;

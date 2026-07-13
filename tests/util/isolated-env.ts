@@ -50,6 +50,13 @@ const REDIRECT_KEYS = [
   "TEMP",
   "TMP",
   "CONTEXT_MODE_PROJECT_DIR",
+  // Adapter config-dir overrides. These take PRECEDENCE over homedir() in
+  // `resolveClaudeConfigDir()` / `codex/paths.ts`, so redirecting HOME alone
+  // is not enough: any code (or spawned subprocess) that reads them would
+  // still resolve to the developer's real ~/.claude / ~/.codex. Pinning them
+  // to the fake home keeps env and the node:os mock telling the same story.
+  "CLAUDE_CONFIG_DIR",
+  "CODEX_HOME",
 ] as const;
 
 /** Keys that get split out from the fake HOME (Windows drive convention). */
@@ -120,6 +127,8 @@ function envForHome(fakeHome: string, opts?: IsolatedEnvOpts): Record<string, st
     TEMP: fakeHome,
     TMP: fakeHome,
     CONTEXT_MODE_PROJECT_DIR: fakeHome,
+    CLAUDE_CONFIG_DIR: join(fakeHome, ".claude"),
+    CODEX_HOME: join(fakeHome, ".codex"),
   };
   if (!opts?.keepXdg) {
     env.XDG_CONFIG_HOME = join(fakeHome, ".config");
