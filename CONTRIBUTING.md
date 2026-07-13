@@ -6,8 +6,8 @@ private use. Its scope is deliberately narrow: it supports **only two clients,
 Claude Code and Codex**, and it does not merge upstream — changes are read and
 ported selectively.
 
-**Improvements to context-mode itself belong upstream.** Open pull requests and
-issues for the original project at
+**Improvements to the upstream project itself belong upstream.** Open pull
+requests and issues for the original project at
 [`mksglu/context-mode`](https://github.com/mksglu/context-mode); they reach every
 downstream, this fork included.
 

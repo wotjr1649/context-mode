@@ -1,7 +1,7 @@
 ---
-name: context-mode
+name: ctxscribe
 description: |
-  Use context-mode tools (ctx_execute, ctx_execute_file) instead of Bash/cat when processing
+  Use ctxscribe tools (ctx_execute, ctx_execute_file) instead of Bash/cat when processing
   large outputs. Triggers: "analyze logs", "summarize output", "process data",
   "parse JSON", "filter results", "extract errors", "check build output",
   "analyze dependencies", "process API response", "large file analysis",
@@ -17,13 +17,13 @@ description: |
   Subagent routing is handled automatically via PreToolUse hook.
 ---
 
-# Context Mode: Default for All Large Output
+# ctxscribe: Default for All Large Output
 
 ## MANDATORY RULE
 
 <context_mode_logic>
   <mandatory_rule>
-    Default to context-mode for ALL commands. Only use Bash for guaranteed-small-output operations.
+    Default to ctxscribe for ALL commands. Only use Bash for guaranteed-small-output operations.
   </mandatory_rule>
 </context_mode_logic>
 
@@ -37,7 +37,7 @@ Bash whitelist (safe to run directly):
 
 **Everything else → `ctx_execute` or `ctx_execute_file`.** Any command that reads, queries, fetches, lists, logs, tests, builds, diffs, inspects, or calls an external service. This includes ALL CLIs (gh, aws, kubectl, docker, terraform, wrangler, fly, heroku, gcloud, etc.) — there are thousands and we cannot list them all.
 
-**When uncertain, use context-mode.** Every KB of unnecessary context reduces the quality and speed of the entire session.
+**When uncertain, use ctxscribe.** Every KB of unnecessary context reduces the quality and speed of the entire session.
 
 ## Decision Tree
 
@@ -48,7 +48,7 @@ About to run a command / read a file / call an API?
 │   └── Use Bash
 │
 ├── Output MIGHT be large or you're UNSURE?
-│   └── Use context-mode ctx_execute or ctx_execute_file
+│   └── Use ctxscribe ctx_execute or ctx_execute_file
 │
 ├── Fetching web documentation or HTML page?
 │   └── Use ctx_fetch_and_index → ctx_search
@@ -104,7 +104,7 @@ About to run a command / read a file / call an API?
 
 ## Automatic Triggers
 
-Use context-mode for ANY of these, without being asked:
+Use ctxscribe for ANY of these, without being asked:
 
 - **API debugging**: "hit this endpoint", "call the API", "check the response", "find the bug in the response"
 - **Log analysis**: "check the logs", "what errors", "read access.log", "debug the 500s"
@@ -147,8 +147,8 @@ Use context-mode for ANY of these, without being asked:
 1. **Always console.log/print your findings.** stdout is all that enters context. No output = wasted call.
 2. **Write analysis code, not just data dumps.** Don't `console.log(JSON.stringify(data))` — analyze first, print findings.
 3. **Be specific in output.** Print bug details with IDs, line numbers, exact values — not just counts.
-4. **For files you need to EDIT**: Use the normal Read tool. context-mode is for analysis, not editing.
-5. **For Bash whitelist commands only**: Use Bash for file mutations, git writes, navigation, process control, package install, and echo. Everything else goes through context-mode.
+4. **For files you need to EDIT**: Use the normal Read tool. ctxscribe is for analysis, not editing.
+5. **For Bash whitelist commands only**: Use Bash for file mutations, git writes, navigation, process control, package install, and echo. Everything else goes through ctxscribe.
 6. **Never use `ctx_index(content: large_data)`.** Use `ctx_index(path: ...)` to read files server-side. The `content` parameter sends data through context as a tool parameter — use it only for small inline text.
 7. **Always use `filename` parameter** on Playwright tools (`browser_snapshot`, `browser_console_messages`, `browser_network_requests`). Without it, the full output enters context.
 8. **Don't re-index data already in context.** If an MCP tool returned data in a previous response, it's already loaded — use it directly or save to file first.
@@ -161,7 +161,7 @@ Use context-mode for ANY of these, without being asked:
     NEVER return large raw datasets directly to context.
   </critical_rule>
   <workflow>
-    LargeDataTool(filename: "path") → mcp__context-mode__ctx_index(path: "path") → ctx_search()
+    LargeDataTool(filename: "path") → mcp__plugin_ctxscribe_mcp__ctx_index(path: "path") → ctx_search()
   </workflow>
 </sandboxed_data_workflow>
 
@@ -275,7 +275,7 @@ browser_network_requests(includeStatic: false, filename: "/tmp/network.md")
 
 ## Subagent Usage
 
-Subagents automatically receive context-mode tool routing via a PreToolUse hook. You do NOT need to manually add tool names to subagent prompts — the hook injects them. Just write natural task descriptions.
+Subagents automatically receive ctxscribe tool routing via a PreToolUse hook. You do NOT need to manually add tool names to subagent prompts — the hook injects them. Just write natural task descriptions.
 
 ## Anti-Patterns
 

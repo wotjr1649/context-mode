@@ -692,7 +692,7 @@ describe("Skill Commands", () => {
     assert.ok(existsSync(skillMd), "skills/ctx-doctor/SKILL.md must exist");
     const content = readFileSync(skillMd, "utf-8");
     assert.ok(content.includes("name: ctx-doctor"), "SKILL.md name must be ctx-doctor");
-    assert.ok(content.includes("/context-mode:ctx-doctor"), "Trigger must reference ctx-doctor");
+    assert.ok(content.includes("/ctxscribe:ctx-doctor"), "Trigger must reference ctx-doctor");
   });
 
   test("ctx-upgrade skill directory exists with valid SKILL.md", () => {
@@ -700,7 +700,7 @@ describe("Skill Commands", () => {
     assert.ok(existsSync(skillMd), "skills/ctx-upgrade/SKILL.md must exist");
     const content = readFileSync(skillMd, "utf-8");
     assert.ok(content.includes("name: ctx-upgrade"), "SKILL.md name must be ctx-upgrade");
-    assert.ok(content.includes("/context-mode:ctx-upgrade"), "Trigger must reference ctx-upgrade");
+    assert.ok(content.includes("/ctxscribe:ctx-upgrade"), "Trigger must reference ctx-upgrade");
   });
 
   test("ctx-stats skill directory exists with valid SKILL.md", () => {
@@ -708,7 +708,7 @@ describe("Skill Commands", () => {
     assert.ok(existsSync(skillMd), "skills/ctx-stats/SKILL.md must exist");
     const content = readFileSync(skillMd, "utf-8");
     assert.ok(content.includes("name: ctx-stats"), "SKILL.md name must be ctx-stats");
-    assert.ok(content.includes("/context-mode:ctx-stats"), "Trigger must reference ctx-stats");
+    assert.ok(content.includes("/ctxscribe:ctx-stats"), "Trigger must reference ctx-stats");
   });
 
   test("old skill directories (doctor, upgrade, stats) no longer exist", () => {

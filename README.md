@@ -1,4 +1,4 @@
-# Context Mode
+# ctxscribe
 
 > ### ⚠️ This is a modified fork
 >
@@ -12,7 +12,7 @@
 >
 > Licensed under the Elastic License 2.0, the same terms as upstream — see [LICENSE](LICENSE).
 
-context-mode is an MCP server that keeps large tool output out of the model's
+ctxscribe is an MCP server that keeps large tool output out of the model's
 context window: it runs commands and code in a sandbox, indexes the output into
 a local FTS5 knowledge base, and returns only what a search matches. The model
 receives the answer, not the raw bytes.
@@ -46,24 +46,24 @@ Requires Node.js >= 22.5 (or [Bun](https://bun.sh)). On Linux, Node.js below
 
 ### Claude Code
 
-The fork ships under its own marketplace name, `context-mode-js`, so its plugin
-cache stays isolated from upstream's (sharing a cache parent would let upstream's
+The fork ships under its own marketplace name, `wotjr1649`, so its plugin cache
+stays isolated from upstream's (sharing a cache parent would let upstream's
 higher version win).
 
 ```
-/plugin marketplace add wotjr1649/context-mode
-/plugin install context-mode@context-mode-js
+/plugin marketplace add wotjr1649/ctxscribe
+/plugin install ctxscribe@wotjr1649
 ```
 
-Restart Claude Code, then verify with `/context-mode:ctx-doctor`.
+Restart Claude Code, then verify with `/ctxscribe:ctx-doctor`.
 
 ### Codex
 
-Codex resolves plugins by commit SHA, so its catalog name stays `context-mode`.
+Codex resolves plugins by commit SHA. The fork's catalog name is `ctxscribe`.
 Add the fork's marketplace:
 
 ```
-codex plugin marketplace add wotjr1649/context-mode
+codex plugin marketplace add wotjr1649/ctxscribe
 ```
 
 Enable the plugin hooks in `~/.codex/config.toml`:
@@ -77,8 +77,10 @@ plugin_hooks = true
 
 Restart Codex and verify with `ctx stats`. The plugin provides its MCP server,
 hooks, and skills from `.codex-plugin/`; the server self-identifies through
-`CONTEXT_MODE_PLATFORM=codex`. To migrate an existing upstream Codex install,
-run `codex plugin marketplace upgrade context-mode`.
+`CONTEXT_MODE_PLATFORM=codex`. To pull a newer commit of the fork later, run
+`codex plugin marketplace upgrade ctxscribe`. The fork's catalog is a separate
+marketplace from upstream's, so an existing upstream Codex install is left
+untouched — remove it separately if you no longer want it.
 
 The plugin's PreToolUse hook (from `.codex-plugin/hooks.json`) intercepts the
 context-flooding tools before they run — this matcher is kept in sync with the

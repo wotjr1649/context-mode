@@ -971,15 +971,17 @@ async function doctor(): Promise<number> {
 }
 
 /* -------------------------------------------------------
- * Insight — hosted analytics dashboard
+ * Insight — upstream-hosted analytics dashboard
  * ------------------------------------------------------- */
 
-// Insight pivoted from a locally-built dashboard to the hosted product at
-// context-mode.com/insight (the landing page is the single source of truth).
-// The command now just opens that URL in the default browser.
+// Insight is a SEPARATE product, operated by the upstream project and hosted at
+// context-mode.com/insight (its landing page is the single source of truth for
+// sign-in and pricing) — it is not a ctxscribe feature. This fork does not own
+// that domain, so the URL is left intact on purpose: rebranding it to a domain
+// we do not own would ship a dead link. The command just opens it in the browser.
 async function insight() {
   const url = "https://context-mode.com/insight";
-  console.log(`\n  context-mode Insight\n  ${url}\n`);
+  console.log(`\n  Insight — upstream-hosted dashboard (a separate product)\n  ${url}\n`);
   // Open browser — execFile with arg array, no shell interpolation.
   openInBrowser(url);
 }

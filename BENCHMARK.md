@@ -1,4 +1,4 @@
-# Context Mode — Benchmark Results
+# ctxscribe — Benchmark Results
 
 > Benchmarked against **real outputs** from popular Claude Code MCP servers, Skills, and dev tools.
 > All fixtures captured from actual tool invocations — not synthetic data.
@@ -60,8 +60,8 @@
 | React useEffect docs | Context7 | 5.9 KB | 1,494 B | 75% | 16 | 4 |
 | Next.js App Router docs | Context7 | 6.5 KB | 3,311 B | 50% | 5 | 5 |
 | Tailwind CSS docs | Context7 | 4.0 KB | 620 B | 85% | 5 | 5 |
-| Skill prompt (main) | context-mode | 4.4 KB | 932 B | 79% | 15 | 6 |
-| Skill references (4 files) | context-mode | 33.2 KB | 2,412 B | 93% | 51 | 32 |
+| Skill prompt (main) | ctxscribe | 4.4 KB | 932 B | 79% | 15 | 6 |
+| Skill references (4 files) | ctxscribe | 33.2 KB | 2,412 B | 93% | 51 | 32 |
 
 **Subtotal: 60.3 KB raw → 11.0 KB context (82% savings)**
 
@@ -76,7 +76,7 @@
 
 ## Part 3: Large Output Externalization (FTS5 Pointer)
 
-*When output exceeds 100 KB, context-mode auto-indexes the full content into FTS5 and returns a pointer message instead of raw content. No data is discarded — the LLM queries it on demand via `ctx_search()`.*
+*When output exceeds 100 KB, ctxscribe auto-indexes the full content into FTS5 and returns a pointer message instead of raw content. No data is discarded — the LLM queries it on demand via `ctx_search()`.*
 
 | Before | After |
 |---|---|
@@ -103,7 +103,7 @@ Claude's context window: **200,000 tokens**
 
 ### Scenario: Full debugging session
 
-| Tool Calls | Without context-mode | With context-mode |
+| Tool Calls | Without ctxscribe | With ctxscribe |
 |---|---|---|
 | Context7 docs (3 queries) | 16.4 KB | 5.6 KB |
 | Playwright snapshot | 56.2 KB | 299 B |

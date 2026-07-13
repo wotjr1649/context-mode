@@ -15,8 +15,8 @@ body:
         You're using an AI coding agent. You have the most powerful debugging tool in history sitting right there. Use it:
 
         1. **Reproduce the bug** with a specific prompt (paste it below)
-        2. **Ask your agent to debug it**: _"Read the context-mode hooks source and find why this error occurs"_
-        3. **Write a failing test** (RED) and fix it (GREEN) — see [CONTRIBUTING.md](https://github.com/wotjr1649/context-mode/blob/main/CONTRIBUTING.md)
+        2. **Ask your agent to debug it**: _"Read the ctxscribe hooks source and find why this error occurs"_
+        3. **Write a failing test** (RED) and fix it (GREEN) — see [CONTRIBUTING.md](https://github.com/wotjr1649/ctxscribe/blob/main/CONTRIBUTING.md)
         4. **Open a PR** against `main` branch — CI verifies on Ubuntu, macOS, and Windows
 
         **Opening an issue does NOT guarantee a fix.** I welcome issues for discussion and triage, but the fastest path to resolution is a PR. If you can describe the bug, your AI agent can fix it.
@@ -32,8 +32,8 @@ body:
         ---
 
         **Before you file:**
-        1. [Search existing issues](https://github.com/wotjr1649/context-mode/issues)
-        2. Run `/context-mode:ctx-upgrade` and restart your session
+        1. [Search existing issues](https://github.com/wotjr1649/ctxscribe/issues)
+        2. Run `/ctxscribe:ctx-upgrade` and restart your session
         3. If the issue persists on the latest version, fill out every field below
 
   - type: dropdown
@@ -51,7 +51,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: context-mode version
+      label: ctxscribe version
       description: |
         Shown in the debug script output. Must be the latest. If not, upgrade first.
       placeholder: "e.g. 0.9.23"
@@ -68,7 +68,7 @@ body:
         bash scripts/ctx-debug.sh
         cat /tmp/ctx-debug-*.json   # paste this
         ```
-        If installed via npm: `bash "$(npm root -g)/context-mode/scripts/ctx-debug.sh"`
+        If installed via npm: `bash "$(npm root -g)/ctxscribe/scripts/ctx-debug.sh"`
         The script writes a JSON file to /tmp — copy its contents here.
         **Issues without debug output will be closed immediately.**
       placeholder: "Paste the contents of /tmp/ctx-debug-<timestamp>.json"
@@ -109,7 +109,7 @@ body:
       description: |
         Minimal steps so anyone on your platform can reproduce this.
       placeholder: |
-        1. Install: npm install -g context-mode@1.0.50
+        1. Install: npm install -g ctxscribe@1.0.0
         2. Configure: (paste your mcp config)
         3. Send prompt: "..."
         4. See error: "..."
@@ -137,7 +137,7 @@ body:
       options:
         - label: I have run the debug script and pasted the output above
           required: true
-        - label: I am using the latest version of context-mode
+        - label: I am using the latest version of ctxscribe
           required: true
         - label: I have searched existing issues for duplicates
           required: true

@@ -4103,7 +4103,7 @@ server.registerTool(
     const bundlePath = resolve(pluginRoot, "cli.bundle.mjs");
     const fallbackPath = resolve(pluginRoot, "build", "cli.js");
 
-    // Insight pivoted to the hosted dashboard (context-mode.com/insight), so
+    // Insight is upstream's hosted dashboard (context-mode.com/insight), so
     // ctx_insight no longer builds a local cache. On upgrade, sweep the legacy
     // insight-cache and stop any stale local dashboard left from old versions.
     try {
@@ -4593,11 +4593,13 @@ export function killProcessOnPort(
   return result;
 }
 
-// ── ctx-insight: open the hosted Insight dashboard ───────────────────────────
-// Insight pivoted from a locally-built dashboard to the hosted B2B product at
-// context-mode.com/insight (the landing page is the single source of truth).
-// The tool now simply opens that URL in the user default browser via the same
-// cross-platform helper (openBrowserSync) used elsewhere.
+// ── ctx-insight: open the upstream-hosted Insight dashboard ──────────────────
+// Insight is a SEPARATE B2B product, operated by the upstream project and hosted
+// at context-mode.com/insight (its landing page is the single source of truth for
+// sign-in and pricing) — it is not a ctxscribe feature. This fork does not own
+// that domain, so the URL is left intact on purpose: rebranding it to a domain we
+// do not own would ship a dead link. The tool simply opens that URL in the user
+// default browser via the same cross-platform helper (openBrowserSync).
 const INSIGHT_URL = "https://context-mode.com/insight";
 
 server.registerTool(
@@ -4613,8 +4615,9 @@ server.registerTool(
       openWorldHint: true,
     },
     description:
-      "Opens the context-mode Insight dashboard (https://context-mode.com/insight) in your " +
-      "default browser — a dashboard launcher for the hosted analytics layer, not a Q&A engine. " +
+      "Opens the upstream-hosted Insight dashboard (https://context-mode.com/insight) in your " +
+      "default browser — a dashboard launcher for a separate analytics product run by upstream " +
+      "at context-mode.com; it is not a ctxscribe feature and not a Q&A engine. " +
       "Insight surfaces per-engineer productive rate, retry waste, blocker detection, and " +
       "role-narrowed views for CTO, EM, IC, CISO, FinOps, and DevOps. " +
       "For natural-language queries over your indexed content, use ctx_search.",

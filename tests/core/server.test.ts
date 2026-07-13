@@ -6099,8 +6099,9 @@ describe("ctx_insight schema description (issue #697)", () => {
     expect(serverSrc).toMatch(/ctx_insight[\s\S]{0,2000}use ctx_search/);
   });
 
-  test("description preserves the original analytics framing", () => {
-    expect(serverSrc).toMatch(/Opens the context-mode Insight dashboard/);
+  test("description frames Insight as a separate, upstream-hosted product", () => {
+    expect(serverSrc).toMatch(/Opens the upstream-hosted Insight dashboard/);
+    expect(serverSrc).toMatch(/not a ctxscribe feature/);
   });
 });
 

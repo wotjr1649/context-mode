@@ -1,6 +1,6 @@
 # Anti-Patterns: Common Mistakes with execute / execute_file
 
-Avoid these pitfalls when using context-mode tools.
+Avoid these pitfalls when using ctxscribe tools.
 
 ---
 

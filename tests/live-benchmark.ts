@@ -12,7 +12,7 @@ import { ContentStore } from "../src/store.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(__dirname, "fixtures");
-const skillDir = join(__dirname, "..", "skills", "context-mode");
+const skillDir = join(__dirname, "..", "skills", "ctxscribe");
 
 interface BenchmarkResult {
   scenario: string;
@@ -152,13 +152,13 @@ async function main() {
     }),
   );
 
-  // ===== SKILLS: context-mode skill =====
+  // ===== SKILLS: ctxscribe skill =====
   const skillFile = join(skillDir, "SKILL.md");
   if (existsSync(skillFile)) {
     results.push(
       benchmark({
-        scenario: "Skill: context-mode (main prompt)",
-        source: "Skill: context-mode",
+        scenario: "Skill: ctxscribe (main prompt)",
+        source: "Skill: ctxscribe",
         content: readFileSync(skillFile, "utf-8"),
         queries: [
           "when to use execute vs execute_file",
@@ -191,7 +191,7 @@ async function main() {
       results.push(
         benchmark({
           scenario: "Skill references (4 files combined)",
-          source: "Skill Refs: context-mode",
+          source: "Skill Refs: ctxscribe",
           content: combinedContent,
           queries: [
             "JSON parse transform pattern",

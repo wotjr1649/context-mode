@@ -176,12 +176,12 @@ describe("cli.bundle.mjs — marketplace install support", () => {
   it("ctx-index and ctx-search skills expose slash-style triggers", () => {
     const indexSkill = readFileSync(resolve(ROOT, "skills", "ctx-index", "SKILL.md"), "utf-8");
     const searchSkill = readFileSync(resolve(ROOT, "skills", "ctx-search", "SKILL.md"), "utf-8");
-    expect(indexSkill).toContain("Trigger: /context-mode:ctx-index");
+    expect(indexSkill).toContain("Trigger: /ctxscribe:ctx-index");
     expect(indexSkill).toContain("user-invocable: true");
-    expect(indexSkill).toContain("context-mode index");
-    expect(searchSkill).toContain("Trigger: /context-mode:ctx-search");
+    expect(indexSkill).toContain("ctxscribe index");
+    expect(searchSkill).toContain("Trigger: /ctxscribe:ctx-search");
     expect(searchSkill).toContain("user-invocable: true");
-    expect(searchSkill).toContain("context-mode search");
+    expect(searchSkill).toContain("ctxscribe search");
   });
 
   // ── .gitignore ─────────────────────────────────────────────

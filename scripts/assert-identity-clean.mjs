@@ -52,6 +52,21 @@ const WHITELIST = [
   //   `/Users/mksglu/Server/Mert/context-mode-claude-code-plugin/context-mode`, hard-coded in a
   //   manual (non-vitest) benchmark script. Renaming someone else's machine path would invent a
   //   directory that exists on nobody's disk. Scoped to file + the `/Users/mksglu/` home shape.
+  // Task 10b. Both entries below are EXTERNAL references — third-party names this fork
+  // does not own — exactly the class of the context-mode-platform entry above.
+  /context-mode\.com/,
+  //   EXTERNAL DOMAIN (ctx_insight). Insight is upstream's separately-hosted product; this
+  //   fork owns neither context-mode.com nor any replacement domain, so `ctxscribe.com` would
+  //   ship a DEAD LINK. The copy around it was reworded (task 10b) to state plainly that
+  //   Insight is upstream's, not ours — the URL itself stays. Scoped to the literal domain
+  //   (escaped dot): a bare `context-mode` elsewhere on the same line is NOT matched, so this
+  //   cannot false-clean a real target. Sites: src/cli.ts, src/server.ts, skills/ctx-insight.
+  /github\.com\/anthropic-experimental\/context-mode/,
+  //   EXTERNAL REPO (src/store-directory.ts:12) — an issue URL on Anthropic's
+  //   `anthropic-experimental/context-mode` repo, cited as the provenance of the store-dir
+  //   behaviour. Same class as the upstream-attribution entry at the top of this list:
+  //   renaming it would misname a THIRD PARTY's repository and break the link. Scoped to the
+  //   full org+repo path, so a lone `context-mode` in that same file is still caught.
 ];
 // Whole files that are pure attribution / generated — never scanned.
 const SKIP_FILE = /(UPSTREAM-CREDITS\.md|\.bundle\.mjs$|assert-identity-clean\.mjs$|bun\.lock$)/;

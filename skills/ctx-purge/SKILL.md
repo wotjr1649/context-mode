@@ -1,13 +1,13 @@
 ---
 name: ctx-purge
 description: |
-  Purge the context-mode knowledge base. Permanently deletes all indexed content
+  Purge the ctxscribe knowledge base. Permanently deletes all indexed content
   and resets session stats. This is destructive and cannot be undone.
-  Trigger: /context-mode:ctx-purge
+  Trigger: /ctxscribe:ctx-purge
 user-invocable: true
 ---
 
-# Context Mode Purge
+# ctxscribe Purge
 
 Permanently deletes session data for this project. Two scopes are supported (issue #520):
 
@@ -24,7 +24,7 @@ Permanently deletes session data for this project. Two scopes are supported (iss
    - Session events DB (analytics, metadata, resume snapshots) for ALL sessions in the project
    - Session events markdown file
    - In-memory session stats + persisted stats file
-3. Call the `mcp__context-mode__ctx_purge` MCP tool with the chosen parameters:
+3. Call the `mcp__plugin_ctxscribe_mcp__ctx_purge` MCP tool with the chosen parameters:
    - Scoped: `{ confirm: true, sessionId: "<id>" }` — implies scope:'session'.
    - Project: `{ confirm: true, scope: "project" }` — explicit destructive form.
    - Bare `{ confirm: true }` still works but emits a deprecation warning. Prefer the explicit forms.
@@ -45,5 +45,5 @@ Permanently deletes session data for this project. Two scopes are supported (iss
 
 - `ctx_purge` is the **only** way to delete session data. No other mechanism exists.
 - `ctx_stats` is read-only — shows statistics only.
-- `/clear` and `/compact` do NOT affect any context-mode data.
+- `/clear` and `/compact` do NOT affect any ctxscribe data.
 - There is no undo. Re-index content if you need it again.
