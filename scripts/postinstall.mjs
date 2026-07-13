@@ -81,7 +81,7 @@ const PLUGIN_KEY = derivePluginKey(pkgRoot);
 }
 
 /**
- * True when running as a real `npm install -g ctxscribe`. We use this
+ * True when running as a real `npm install -g wotjr1649/ctxscribe`. We use this
  * to keep contributors' local `npm install` runs from rewriting their HOME's
  * Claude Code registry (would be very surprising during dev).
  *
@@ -247,7 +247,7 @@ try { healBetterSqlite3Binding(pkgRoot); } catch { /* best effort — don't bloc
 // here too closes the gap for the very first hook fire after a fresh install
 // (before any MCP server has run).
 //
-// Guard 1: only run on REAL `npm install -g ctxscribe`. A contributor's
+// Guard 1: only run on REAL `npm install -g wotjr1649/ctxscribe`. A contributor's
 // `npm install` from a git clone (or CI checkout) must NOT mutate the
 // source-tracked `.claude-plugin/plugin.json` — doing so substitutes the
 // literal `${CLAUDE_PLUGIN_ROOT}` with an absolute path and trips

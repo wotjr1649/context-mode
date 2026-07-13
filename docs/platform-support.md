@@ -17,8 +17,10 @@ The MCP server layer is 100% portable and needs no adapter. Only the hook layer 
 Codex CLI requires a global install; Claude Code can use either the plugin install (Claude plugin registry) or the global binary:
 
 ```bash
-npm install -g ctxscribe
+npm install -g wotjr1649/ctxscribe
 ```
+
+ctxscribe is distributed from GitHub, not the npm registry, so the install uses npm's `owner/repo` shorthand instead of a package name.
 
 This puts the `ctxscribe` binary in PATH, which is required for:
 - **MCP server:** `"command": "ctxscribe"` (replaces ephemeral `npx -y ctxscribe`)

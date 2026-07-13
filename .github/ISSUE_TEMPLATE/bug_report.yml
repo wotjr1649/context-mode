@@ -109,7 +109,7 @@ body:
       description: |
         Minimal steps so anyone on your platform can reproduce this.
       placeholder: |
-        1. Install: npm install -g ctxscribe@1.0.0
+        1. Install: npm install -g wotjr1649/ctxscribe
         2. Configure: (paste your mcp config)
         3. Send prompt: "..."
         4. See error: "..."
