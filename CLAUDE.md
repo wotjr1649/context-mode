@@ -98,7 +98,7 @@ This repository is a hard fork of `mksglu/context-mode`. Supported clients: **Cl
 - `upstream/main` is a read-only reference. To send a PR upstream: `git checkout -b <fix> upstream/main`.
 - NEVER `git fetch upstream --tags` or `git push origin --tags`. Upstream's 198 tags would flood this fork's tag namespace.
 - No automation in this fork may call upstream infrastructure — no jsDelivr purge of `mksglu/context-mode`, no shields.io badges pointing at it, no links funnelling issues or sponsorship to it.
-- NEVER run `npm version`. Tags `v1.0.0` and `v1.0.1` already exist and the command would fail after committing. Edit `package.json` by hand, then run `npm run version-sync`.
+- `npm version <bump>` WORKS again. The colliding context-mode-era tags (`v1.0.0`–`v1.0.3`) were deleted during the ctxscribe rename; the only tag now is `v1.0.0`, on the ctxscribe release. The `version` lifecycle script already runs `scripts/version-sync.mjs` and stages the 4 manifests, so `npm version patch` bumps + syncs + commits + tags in one step. Push the SINGLE tag (`git push origin vX.Y.Z`) — never `--tags` (see above).
 - The Claude marketplace for this fork is named `wotjr1649`, so its plugin cache lives at `~/.claude/plugins/cache/wotjr1649/ctxscribe/` and its registry key is `ctxscribe@wotjr1649`.
 - NEVER hand-edit `~/.claude/hooks/ctxscribe-cache-heal.mjs`. `start.mjs` overwrites it on every boot.
 - `assert-bundle` does NOT compare committed bundles against a rebuild — it only scans for the esbuild `__require("node:...")` shim. Stale bundles pass CI and ship broken code. Always run `npm run build` before committing a change under `src/`.
