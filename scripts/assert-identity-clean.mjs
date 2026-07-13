@@ -40,6 +40,18 @@ const WHITELIST = [
   //   (and its `pluginRootFor("context-mode", "context-mode")` anchor form). These pin that
   //   the fork still heals — and never rewrites — an un-renamed upstream cache tree. Scoped to
   //   the doubled shape, so a lone `context-mode` in that same file is still caught.
+  /tests[/\\]codex[/\\]marketplace-layout\.test\.ts:.*plugins["/\\, ]+context-mode/,
+  //   HISTORICAL ARTIFACT name (same class as context-mode-cache-heal above). The regression
+  //   guard keeps the old Windows-hostile `plugins/context-mode` symlink shim out of the tree.
+  //   The shim predates the rename, so only the OLD name can ever come back (via a revert or an
+  //   upstream port); a guard pointed solely at `plugins/ctxscribe` would watch a path that has
+  //   never existed here and could never fail. Scoped to file + the `plugins…context-mode` shape,
+  //   so a lone `context-mode` elsewhere in that file is still caught.
+  /tests[/\\]live-benchmark-v04\.ts:.*\/Users\/mksglu\//,
+  //   FOREIGN PATH (same class as context-mode-platform): the UPSTREAM AUTHOR's local checkout,
+  //   `/Users/mksglu/Server/Mert/context-mode-claude-code-plugin/context-mode`, hard-coded in a
+  //   manual (non-vitest) benchmark script. Renaming someone else's machine path would invent a
+  //   directory that exists on nobody's disk. Scoped to file + the `/Users/mksglu/` home shape.
 ];
 // Whole files that are pure attribution / generated — never scanned.
 const SKIP_FILE = /(UPSTREAM-CREDITS\.md|\.bundle\.mjs$|assert-identity-clean\.mjs$|bun\.lock$)/;

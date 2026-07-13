@@ -170,13 +170,24 @@ describe("Codex marketplace discovery contract — v0.130.0", () => {
     }
   });
 
-  test("old Windows-hostile plugins/ctxscribe symlink shim is gone", () => {
-    const shim = join(REPO_ROOT, "plugins", "ctxscribe");
-    assert.ok(
-      !existsSync(shim),
-      `${shim} must not exist. Git symlinks often checkout as a regular '..' file on ` +
-        `native Windows, which makes Codex install fail with missing plugin.json.`,
-    );
+  test("old Windows-hostile plugins/context-mode symlink shim is gone", () => {
+    // The artifact this guard exists to keep out is the HISTORICAL one:
+    // `plugins/context-mode` + a git symlink to `..` (see the failure-mode
+    // docstring at the top of this file). It predates the ctxscribe rename, so
+    // a revert or an upstream port could only ever re-create it under the OLD
+    // name — pointing the guard exclusively at `plugins/ctxscribe` would aim it
+    // at a path that has never existed here and can never come back. The new
+    // name is checked too, as defense-in-depth.
+    for (const shim of [
+      join(REPO_ROOT, "plugins", "context-mode"),
+      join(REPO_ROOT, "plugins", "ctxscribe"),
+    ]) {
+      assert.ok(
+        !existsSync(shim),
+        `${shim} must not exist. Git symlinks often checkout as a regular '..' file on ` +
+          `native Windows, which makes Codex install fail with missing plugin.json.`,
+      );
+    }
   });
 
   test("no ${CODEX_PLUGIN_ROOT} / ${CLAUDE_PLUGIN_ROOT} placeholders in Codex-facing manifests (upstream openai/codex#19582)", () => {

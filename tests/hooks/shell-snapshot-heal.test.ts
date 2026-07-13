@@ -246,17 +246,18 @@ describe("rewriteShellSnapshots — version-segment rewrite", () => {
       `export PATH='/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin'\n`,
       "utf-8",
     );
-    writeFileSync(
-      other,
-      "wotjr1649/ctxscribe/1.0.146 — do not touch",
-      "utf-8",
-    );
+    // Deliberately a string the version-segment regex WOULD rewrite — the full
+    // `cache/<marketplace>/<plugin>/<version>/bin` shape it anchors on. So
+    // "untouched" below proves the `.sh` extension filter actually held; a bare
+    // `wotjr1649/ctxscribe/1.0.146` could never match and would make the
+    // assertion pass for the wrong reason.
+    const untouchable =
+      "/Users/x/.claude/plugins/cache/wotjr1649/ctxscribe/1.0.146/bin — do not touch";
+    writeFileSync(other, untouchable, "utf-8");
 
     rewriteShellSnapshots({ snapshotsDir, currentVersion: "1.0.151", pluginRoot: PLUGIN_ROOT });
 
-    expect(readFileSync(other, "utf-8")).toBe(
-      "wotjr1649/ctxscribe/1.0.146 — do not touch",
-    );
+    expect(readFileSync(other, "utf-8")).toBe(untouchable);
     expect(readFileSync(sh, "utf-8")).toContain(
       "wotjr1649/ctxscribe/1.0.151/bin",
     );
