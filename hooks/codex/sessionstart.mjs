@@ -28,6 +28,7 @@ import {
   flushAndExit,
   CODEX_OPTS,
 } from "../session-helpers.mjs";
+import { writeCodexCwdSidecar, pruneCodexCwdSidecars } from "../codex-cwd-sidecar.mjs";
 import { createSessionLoaders } from "../session-loaders.mjs";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
@@ -63,6 +64,16 @@ try {
   const input = parseStdin(raw);
   const source = input.source ?? "startup";
   const projectDir = getInputProjectDir(input, CODEX_OPTS);
+
+  // Hand the MCP server our workspace via a sidecar it can read — Codex gives
+  // the MCP child no workspace signal, but this hook has it (input.cwd). Prune
+  // dead-session records opportunistically. Both best-effort, never throw.
+  writeCodexCwdSidecar({
+    sessionId: getSessionId(input, CODEX_OPTS),
+    cwd: projectDir,
+    ppid: process.ppid,
+  });
+  pruneCodexCwdSidecars({});
 
   if (source === "compact" || source === "resume") {
     const { SessionDB } = await loadSessionDB();
