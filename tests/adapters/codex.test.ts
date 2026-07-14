@@ -366,8 +366,10 @@ describe("CodexAdapter", () => {
       expect(config).toHaveProperty("PostToolUse");
       expect(config).toHaveProperty("PreCompact");
       expect(config).toHaveProperty("SessionStart");
-      expect(config).toHaveProperty("UserPromptSubmit");
       expect(config).toHaveProperty("Stop");
+      // v1.0.3: Codex no longer registers UserPromptSubmit (AGENTS.md:
+      // "user-prompt history not available"). Pinned so it is not re-added.
+      expect(config).not.toHaveProperty("UserPromptSubmit");
       expect(config.PreToolUse[0]?.matcher).toContain("apply_patch");
       expect(config.PreToolUse[0]?.matcher).toContain("Edit");
       expect(config.PreToolUse[0]?.matcher).toContain("Write");
@@ -380,7 +382,6 @@ describe("CodexAdapter", () => {
       expect(config.PreToolUse[0]?.matcher).not.toMatch(/(^|\|)Read(\||$)/);
       expect(config.PreToolUse[0]?.matcher).not.toContain("mcp__plugin_ctxscribe_mcp__");
       expect(config.PreCompact[0]?.hooks[0]?.command).toBe("ctxscribe hook codex precompact");
-      expect(config.UserPromptSubmit[0]?.hooks[0]?.command).toBe("ctxscribe hook codex userpromptsubmit");
     });
   });
 
@@ -452,7 +453,6 @@ describe("CodexAdapter", () => {
         "PreToolUse",
         "SessionStart",
         "Stop",
-        "UserPromptSubmit",
       ]);
     });
 
@@ -579,7 +579,11 @@ describe("CodexAdapter", () => {
       expect(written.hooks.PostToolUse[0]?.hooks[0]?.command).toBe("ctxscribe hook codex posttooluse");
     });
 
-    it("dedups plugin-cache legacy entry left by /ctx-upgrade with canonical entry (#603)", () => {
+    it("removes stale UserPromptSubmit entries on upgrade (v1.0.3 migration, #603)", () => {
+      // A 1.0.2 standalone install carried a UserPromptSubmit entry — often a
+      // broken plugin-cache path pointing at a prior version dir. Codex no
+      // longer registers this hook (AGENTS.md), so configureAllHooks must PURGE
+      // both the legacy-path and canonical managed entries, not re-add them.
       // Plugin-cache install layout: ~/.claude/plugins/cache/ctxscribe/<v>/hooks/codex/<event>.mjs
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
@@ -599,8 +603,9 @@ describe("CodexAdapter", () => {
         hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
       };
 
-      expect(written.hooks.UserPromptSubmit).toHaveLength(1);
-      expect(written.hooks.UserPromptSubmit[0]?.hooks[0]?.command).toBe("ctxscribe hook codex userpromptsubmit");
+      // Both managed UserPromptSubmit entries stripped → the key is removed.
+      expect(written.hooks.UserPromptSubmit).toBeUndefined();
+      // Other hooks still normalize to the canonical single entry.
       expect(written.hooks.Stop).toHaveLength(1);
       expect(written.hooks.Stop[0]?.hooks[0]?.command).toBe("ctxscribe hook codex stop");
     });
@@ -732,8 +737,9 @@ trusted_hash = "sha256:stale"
       const configChecks = results.filter((r) => r.check !== "Codex CLI binary");
       expect(configChecks.every((result) => result.status === "pass")).toBe(true);
       expect(results.map((result) => result.check)).toContain("PreCompact hook");
-      expect(results.map((result) => result.check)).toContain("UserPromptSubmit hook");
       expect(results.map((result) => result.check)).toContain("Stop hook");
+      // v1.0.3: UserPromptSubmit is no longer a Codex hook → not validated.
+      expect(results.map((result) => result.check)).not.toContain("UserPromptSubmit hook");
     });
 
     it("passes via Codex plugin hooks and warns when user config still has ctxscribe hooks", () => {

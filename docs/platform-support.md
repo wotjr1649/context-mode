@@ -138,9 +138,13 @@ ctxscribe hook codex pretooluse
 ctxscribe hook codex posttooluse
 ctxscribe hook codex precompact
 ctxscribe hook codex sessionstart
-ctxscribe hook codex userpromptsubmit
 ctxscribe hook codex stop
 ```
+> **UserPromptSubmit is intentionally not registered on Codex (v1.0.3).** Codex
+> CLI emits the event, but ctxscribe does not capture raw user-prompt history
+> here (see `configs/codex/AGENTS.md`). The `ctxscribe hook codex userpromptsubmit`
+> subcommand still dispatches for back-compat but is off by default; Claude Code
+> keeps it as opt-in raw capture (`CONTEXT_MODE_PROMPT_CAPTURE=1`).
 
 **Known Issues / Caveats:**
 - PreToolUse `additionalContext` is unsupported — context injection works via PostToolUse and SessionStart instead. The codex formatter handles this automatically (deny works, context is dropped). Source: `codex-rs/hooks/src/engine/output_parser.rs:267`.

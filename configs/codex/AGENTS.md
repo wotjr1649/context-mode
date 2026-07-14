@@ -72,7 +72,9 @@ Session history is persistent and searchable. On resume, search BEFORE asking th
 | What NOT to repeat? | `ctx_search(queries: ["rejected"], source: "rejected-approach")` |
 | What constraints exist? | `ctx_search(queries: ["constraint"], source: "constraint")` |
 
-Note: user-prompt history not available.
+Note: raw user-prompt history is not captured on Codex — by design (the
+UserPromptSubmit hook is not registered). Structured decisions / constraints /
+intents above are captured instead, so continuity works without it.
 
 DO NOT ask "what were we working on?" — SEARCH FIRST.
 If search returns 0 results, proceed as a fresh session.

@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Kim Jae Seok",
-    "version": "1.0.2"
+    "version": "1.0.3"
   },
   "plugins": [
     {
       "name": "ctxscribe",
       "source": "./",
       "description": "Claude Code MCP plugin that saves 98% of your context window. Sandboxed code execution in 11 languages, FTS5 knowledge base with BM25 ranking, and intent-driven search.",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": {
         "name": "Kim Jae Seok"
       },

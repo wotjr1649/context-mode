@@ -29,13 +29,6 @@
         ]
       }
     ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          { "type": "command", "command": "ctxscribe hook codex userpromptsubmit" }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [

@@ -264,6 +264,21 @@ export function sanitizeEvent(event) {
   return event && typeof event === "object" ? walk(event, 0) : event;
 }
 
+// v1.0.3: mask secret VALUES in a free-text string using the SAME SECRETS
+// patterns the wire uses — but WITHOUT $HOME/username normalization or field
+// truncation, so a stored prompt stays readable while credentials are masked.
+// Used by the UserPromptSubmit hooks when raw prompt capture is opted in
+// (CONTEXT_MODE_PROMPT_CAPTURE=1). Best-effort: value-based regex cannot catch
+// every secret format (SECRETS misses e.g. AWS secret keys, Google, Stripe,
+// connection strings, PEM blocks), which is exactly why the safe default is
+// capture OFF — this only narrows residual risk on the explicit opt-in path.
+export function redactSecretText(str) {
+  if (typeof str !== "string" || str.length === 0) return str;
+  let out = str;
+  for (const re of SECRETS) out = out.replace(re, "[REDACTED]");
+  return out;
+}
+
 // === Public API ===
 export async function maybeForward(event, platform, opts = {}) {
   const cfg = readConfig();
