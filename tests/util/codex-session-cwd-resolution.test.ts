@@ -125,6 +125,146 @@ describe("resolveCodexSessionCwd", () => {
     expect(resolveCodexSessionCwd({ codexHome })).toBe("/project/new");
   });
 
+  // A busier foreign window used to steal the project root: mtime says which
+  // Codex session is streaming right now, not which one spawned this server.
+  // Codex opens the session and spawns its stdio MCP servers together, so the
+  // session that started next to OUR process start is ours. Numbers below are
+  // the ones measured in production — a Codex Desktop window on another project
+  // (session start 519 s away, freshest mtime) was re-rooting a codex-companion
+  // run whose own session had started 808 ms before the server booted.
+  it("matches the session that started with this process, not the busiest one", () => {
+    const codexHome = makeCodexHome();
+    const processStartMs = Date.parse("2026-07-14T02:41:35.060Z");
+
+    writeDesktopSession(
+      codexHome,
+      "rollout-foreign-desktop",
+      "/project/other",
+      new Date(processStartMs + 221_000), // still streaming → freshest mtime
+      { timestamp: "2026-07-14T02:32:56.222Z" },
+    );
+    writeDesktopSession(
+      codexHome,
+      "rollout-ours",
+      "/project/mine",
+      new Date(processStartMs + 35_000), // quiet since our last turn
+      { timestamp: "2026-07-14T02:41:34.252Z" },
+    );
+
+    expect(resolveCodexSessionCwd({ codexHome, processStartMs })).toBe(
+      "/project/mine",
+    );
+  });
+
+  // Regression: an earlier cut of this fix inspected only the 16 freshest logs.
+  // The list is mtime-ordered and our own session is routinely the QUIETEST one
+  // on the machine, so a "top N" cut drops exactly the log we are looking for —
+  // and the fallback then re-roots us onto a stranger. No cap may sit in front
+  // of the start-time check.
+  it("finds our session even when many busier Codex logs are newer", () => {
+    const codexHome = makeCodexHome();
+    const processStartMs = Date.now();
+
+    for (let i = 0; i < 40; i++) {
+      writeDesktopSession(
+        codexHome,
+        `rollout-foreign-${i}`,
+        `/project/other-${i}`,
+        new Date(processStartMs + 60_000 + i), // every one is fresher than ours
+        {
+          timestamp: new Date(processStartMs - 3_600_000 - i * 1_000)
+            .toISOString(),
+        },
+      );
+    }
+    writeDesktopSession(
+      codexHome,
+      "rollout-ours",
+      "/project/mine",
+      new Date(processStartMs + 1_000), // quiet: oldest mtime of the lot
+      { timestamp: new Date(processStartMs - 500).toISOString() },
+    );
+
+    expect(resolveCodexSessionCwd({ codexHome, processStartMs })).toBe(
+      "/project/mine",
+    );
+  });
+
+  it("ignores a session that started long before this process booted", () => {
+    const codexHome = makeCodexHome();
+    const processStartMs = Date.now();
+
+    // Only candidate carrying a start timestamp, and it is an hour stale — but
+    // it is still being written, so mtime alone would have picked it.
+    writeDesktopSession(
+      codexHome,
+      "rollout-foreign-desktop",
+      "/project/other",
+      new Date(processStartMs + 1_000),
+      { timestamp: new Date(processStartMs - 3_600_000).toISOString() },
+    );
+    writeDesktopSession(
+      codexHome,
+      "rollout-ours",
+      "/project/mine",
+      new Date(processStartMs),
+      { timestamp: new Date(processStartMs + 500).toISOString() },
+    );
+
+    expect(resolveCodexSessionCwd({ codexHome, processStartMs })).toBe(
+      "/project/mine",
+    );
+  });
+
+  // When nothing started alongside us (a resumed session whose logged start is
+  // hours old, a mid-session MCP respawn) the timing tells us nothing, so we
+  // must NOT confidently pick the nearest stranger — degrade to the historical
+  // newest-by-mtime pick instead.
+  it("degrades to newest-by-mtime when no session started alongside this process", () => {
+    const codexHome = makeCodexHome();
+    const processStartMs = Date.now();
+
+    writeDesktopSession(
+      codexHome,
+      "rollout-stale-start",
+      "/project/stale-start",
+      new Date(processStartMs + 5_000), // freshest mtime
+      { timestamp: new Date(processStartMs - 3_600_000).toISOString() },
+    );
+    writeDesktopSession(
+      codexHome,
+      "rollout-quiet",
+      "/project/quiet",
+      new Date(processStartMs - 10_000),
+      { timestamp: new Date(processStartMs - 7_200_000).toISOString() },
+    );
+
+    expect(resolveCodexSessionCwd({ codexHome, processStartMs })).toBe(
+      "/project/stale-start",
+    );
+  });
+
+  it("falls back to the newest session when no log records a start timestamp", () => {
+    const codexHome = makeCodexHome();
+    const processStartMs = Date.now();
+    writeDesktopSession(
+      codexHome,
+      "rollout-old",
+      "/project/old",
+      new Date(processStartMs - 30_000),
+    );
+    writeDesktopSession(
+      codexHome,
+      "rollout-new",
+      "/project/new",
+      new Date(processStartMs + 5_000),
+    );
+
+    expect(resolveCodexSessionCwd({ codexHome, processStartMs })).toBe(
+      "/project/new",
+    );
+  });
+
   it("ignores session.jsonl older than transcriptMaxAgeMs", () => {
     const codexHome = makeCodexHome();
     const now = Date.now();
