@@ -14,7 +14,7 @@
       "description": "Claude Code MCP plugin that saves 98% of your context window. Sandboxed code execution in 11 languages, FTS5 knowledge base with BM25 ranking, and intent-driven search.",
       "version": "1.0.2",
       "author": {
-        "name": "Mert Koseoğlu"
+        "name": "Kim Jae Seok"
       },
       "category": "development",
       "keywords": [

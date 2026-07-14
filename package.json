@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "MCP plugin that saves 98% of your context window. Works with Claude Code and Codex CLI (hard fork). Sandboxed code execution, FTS5 knowledge base, and intent-driven search.",
-  "author": "Mert Koseoğlu",
+  "author": "Kim Jae Seok",
   "license": "Elastic-2.0",
   "keywords": [
     "mcp",
