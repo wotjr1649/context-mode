@@ -13,10 +13,18 @@
 // process.execPath + forward slashes. Idempotent — only rewrites when needed.
 // Survives upgrades because it runs at every start.
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const PLACEHOLDER = "${CLAUDE_PLUGIN_ROOT}";
+
+// Mirror of src/util/project-dir.ts isPluginInstallPath (and of the copy inside
+// start.mjs) — duplicated for the same reason those two are: this file ships as
+// raw JS and cannot import the TS util.
+const isPluginInstallPath = (p) =>
+  /[/\\]\.(claude|codex)[/\\]plugins[/\\](cache|marketplaces)[/\\]/.test(
+    String(p),
+  );
 
 // #604: matches a cache path segment `wotjr1649/ctxscribe/<version>`.
 // Capture group is the X.Y.Z version. Used to detect command paths frozen on a
@@ -219,6 +227,77 @@ export function normalizePluginJson(content, nodePath, pluginRoot) {
 }
 
 /**
+ * Rewrite `.codex-plugin/mcp.json` so Codex launches the MCP server IN THE
+ * WORKSPACE rather than inside the plugin install dir.
+ *
+ * Codex gives an MCP server no workspace env var and advertises no MCP `roots`
+ * capability, so the server's own `cwd` is the ONLY channel through which it can
+ * learn which project Codex is driving. And Codex does supply it: when a server
+ * config omits `cwd`, the launcher falls back to `fallback_cwd`, which is the
+ * workspace root (`rmcp-client/src/stdio_server_launcher.rs`, verified against
+ * 0.144.2 with a probe server — it came up in the project dir). ctxscribe was
+ * throwing that away: the shipped manifest pins `"cwd": "."`, and Codex re-bases
+ * a *relative* cwd onto the plugin root (`codex-mcp/src/plugin_config.rs`), so
+ * the server always booted in `~/.codex/plugins/cache/.../ctxscribe/<version>`
+ * and had to guess the project from `~/.codex/sessions` instead.
+ *
+ * Drop `cwd` and `start.mjs` then sees the workspace as `process.cwd()` and
+ * publishes it as CONTEXT_MODE_PROJECT_DIR, which wins the resolver cascade long
+ * before any session-log heuristic runs.
+ *
+ * Why this is a boot-time heal of the INSTALLED copy rather than a change to the
+ * committed manifest: Codex passes `args` to the child verbatim — it never
+ * re-bases them — so `args: ["./start.mjs"]` only resolves while `cwd` is the
+ * plugin root. A fresh clone therefore MUST ship `"cwd": "."`, or its very first
+ * boot cannot find start.mjs, and a Codex whose MCP server fails to launch hangs
+ * with no timeout. So the committed manifest stays relative and self-sufficient,
+ * and only the installed copy is absolutised — from the second session onward.
+ * The caller gates this on a plugin-install path so a dev checkout is untouched.
+ *
+ * Idempotent. Returns `content` unchanged when there is nothing to do.
+ */
+export function normalizeCodexMcpJson(content, pluginRoot) {
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return content;
+  }
+
+  const servers = parsed?.mcpServers;
+  if (!servers || typeof servers !== "object") return content;
+
+  const entryPath = `${fwd(pluginRoot)}/start.mjs`;
+  let mutated = false;
+
+  for (const name of Object.keys(servers)) {
+    const srv = servers[name];
+    if (!srv || typeof srv !== "object" || !Array.isArray(srv.args)) continue;
+
+    // Only touch the arg that launches OUR start.mjs — a sibling server entry
+    // in the same manifest must be left exactly as the user wrote it.
+    const idx = srv.args.findIndex(
+      (a) => typeof a === "string" && /(?:^|\/)start\.mjs$/.test(fwd(a)),
+    );
+    if (idx === -1) continue;
+
+    if (srv.args[idx] !== entryPath) {
+      srv.args = srv.args.map((a, i) => (i === idx ? entryPath : a));
+      mutated = true;
+    }
+    // The whole point: with `args[idx]` absolute, `cwd` is dead weight, and its
+    // presence is what was costing us the workspace.
+    if ("cwd" in srv) {
+      delete srv.cwd;
+      mutated = true;
+    }
+  }
+
+  if (!mutated) return content;
+  return JSON.stringify(parsed, null, 2);
+}
+
+/**
  * Apply normalization to hooks/hooks.json ONLY (not plugin.json).
  *
  * Why a narrow variant exists (#711 + #414 / #528):
@@ -298,6 +377,35 @@ export function normalizeHooksOnStartup({ pluginRoot, nodePath, jsRuntimePath, p
   // boot share one implementation. plugin.json normalization stays here —
   // start.mjs and postinstall still need it; /ctx-upgrade must NOT (#711).
   normalizeHooksJsonOnly({ pluginRoot, nodePath, jsRuntimePath, platform });
+
+  // .codex-plugin/mcp.json — hand Codex's workspace cwd back to the MCP server
+  // (see normalizeCodexMcpJson). Deliberately NOT behind the win32/linux gate
+  // below: that gate exists for #378 PATH quirks, whereas the plugin-root `cwd`
+  // costs us the project on every platform. Installed plugins only — a dev
+  // checkout must keep the committed, relative manifest.
+  if (pluginRoot && isPluginInstallPath(pluginRoot)) {
+    try {
+      const mcpPath = resolve(pluginRoot, ".codex-plugin", "mcp.json");
+      const entry = resolve(pluginRoot, "start.mjs");
+      // Never aim Codex at a path we cannot prove exists: a manifest whose
+      // server fails to launch makes Codex hang with no timeout, so the bar for
+      // touching this file is that the launch target is on disk right now.
+      if (existsSync(mcpPath) && existsSync(entry)) {
+        const original = readFileSync(mcpPath, "utf-8");
+        const next = normalizeCodexMcpJson(original, pluginRoot);
+        if (next !== original) {
+          JSON.parse(next); // refuse to ship a manifest Codex cannot parse
+          // Write-then-rename: a torn write here is not a bad session, it is a
+          // permanently unlaunchable plugin.
+          const tmp = `${mcpPath}.tmp`;
+          writeFileSync(tmp, next, "utf-8");
+          renameSync(tmp, mcpPath);
+        }
+      }
+    } catch {
+      /* best effort — the committed relative manifest still boots */
+    }
+  }
 
   // plugin.json rewrite: ALWAYS uses nodePath (MCP server must stay on Node,
   // #543). Bun resolution is irrelevant here — `jsRuntimePath` is consumed
