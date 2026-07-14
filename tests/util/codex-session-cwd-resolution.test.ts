@@ -6,6 +6,7 @@ import {
   resolveCodexSessionCwd,
   resolveProjectDir,
 } from "../../src/util/project-dir.js";
+import { writeCodexCwdSidecar } from "../../hooks/codex-cwd-sidecar.mjs";
 
 // ─────────────────────────────────────────────────────────
 // Issue #45 / c4529042182 — Codex MCP servers do NOT receive any
@@ -394,6 +395,186 @@ describe("resolveCodexSessionCwd", () => {
       JSON.stringify({ meta: { cwd: 123 } }) + "\n",
     );
     expect(resolveCodexSessionCwd({ codexHome })).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────
+// Hook cwd sidecar — the reliable low-race channel. Codex gives the MCP child
+// no workspace signal, but its hooks receive input.cwd and PreToolUse fires
+// (blocking) right before each MCP tool call, so ctxscribe's Codex hooks drop
+// {cwd, sessionId, ppid, ts} under ${CODEX_HOME}/ctxscribe-cwd/. The reader
+// prefers these to the ~9s-late rollout log.
+// ─────────────────────────────────────────────────────────
+
+function writeSidecar(
+  codexHome: string,
+  sessionId: string,
+  cwd: string,
+  ppid: number,
+  mtimeMs: number,
+): string {
+  const dir = join(codexHome, "ctxscribe-cwd");
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, `${sessionId}.json`);
+  writeFileSync(file, JSON.stringify({ cwd, sessionId, ppid, ts: mtimeMs }));
+  const d = new Date(mtimeMs);
+  utimesSync(file, d, d); // align mtime with ts so the reader's mtime filter agrees
+  return file;
+}
+
+describe("resolveCodexSessionCwd — hook cwd sidecar", () => {
+  const PPID = 4242;
+
+  it("returns the sidecar from our own Codex process (ppid-exact, deterministic)", () => {
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    writeSidecar(codexHome, "sess-ours", "/project/mine", PPID, now - 500);
+    // A fresher foreign window under a different pid must NOT win over our ppid.
+    writeSidecar(codexHome, "sess-other", "/project/other", PPID + 1, now - 50);
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: PPID, now, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/mine");
+  });
+
+  it("uses the freshest sidecar when ppid is ambiguous (Codex Desktop shared app-server)", () => {
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    writeSidecar(codexHome, "sess-a", "/project/a", PPID, now - 3_000);
+    writeSidecar(codexHome, "sess-b", "/project/b", PPID, now - 200); // active: just wrote
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: PPID, now, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/b");
+  });
+
+  it("uses the freshest sidecar when no ppid matches", () => {
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    writeSidecar(codexHome, "sess-a", "/project/a", 111, now - 3_000);
+    writeSidecar(codexHome, "sess-b", "/project/b", 222, now - 200);
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: 999, now, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/b");
+  });
+
+  it("ignores sidecars older than transcriptMaxAgeMs", () => {
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    writeSidecar(codexHome, "sess-stale", "/project/stale", PPID, now - 600_000);
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: PPID, now, transcriptMaxAgeMs: 300_000 }),
+    ).toBeNull();
+  });
+
+  it("rejects a sidecar whose cwd is a plugin install path", () => {
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    writeSidecar(
+      codexHome,
+      "sess-poison",
+      "/Users/x/.codex/plugins/cache/wotjr1649/ctxscribe/1.0.1",
+      PPID,
+      now - 50,
+    );
+    writeSidecar(codexHome, "sess-ok", "/project/ok", PPID + 1, now - 200);
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: PPID, now, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/ok");
+  });
+
+  it("prefers a sidecar over the rollout session log", () => {
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    writeDesktopSession(codexHome, "rollout-new", "/project/from-rollout", new Date(now));
+    writeSidecar(codexHome, "sess-ours", "/project/from-sidecar", PPID, now - 100);
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: PPID, now, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/from-sidecar");
+  });
+
+  it("falls back to the rollout scan when no sidecar exists", () => {
+    const codexHome = makeCodexHome();
+    writeSession(codexHome, "fresh", "/project/from-rollout", new Date());
+    expect(resolveCodexSessionCwd({ codexHome })).toBe("/project/from-rollout");
+  });
+
+  it("re-derives every call — a ppid match is never frozen into the cache", () => {
+    // Caching a ppid match would pin a sibling's cwd for the whole process
+    // lifetime under a shared (Codex Desktop app-server) or recycled ppid — a
+    // transient wrong match becomes permanent. The sidecar answer is recomputed
+    // each call instead, so it always tracks disk. (Codex review finding.)
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    const processStartMs = now;
+    writeSidecar(codexHome, "sess-ours", "/project/mine", PPID, now - 100);
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: PPID, now, processStartMs, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/mine");
+    // Sidecar gone and no rollout → must NOT return a stale cached value.
+    rmSync(join(codexHome, "ctxscribe-cwd"), { recursive: true, force: true });
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: PPID, now, processStartMs, transcriptMaxAgeMs: 300_000 }),
+    ).toBeNull();
+  });
+
+  it("under a shared ppid, picks the freshest of our ppid group (not a foreign fresher one)", () => {
+    // Codex Desktop: two windows share the app-server ppid; a third foreign
+    // session (different ppid) is the freshest overall. The ppid filter narrows
+    // to our sibling set, and the freshest of THAT set — the window whose
+    // PreToolUse just fired — wins over the fresher foreigner.
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    writeSidecar(codexHome, "sib-old", "/project/sib-old", PPID, now - 4_000);
+    writeSidecar(codexHome, "sib-active", "/project/sib-active", PPID, now - 300);
+    writeSidecar(codexHome, "foreign", "/project/foreign", PPID + 7, now - 10);
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: PPID, now, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/sib-active");
+  });
+
+  it("does not cache a freshness (non-ppid) match", () => {
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    const processStartMs = now + 1;
+    writeSidecar(codexHome, "sess-b", "/project/b", 222, now - 100);
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: 999, now, processStartMs, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/b");
+    rmSync(join(codexHome, "ctxscribe-cwd"), { recursive: true, force: true });
+    writeSidecar(codexHome, "sess-c", "/project/c", 333, now - 50);
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: 999, now, processStartMs, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/c");
+  });
+
+  it("resolveProjectDir prefers a hook sidecar over cwd/pwd under strict codex", () => {
+    const codexHome = makeCodexHome();
+    const now = Date.now();
+    writeSidecar(codexHome, "sess-ours", "/project/from-sidecar", process.ppid, now - 100);
+    const result = resolveProjectDir({
+      env: {},
+      cwd: "/should-not-win",
+      pwd: "/nor-this",
+      strictPlatform: "codex",
+      codexHome,
+      transcriptMaxAgeMs: 300_000,
+      nowMs: now,
+    });
+    expect(result).toBe("/project/from-sidecar");
+  });
+
+  it("round-trip: the real writer's sidecar is read back by the resolver", () => {
+    // Closes the writer↔reader contract gap the seeded tests leave open — the
+    // real writeCodexCwdSidecar output (fields + fresh mtime) must be readable.
+    const codexHome = makeCodexHome();
+    writeCodexCwdSidecar({
+      codexHome,
+      sessionId: "rt-session",
+      cwd: "/project/roundtrip",
+      ppid: process.ppid,
+    });
+    expect(
+      resolveCodexSessionCwd({ codexHome, ppid: process.ppid, transcriptMaxAgeMs: 300_000 }),
+    ).toBe("/project/roundtrip");
   });
 });
 

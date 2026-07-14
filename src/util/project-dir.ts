@@ -201,6 +201,81 @@ const SESSION_START_CACHE_MAX_MS = 2_000;
  */
 const confirmedSessionCwd = new Map<string, string>();
 
+/**
+ * Codex hands the MCP child no workspace/session signal (env_clear + allowlist,
+ * no roots, no session id — verified against Codex 0.144.4). Its HOOKS do get
+ * the workspace on stdin, and PreToolUse fires — blocking — right before each
+ * MCP tool call, so ctxscribe's Codex hooks drop the current workspace under
+ * `${CODEX_HOME}/ctxscribe-cwd/` (see hooks/codex-cwd-sidecar.mjs). Reading that
+ * beats scanning the rollout log, which Codex flushes ~9 s AFTER it spawns us —
+ * the exact gap that let a neighbouring window win. KEEP this dir name in sync
+ * with SIDECAR_DIR in that hook module.
+ */
+const CODEX_CWD_SIDECAR_DIR = "ctxscribe-cwd";
+
+type CwdSidecar = { cwd: string; ppid: number | null; mtimeMs: number };
+
+function readCodexCwdSidecars(
+  dir: string,
+  nowMs: number,
+  maxAgeMs: number | undefined,
+): CwdSidecar[] {
+  let entries: string[];
+  try { entries = fs.readdirSync(dir); } catch { return []; }
+  const out: CwdSidecar[] = [];
+  for (const entry of entries) {
+    if (!entry.endsWith(".json")) continue;
+    const fp = path.join(dir, entry);
+    let stat;
+    try { stat = fs.statSync(fp); } catch { continue; }
+    if (!stat.isFile()) continue;
+    // Cheap mtime pre-filter: only a fresh sidecar can be ours, so a dir that
+    // has accumulated stale records never becomes a per-tool-call read storm.
+    if (typeof maxAgeMs === "number" && nowMs - stat.mtimeMs > maxAgeMs) continue;
+    let obj: { cwd?: unknown; ppid?: unknown };
+    try { obj = JSON.parse(fs.readFileSync(fp, "utf-8")); } catch { continue; }
+    if (typeof obj?.cwd !== "string" || obj.cwd.length === 0) continue;
+    if (isPluginInstallPath(obj.cwd)) continue;
+    out.push({
+      cwd: obj.cwd,
+      ppid: typeof obj.ppid === "number" ? obj.ppid : null,
+      mtimeMs: stat.mtimeMs,
+    });
+  }
+  return out;
+}
+
+/**
+ * Which sidecar is ours? Prefer those written by the Codex process that spawned
+ * us: for `codex exec` / the companion the ppid uniquely identifies our session,
+ * so this is timing-independent. Under Codex Desktop the app-server parent is
+ * shared, so the ppid filter narrows to the sibling set at most — take the
+ * freshest of it, i.e. the window whose PreToolUse just fired (the one now
+ * calling us). If our ppid matches none (hooks not yet fired this session), fall
+ * to the freshest sidecar overall, then to the rollout scan.
+ *
+ * NEVER cached (unlike the rollout heuristic below): a shared or recycled ppid
+ * can make a single transient match a SIBLING's, and freezing that would pin the
+ * wrong cwd for the whole process lifetime (Codex review finding). Re-deriving
+ * each call is cheap — the dir is small and mtime-prefiltered — and always
+ * tracks disk, so the instant our own PreToolUse refreshes our sidecar we win.
+ */
+function resolveCodexCwdFromSidecar(args: {
+  codexHome: string;
+  ppid: number;
+  nowMs: number;
+  maxAgeMs: number | undefined;
+}): string | null {
+  const dir = path.join(args.codexHome, CODEX_CWD_SIDECAR_DIR);
+  const cands = readCodexCwdSidecars(dir, args.nowMs, args.maxAgeMs);
+  if (!cands.length) return null;
+  const mine = cands.filter((c) => c.ppid === args.ppid);
+  const pool = mine.length ? mine : cands;
+  let best = pool[0];
+  for (const c of pool) if (c.mtimeMs > best.mtimeMs) best = c;
+  return best.cwd;
+}
+
 type CodexSessionHead = {
   cwd: string;
   /** The session's own start time, when the log records one. */
@@ -312,6 +387,11 @@ export function resolveCodexSessionCwd(opts?: {
    * defaults to `performance.timeOrigin`.
    */
   processStartMs?: number;
+  /**
+   * Parent (Codex) pid, for the hook-sidecar ppid-exact match. Test seam;
+   * defaults to `process.ppid`.
+   */
+  ppid?: number;
 }): string | null {
   const codexHome =
     opts?.codexHome ?? process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex");
@@ -324,6 +404,18 @@ export function resolveCodexSessionCwd(opts?: {
   const memoKey = `${processStartMs}:${codexHome}`;
   const confirmed = confirmedSessionCwd.get(memoKey);
   if (confirmed) return confirmed;
+
+  // Reliable channel first: a workspace our own Codex hook recorded before the
+  // tool ran (no ~9 s rollout-flush delay, no busiest-window race). Only when no
+  // sidecar is usable — e.g. the very first session before its hooks are trusted
+  // — do we fall through to the session-log heuristic below.
+  const fromSidecar = resolveCodexCwdFromSidecar({
+    codexHome,
+    ppid: opts?.ppid ?? process.ppid,
+    nowMs: opts?.now ?? Date.now(),
+    maxAgeMs: opts?.transcriptMaxAgeMs,
+  });
+  if (fromSidecar) return fromSidecar;
 
   const sessionsDir = path.join(codexHome, "sessions");
   if (!fs.existsSync(sessionsDir)) return null;
