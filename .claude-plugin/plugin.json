@@ -3,8 +3,8 @@
   "version": "1.0.2",
   "description": "MCP server that saves 98% of your context window with session continuity. Sandboxed code execution in 11 languages, FTS5 knowledge base with BM25 ranking, and automatic state restore across compactions.",
   "author": {
-    "name": "Mert Koseoğlu",
-    "url": "https://github.com/mksglu"
+    "name": "Kim Jae Seok",
+    "url": "https://github.com/wotjr1649"
   },
   "homepage": "https://github.com/wotjr1649/ctxscribe#readme",
   "repository": "https://github.com/wotjr1649/ctxscribe",
