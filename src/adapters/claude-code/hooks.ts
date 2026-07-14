@@ -53,16 +53,20 @@ export type HookType = (typeof HOOK_TYPES)[keyof typeof HOOK_TYPES];
  */
 export const EXTERNAL_MCP_MATCHER_PATTERN = "mcp__";
 
-/** Tools that ctxscribe's PreToolUse hook intercepts. */
+/**
+ * Tools that ctxscribe's PreToolUse hook intercepts.
+ * ctxscribe's own MCP tools (ctx_execute / _file / _batch_execute) are NOT
+ * listed separately — they surface as `mcp__plugin_ctxscribe_mcp__*` and are
+ * already matched by EXTERNAL_MCP_MATCHER_PATTERN ("mcp__"). Listing them again
+ * double-matches (fires pretooluse.mjs twice for the same call); routing.mjs
+ * distinguishes external vs. own MCP tools in the hook body via isExternalMcpTool().
+ */
 export const PRE_TOOL_USE_MATCHERS = [
   "Bash",
   "WebFetch",
   "Read",
   "Grep",
   "Agent",
-  "mcp__plugin_ctxscribe_mcp__ctx_execute",
-  "mcp__plugin_ctxscribe_mcp__ctx_execute_file",
-  "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
   EXTERNAL_MCP_MATCHER_PATTERN,
 ] as const;
 

@@ -4,8 +4,10 @@
  * Codex CLI hooks run behind the current `hooks` feature flag surface.
  * Prefer `[features].hooks`; the legacy `[features].codex_hooks` alias is still
  * accepted in current Codex builds.
- * 6 hook events: PreToolUse, PostToolUse, PreCompact, SessionStart,
- * UserPromptSubmit, Stop. PreCompact is runtime-gated on Codex builds that emit
+ * 5 registered hook events: PreToolUse, PostToolUse, PreCompact, SessionStart,
+ * Stop. UserPromptSubmit is dispatch-capable (see HOOK_TYPES) but is NOT
+ * registered by default — Codex honors the AGENTS.md "no raw prompt capture"
+ * contract (ADR-0005). PreCompact is runtime-gated on Codex builds that emit
  * the event.
  * Same JSON stdin/stdout wire protocol as Claude Code.
  *
