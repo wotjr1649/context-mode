@@ -268,25 +268,33 @@ export function normalizeCodexMcpJson(content, pluginRoot) {
   if (!servers || typeof servers !== "object") return content;
 
   const entryPath = `${fwd(pluginRoot)}/start.mjs`;
+  // An arg is OUR entry point only if it POINTS AT `<pluginRoot>/start.mjs` — not
+  // merely if it ends in "start.mjs". A sibling server's "./other/start.mjs"
+  // ends the same way but lives elsewhere; a suffix match would repoint that
+  // server at ctxscribe and strip its cwd. Compare in forward-slash space (OS
+  // separators normalised) across the relative, `${CLAUDE_PLUGIN_ROOT}`, and
+  // already-absolutised forms — a plain string check, not `resolve()`, so a
+  // POSIX-style pluginRoot doesn't pick up a drive letter under win32.
+  const isOurEntry = (a) => {
+    if (typeof a !== "string") return false;
+    const v = fwd(a.replaceAll(PLACEHOLDER, pluginRoot)).replace(/^\.\//, "");
+    return v === entryPath || v === "start.mjs";
+  };
   let mutated = false;
 
   for (const name of Object.keys(servers)) {
     const srv = servers[name];
     if (!srv || typeof srv !== "object" || !Array.isArray(srv.args)) continue;
 
-    // Only touch the arg that launches OUR start.mjs — a sibling server entry
-    // in the same manifest must be left exactly as the user wrote it.
-    const idx = srv.args.findIndex(
-      (a) => typeof a === "string" && /(?:^|\/)start\.mjs$/.test(fwd(a)),
-    );
+    const idx = srv.args.findIndex(isOurEntry);
     if (idx === -1) continue;
 
     if (srv.args[idx] !== entryPath) {
       srv.args = srv.args.map((a, i) => (i === idx ? entryPath : a));
       mutated = true;
     }
-    // The whole point: with `args[idx]` absolute, `cwd` is dead weight, and its
-    // presence is what was costing us the workspace.
+    // With `args[idx]` absolute, `cwd` is dead weight — and its presence is
+    // exactly what was costing us the workspace.
     if ("cwd" in srv) {
       delete srv.cwd;
       mutated = true;

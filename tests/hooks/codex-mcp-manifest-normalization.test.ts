@@ -114,18 +114,25 @@ describe("normalizeCodexMcpJson", () => {
     expect("cwd" in srv).toBe(false);
   });
 
-  it("never touches a sibling server entry", () => {
+  // A sibling whose entry is ALSO named start.mjs but lives in a subdir is the
+  // trap: matching on the "start.mjs" suffix would repoint it at ctxscribe and
+  // strip its cwd. It must resolve by path, not by filename, and be left alone.
+  it("never touches a sibling server entry, even one whose entry is named start.mjs", () => {
     const root = "/home/u/.codex/plugins/cache/wotjr1649/ctxscribe/1.0.0";
     const withSibling = JSON.stringify({
       mcpServers: {
         mcp: { command: "node", args: ["./start.mjs"], cwd: "." },
-        other: { command: "node", args: ["./other/server.mjs"], cwd: "." },
+        other: { command: "node", args: ["./other/start.mjs"], cwd: "." },
       },
     });
     const next = JSON.parse(normalizeCodexMcpJson(withSibling, root));
+    // ctxscribe's own server is healed...
+    expect("cwd" in next.mcpServers.mcp).toBe(false);
+    expect(next.mcpServers.mcp.args).toEqual([`${root}/start.mjs`]);
+    // ...the sibling is byte-for-byte untouched.
     expect(next.mcpServers.other).toEqual({
       command: "node",
-      args: ["./other/server.mjs"],
+      args: ["./other/start.mjs"],
       cwd: ".",
     });
   });

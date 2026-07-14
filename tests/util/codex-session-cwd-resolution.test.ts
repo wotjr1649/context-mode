@@ -190,6 +190,41 @@ describe("resolveCodexSessionCwd", () => {
     );
   });
 
+  // Codex review P2: a neighbour that opens a few seconds after our boot, while
+  // our own rollout is not yet on disk, is inside the accept window but outside
+  // the cache window — returned once, but it must NOT be frozen into the
+  // process-lifetime cache. When our own log lands, the next call must prefer it.
+  it("does not freeze a loose (neighbour) match into the cache before our own log lands", () => {
+    const codexHome = makeCodexHome();
+    const processStartMs = Date.now();
+
+    // Neighbour opened 4s after our boot: inside the 5s accept window, outside
+    // the 2s cache window. It is the only log on disk right now.
+    writeDesktopSession(
+      codexHome,
+      "rollout-neighbour",
+      "/project/neighbour",
+      new Date(processStartMs + 1_000),
+      { timestamp: new Date(processStartMs + 4_000).toISOString() },
+    );
+    expect(resolveCodexSessionCwd({ codexHome, processStartMs })).toBe(
+      "/project/neighbour",
+    );
+
+    // Our own rollout finally flushes — sub-second from our boot.
+    writeDesktopSession(
+      codexHome,
+      "rollout-ours",
+      "/project/mine",
+      new Date(processStartMs + 2_000),
+      { timestamp: new Date(processStartMs + 300).toISOString() },
+    );
+    // Re-derived: our own tight match wins, proving the loose one was not frozen.
+    expect(resolveCodexSessionCwd({ codexHome, processStartMs })).toBe(
+      "/project/mine",
+    );
+  });
+
   it("ignores a session that started long before this process booted", () => {
     const codexHome = makeCodexHome();
     const processStartMs = Date.now();

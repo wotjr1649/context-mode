@@ -163,27 +163,41 @@ export function resolveProjectDirFromTranscript(opts: {
 const SESSION_MTIME_SLACK_MS = 60_000;
 /**
  * Codex opens the session and spawns its stdio MCP servers together — measured
- * 245 ms apart under Codex Desktop, 808 ms via the codex-companion. Only claim
- * a session as ours when the timing really is that tight. Outside the window
- * (a resumed session whose logged start is hours old, a mid-session respawn)
- * we genuinely cannot tell our session from a neighbour's, so fall through to
+ * 245 ms apart under Codex Desktop, 808 ms via the codex-companion. Only claim a
+ * session as ours when the timing is that tight; a wider net just lets a
+ * neighbour that happened to open around the same time slip in. Outside the
+ * window (a resumed session whose logged start is hours old, a mid-session
+ * respawn) we cannot tell our session from a stranger's, so we fall through to
  * the historical newest-by-mtime pick rather than invent a confident wrong
  * answer — never worse than the behaviour this replaces.
  */
-const SESSION_START_MATCH_WINDOW_MS = 30_000;
+const SESSION_START_MATCH_WINDOW_MS = 5_000;
+/**
+ * ...but only LOCK a match into the process-lifetime cache when it is this tight
+ * — near-certainly our own session, not a neighbour that opened a few seconds
+ * after us while our own rollout had not yet been flushed to disk. A match in
+ * the `(CACHE_MAX, MATCH_WINDOW]` band is returned for that one call but
+ * re-derived on the next, so once our own log lands it supersedes the transient
+ * guess instead of being frozen for the life of the process.
+ */
+const SESSION_START_CACHE_MAX_MS = 2_000;
 
 /**
- * A confirmed match is FINAL: the Codex session that spawned this MCP server
- * cannot change while the process lives. Cache it, so `~/.codex/sessions` is
- * walked once rather than on every single tool call — which is also what lets
- * us inspect *every* concurrently-active log instead of capping the candidate
- * list. A cap could not be made safe here: the list is mtime-ordered and our
- * own session is frequently the quietest one on the box, so any "top N" cut
- * can drop precisely the log we are looking for.
+ * The Codex session that spawned this MCP server cannot change while the process
+ * lives, so a match we are confident is ours is safe to cache for the process
+ * lifetime — the walk of `~/.codex/sessions` then happens once rather than on
+ * every tool call, which is also what lets us inspect *every* concurrently-active
+ * log instead of capping the candidate list (the list is mtime-ordered and our
+ * own session is frequently the quietest on the box, so any "top N" cut can drop
+ * precisely the log we want).
  *
- * The newest-by-mtime fallback is NEVER cached — it is a guess, and the usual
- * reason we need it is that our own rollout is not on disk yet (Codex writes it
- * a few seconds after it spawns us). Caching a guess would freeze it forever.
+ * "Confident" is the catch: only a match within `SESSION_START_CACHE_MAX_MS` is
+ * cached. A looser match, and the newest-by-mtime fallback, are guesses — the
+ * usual reason we reach for them is that our own rollout is not on disk yet
+ * (Codex writes it a few seconds after it spawns us), so a neighbour that opened
+ * right after us can momentarily look best. Caching that would freeze a
+ * stranger's cwd for the whole process; leaving it uncached lets our own log
+ * supersede it on the very next call.
  */
 const confirmedSessionCwd = new Map<string, string>();
 
@@ -362,7 +376,12 @@ export function resolveCodexSessionCwd(opts?: {
     if (!best || deltaMs < best.deltaMs) best = { cwd: head.cwd, deltaMs };
   }
   if (best) {
-    confirmedSessionCwd.set(memoKey, best.cwd);
+    // Only a tight match is our own beyond doubt; a looser one may be a
+    // neighbour that opened while our rollout was still unflushed, so return it
+    // for this call but let the next call re-derive (see `confirmedSessionCwd`).
+    if (best.deltaMs <= SESSION_START_CACHE_MAX_MS) {
+      confirmedSessionCwd.set(memoKey, best.cwd);
+    }
     return best.cwd;
   }
 
