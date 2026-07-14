@@ -71,13 +71,23 @@ Session history is persistent and searchable. On resume, search BEFORE asking th
 | Need | Command |
 |------|---------|
 | What were we working on? | `ctx_search(queries: ["summary"], source: "compaction", sort: "timeline")` |
-| What was the first request? | `ctx_search(queries: ["prompt"], source: "user-prompt", sort: "timeline")` |
+| What was the first request?¹ | `ctx_search(queries: ["prompt"], source: "user-prompt", sort: "timeline")` |
 | What did we decide? | `ctx_search(queries: ["decision"], source: "decision", sort: "timeline")` |
 | What NOT to repeat? | `ctx_search(queries: ["rejected"], source: "rejected-approach")` |
 | What constraints exist? | `ctx_search(queries: ["constraint"], source: "constraint")` |
 
 DO NOT ask "what were we working on?" — SEARCH FIRST.
 If search returns 0 results, proceed as a fresh session.
+
+¹ **Raw prompt history is opt-in (off by default since v1.0.3).** Verbatim
+prompts can contain API keys, tokens, or PII, so they are no longer stored
+automatically. Structured decisions / constraints / intents (the other rows) are
+always captured, so continuity works without raw prompts — the `source:
+"user-prompt"` search simply returns nothing until you opt in. To also store raw
+prompts, set `CONTEXT_MODE_PROMPT_CAPTURE=1`; even then, values matching known
+secret patterns are redacted before storage (best-effort — don't paste secrets).
+Prompts stored by older versions remain until their session ages out; run `ctx
+purge` to wipe the knowledge base immediately.
 
 ## ctx commands
 

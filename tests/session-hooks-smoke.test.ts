@@ -189,16 +189,72 @@ describe("Issue #117 — Session hooks without build/session/", () => {
     expect(ctx).toContain("session_knowledge");
   });
 
-  test("userpromptsubmit.mjs captures prompts via bundle", () => {
+  test("userpromptsubmit.mjs runs and creates the session DB via bundle", () => {
     const result = runHook("userpromptsubmit.mjs", {
       prompt: "fix the login bug",
       session_id: "test-session-117",
     });
 
     expect(result.exitCode).toBe(0);
-
-    // DB should be created via bundle
+    // DB is created for structured continuity even with raw capture off.
     expect(getDBFiles().length).toBeGreaterThan(0);
+  });
+
+  test("userpromptsubmit.mjs does NOT store the raw prompt by default (v1.0.3 capture off)", () => {
+    const sessionId = "test-capture-off";
+    // Example placeholder secret — NOT a real credential.
+    const secret = "sk-ant-api03-EXAMPLEPLACEHOLDERdeadbeefdeadbeefdeadbeef0123";
+    const result = runHook("userpromptsubmit.mjs", {
+      prompt: `remember my token ${secret} and fix the login bug`,
+      session_id: sessionId,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const dbFiles = getDBFiles();
+    expect(dbFiles.length).toBeGreaterThan(0);
+    const db = new SessionDB({ dbPath: join(sessionDBDir, dbFiles[0]!) });
+    const events = db.getEvents(sessionId);
+    db.close();
+
+    // No raw user_prompt row, and the placeholder secret never reaches SQLite
+    // (boundary redaction also scrubs structured events).
+    expect(events.some((e) => e.type === "user_prompt")).toBe(false);
+    expect(JSON.stringify(events)).not.toContain(secret);
+  });
+
+  test("userpromptsubmit.mjs opt-in stores a redacted prompt (CONTEXT_MODE_PROMPT_CAPTURE=1)", () => {
+    const sessionId = "test-capture-on";
+    // Example placeholder secret — NOT a real credential.
+    const secret = "ghp_EXAMPLEPLACEHOLDERdeadbeefdeadbeefdeadbeef01";
+    const result = runHook("userpromptsubmit.mjs", {
+      prompt: `store my github token ${secret} please`,
+      session_id: sessionId,
+    }, { CONTEXT_MODE_PROMPT_CAPTURE: "1" });
+
+    expect(result.exitCode).toBe(0);
+    const dbFiles = getDBFiles();
+    const db = new SessionDB({ dbPath: join(sessionDBDir, dbFiles[0]!) });
+    const events = db.getEvents(sessionId);
+    db.close();
+
+    // Raw capture happened, but the secret is masked before it touches SQLite.
+    expect(events.some((e) => e.type === "user_prompt")).toBe(true);
+    expect(JSON.stringify(events)).toContain("[REDACTED]");
+    expect(JSON.stringify(events)).not.toContain(secret);
+  });
+
+  test("redactSecretText masks credentials but preserves normal PII-shaped prose (v1.0.3)", async () => {
+    const { redactSecretText } = await import("../hooks/platform-bridge.mjs");
+    // Example placeholder credential — NOT a real token.
+    const cred = "ghp_EXAMPLEPLACEHOLDERdeadbeefdeadbeefdeadbeef01";
+    const masked = redactSecretText(`use token ${cred} now`);
+    expect(masked).toContain("[REDACTED]");
+    expect(masked).not.toContain(cred);
+    // Normal continuity prose that the BROAD wire PII regexes would over-match
+    // (email-shaped filename, SSN-shaped ticket id) must survive local storage —
+    // redactSecretText uses credential patterns only, not PII patterns.
+    const prose = "update logo@2x.png for ticket 555-12-3456";
+    expect(redactSecretText(prose)).toBe(prose);
   });
 
   test("precompact.mjs creates snapshot via bundle", () => {

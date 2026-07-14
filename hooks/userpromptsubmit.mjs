@@ -28,12 +28,21 @@ await runHook(async () => {
   const HOOK_DIR = dirname(fileURLToPath(import.meta.url));
   const { loadSessionDB, loadExtract, loadProjectAttribution } = createSessionLoaders(HOOK_DIR);
 
+  // v1.0.3: raw prompt capture is OPT-IN and OFF by default (see block below).
+  const CAPTURE_PROMPTS = process.env.CONTEXT_MODE_PROMPT_CAPTURE === "1";
+
   try {
+    const { redactSecretText } = await import("./platform-bridge.mjs");
     const raw = await readStdin();
     const input = parseStdin(raw);
     const projectDir = getInputProjectDir(input);
 
-    const prompt = input.prompt ?? input.message ?? "";
+    // v1.0.3: strip credential/token values at the input boundary so NO
+    // prompt-derived event (structured intents/decisions AND the opt-in raw row)
+    // can carry a verbatim API key or token into SQLite. Only credential
+    // patterns are masked (not emails/ids), so normal continuity prose is
+    // preserved; PII minimization happens on the remote wire, not local storage.
+    const prompt = redactSecretText(input.prompt ?? input.message ?? "");
     const trimmed = (prompt || "").trim();
 
     // Skip system-generated messages — only capture genuine user prompts
@@ -52,23 +61,31 @@ await runHook(async () => {
 
       db.ensureSession(sessionId, projectDir);
 
-      // 1. Always save the raw prompt with F1 §2 features attached.
-      // Features attach to the existing user_prompt event payload alongside
-      // the raw `data` field (do NOT remove `data`). Platform Zod envelope
-      // is forward-compatible; new fields persist as typed columns.
-      const promptFeatures = typeof extractUserPromptFeatures === "function"
-        ? extractUserPromptFeatures(trimmed)
-        : {};
-      const promptEvent = {
-        type: "user_prompt",
-        category: "user-prompt",
-        data: prompt,
-        priority: 1,
-        ...promptFeatures,
-      };
-      const promptAttributions = attributeAndInsertEvents(
-        db, sessionId, [promptEvent], input, projectDir, "UserPromptSubmit", resolveProjectAttributions,
-      );
+      // 1. Raw prompt capture is OPT-IN and OFF by default (v1.0.3).
+      // The verbatim prompt (and its word-token features) can carry API keys,
+      // tokens, passwords or PII. The project's own standard is "never ship
+      // secrets to SQLite" (src/session/extract.ts redactSecrets, applied to
+      // tool_input); storing the raw prompt unconditionally violated it. By
+      // default we skip the raw user_prompt row entirely — continuity still
+      // works from the structured decision/role/intent events extracted below.
+      // Opt-in (CONTEXT_MODE_PROMPT_CAPTURE=1) stores the prompt, but only
+      // after a best-effort secret scrub. See configs/claude-code/CLAUDE.md.
+      let promptAttributions = [];
+      if (CAPTURE_PROMPTS) {
+        const promptFeatures = typeof extractUserPromptFeatures === "function"
+          ? extractUserPromptFeatures(trimmed)
+          : {};
+        const promptEvent = {
+          type: "user_prompt",
+          category: "user-prompt",
+          data: prompt,
+          priority: 1,
+          ...promptFeatures,
+        };
+        promptAttributions = attributeAndInsertEvents(
+          db, sessionId, [promptEvent], input, projectDir, "UserPromptSubmit", resolveProjectAttributions,
+        );
+      }
 
       // 2. Extract decision/role/intent/data from user message
       const userEvents = extractUserEvents(trimmed);

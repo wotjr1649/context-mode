@@ -8,19 +8,25 @@ import "../ensure-deps.mjs";
 
 import { readStdin, parseStdin, getSessionId, getSessionDBPath, getInputProjectDir, flushAndExit, CODEX_OPTS } from "../session-helpers.mjs";
 import { createSessionLoaders, attributeAndInsertEvents } from "../session-loaders.mjs";
+import { redactSecretText } from "../platform-bridge.mjs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HOOK_DIR = dirname(fileURLToPath(import.meta.url));
 const { loadSessionDB, loadExtract, loadProjectAttribution } = createSessionLoaders(HOOK_DIR);
 const OPTS = CODEX_OPTS;
+// v1.0.3: raw prompt capture is opt-in (default off). Codex is unregistered by
+// default (configs/codex/AGENTS.md: "user-prompt history not available"); this
+// gate only guards a stale 1.0.2 entry that still fires. See block below.
+const CAPTURE_PROMPTS = process.env.CONTEXT_MODE_PROMPT_CAPTURE === "1";
 
 try {
   const raw = await readStdin();
   const input = parseStdin(raw);
   const projectDir = getInputProjectDir(input, OPTS);
 
-  const prompt = input.prompt ?? input.message ?? "";
+  // v1.0.3: redact secrets at the input boundary — see hooks/userpromptsubmit.mjs.
+  const prompt = redactSecretText(input.prompt ?? input.message ?? "");
   const trimmed = (prompt || "").trim();
 
   const isSystemMessage = trimmed.startsWith("<task-notification>")
@@ -38,15 +44,22 @@ try {
 
     db.ensureSession(sessionId, projectDir);
 
-    const promptEvent = {
-      type: "user_prompt",
-      category: "user-prompt",
-      data: prompt,
-      priority: 1,
-    };
-    const promptAttributions = attributeAndInsertEvents(
-      db, sessionId, [promptEvent], input, projectDir, "UserPromptSubmit", resolveProjectAttributions,
-    );
+    // v1.0.3: keep the raw prompt out of SQLite unless explicitly opted in
+    // (CONTEXT_MODE_PROMPT_CAPTURE=1), and scrub secrets even then. Codex no
+    // longer registers this hook by default; this guards a stale entry that
+    // still fires. Structured events below are unaffected.
+    let promptAttributions = [];
+    if (CAPTURE_PROMPTS) {
+      const promptEvent = {
+        type: "user_prompt",
+        category: "user-prompt",
+        data: prompt,
+        priority: 1,
+      };
+      promptAttributions = attributeAndInsertEvents(
+        db, sessionId, [promptEvent], input, projectDir, "UserPromptSubmit", resolveProjectAttributions,
+      );
+    }
 
     const userEvents = extractUserEvents(trimmed);
     const savedLastKnown = promptAttributions[0]?.projectDir || null;

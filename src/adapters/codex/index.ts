@@ -116,6 +116,13 @@ const LEGACY_HOOK_PATH_SUFFIXES: Record<keyof typeof CODEX_HOOK_COMMANDS, string
   Stop: ["hooks/stop.mjs", "hooks/codex/stop.mjs"],
 };
 
+// v1.0.3: hooks registered in <=1.0.2 that generateHookConfig() no longer emits.
+// configureAllHooks() purges these from an existing user's ~/.codex/hooks.json so
+// a stale entry (often a broken plugin-cache path from a prior version) stops
+// firing. They stay in CODEX_HOOK_COMMANDS / LEGACY_HOOK_PATH_SUFFIXES above so
+// removeManagedHookEntries() can still recognize and strip them.
+const REMOVED_CODEX_HOOKS: Array<keyof typeof CODEX_HOOK_COMMANDS> = ["UserPromptSubmit"];
+
 type CodexVersionRunner = (
   file: string,
   args: string[],
@@ -529,17 +536,13 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
           ],
         },
       ],
-      UserPromptSubmit: [
-        {
-          matcher: "",
-          hooks: [
-            {
-              type: "command",
-              command: CODEX_HOOK_COMMANDS.UserPromptSubmit,
-            },
-          ],
-        },
-      ],
+      // UserPromptSubmit intentionally omitted (v1.0.3): Codex does not capture
+      // user prompts — configs/codex/AGENTS.md documents "user-prompt history
+      // not available", and the shipped hook stored the raw prompt unredacted,
+      // contradicting that contract. Do NOT re-add here: configureAllHooks()
+      // purges any stale 1.0.2 entry via REMOVED_CODEX_HOOKS, and CODEX_HOOK_COMMANDS
+      // / LEGACY_HOOK_PATH_SUFFIXES keep the key so that purge can recognize it.
+      // Claude Code keeps UserPromptSubmit (opt-in raw capture) in hooks/hooks.json.
       Stop: [
         {
           matcher: "",
@@ -862,6 +865,14 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       for (const [hookName, entries] of Object.entries(desiredHooks)) {
         this.upsertManagedHookEntry(hooks, hookName, entries[0], changes);
       }
+    }
+
+    // v1.0.3: purge hooks we no longer register (UserPromptSubmit — Codex no
+    // longer captures user prompts). Removes a stale/broken 1.0.2 entry from an
+    // existing user's config on upgrade so it stops firing. Idempotent: a no-op
+    // when nothing matches.
+    for (const removedHook of REMOVED_CODEX_HOOKS) {
+      this.removeManagedHookEntries(hooks, removedHook, changes);
     }
 
     if (changes.length > hookChangeStart) {

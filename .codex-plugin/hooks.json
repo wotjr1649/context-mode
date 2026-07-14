@@ -27,14 +27,6 @@
           {
             "type": "command",
             "command": "node \"${PLUGIN_ROOT}/hooks/codex/sessionstart.mjs\""
-          },
-          {
-            "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/hooks/deps-heal.mjs\""
-          },
-          {
-            "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/hooks/orphan-reaper.mjs\""
           }
         ]
       }
@@ -45,16 +37,6 @@
           {
             "type": "command",
             "command": "node \"${PLUGIN_ROOT}/hooks/codex/precompact.mjs\""
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/hooks/codex/userpromptsubmit.mjs\""
           }
         ]
       }

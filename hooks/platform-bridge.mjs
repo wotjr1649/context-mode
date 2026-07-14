@@ -223,25 +223,40 @@ function normalizeRemoteUrl(url) {
 }
 
 // === Privacy: secret + PII redaction ===
-const SECRETS = [
+// Credential/token patterns — distinctive enough to mask in LOCAL storage
+// without corrupting normal prose. redactSecretText (local SQLite path) uses
+// ONLY these; adding a pattern here narrows storage leaks without over-redacting.
+const CREDENTIAL_PATTERNS = [
   /\b(?:ghp|gho|ghs|ghu|github_pat)_[A-Za-z0-9_]{20,}\b/g, // GitHub
   /\bAKIA[0-9A-Z]{16}\b/g,                                 // AWS
   /\bsk-(?:ant|proj)?-?[A-Za-z0-9_-]{32,}\b/g,             // OpenAI/Anthropic
   /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, // JWT
   /\bxox[bpoas]-[A-Za-z0-9-]{10,}\b/g,                     // Slack
   /\bglpat-[A-Za-z0-9_-]{20,}\b/g,                         // GitLab
+];
+// PII patterns — broad, they over-match legitimate prose (e.g. "logo@2x.png",
+// a "555-12-3456" ticket id). Applied ONLY on the remote wire (privacyTransform),
+// where minimization is appropriate — NOT to local storage, which would silently
+// corrupt continuity for every user.
+const PII_PATTERNS = [
   /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,   // emails
   /\b\d{3}-\d{2}-\d{4}\b/g,                                // SSN-like
 ];
+const SECRETS = [...CREDENTIAL_PATTERNS, ...PII_PATTERNS]; // wire = credentials + PII
 const HOME = os.homedir();
 const USER_DIR_RE = /(\/Users\/|\/home\/|\\+Users\\+)[^/\\]+/g;
 
+function applyPatterns(str, patterns) {
+  let out = str;
+  for (const re of patterns) out = out.replace(re, "[REDACTED]");
+  return out;
+}
+
 function privacyTransform(s) {
   if (typeof s !== "string") return s;
-  let out = s.split(HOME).join("<HOME>")
+  const normalized = s.split(HOME).join("<HOME>")
     .replace(USER_DIR_RE, (m) => m.replace(/[^/\\]+$/, "<USER>"));
-  for (const re of SECRETS) out = out.replace(re, "[REDACTED]");
-  return out;
+  return applyPatterns(normalized, SECRETS);
 }
 
 function walk(obj, depth) {
@@ -262,6 +277,21 @@ function walk(obj, depth) {
 
 export function sanitizeEvent(event) {
   return event && typeof event === "object" ? walk(event, 0) : event;
+}
+
+// v1.0.3: strip credential/token VALUES from a free-text string before it is
+// written to LOCAL SQLite. The UserPromptSubmit hooks apply this at the input
+// boundary so neither the structured continuity events nor the opt-in raw row
+// can carry a verbatim token. Uses CREDENTIAL_PATTERNS ONLY — the broad PII
+// patterns (email/SSN-shaped) over-match normal prose and would corrupt
+// continuity for every user, so PII minimization is left to the wire
+// (privacyTransform), not local storage. No $HOME/username normalization or
+// truncation, so stored prompts stay readable. Best-effort: regex cannot catch
+// every credential format (misses e.g. AWS secret keys, Google, Stripe,
+// connection strings, PEM), which is why the safe default is capture OFF.
+export function redactSecretText(str) {
+  if (typeof str !== "string" || str.length === 0) return str;
+  return applyPatterns(str, CREDENTIAL_PATTERNS);
 }
 
 // === Public API ===
