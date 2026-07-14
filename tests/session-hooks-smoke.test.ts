@@ -243,6 +243,20 @@ describe("Issue #117 — Session hooks without build/session/", () => {
     expect(JSON.stringify(events)).not.toContain(secret);
   });
 
+  test("redactSecretText masks credentials but preserves normal PII-shaped prose (v1.0.3)", async () => {
+    const { redactSecretText } = await import("../hooks/platform-bridge.mjs");
+    // Example placeholder credential — NOT a real token.
+    const cred = "ghp_EXAMPLEPLACEHOLDERdeadbeefdeadbeefdeadbeef01";
+    const masked = redactSecretText(`use token ${cred} now`);
+    expect(masked).toContain("[REDACTED]");
+    expect(masked).not.toContain(cred);
+    // Normal continuity prose that the BROAD wire PII regexes would over-match
+    // (email-shaped filename, SSN-shaped ticket id) must survive local storage —
+    // redactSecretText uses credential patterns only, not PII patterns.
+    const prose = "update logo@2x.png for ticket 555-12-3456";
+    expect(redactSecretText(prose)).toBe(prose);
+  });
+
   test("precompact.mjs creates snapshot via bundle", () => {
     const result = runHook("precompact.mjs", {
       session_id: "test-session-117",

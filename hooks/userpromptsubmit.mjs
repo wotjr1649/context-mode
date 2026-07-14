@@ -37,10 +37,11 @@ await runHook(async () => {
     const input = parseStdin(raw);
     const projectDir = getInputProjectDir(input);
 
-    // v1.0.3: redact secrets at the input boundary so NO prompt-derived event
-    // (structured intents/decisions AND the opt-in raw row) can carry a verbatim
-    // API key, token, or PII into SQLite. Identity on non-secret text, so normal
-    // prompts are unaffected.
+    // v1.0.3: strip credential/token values at the input boundary so NO
+    // prompt-derived event (structured intents/decisions AND the opt-in raw row)
+    // can carry a verbatim API key or token into SQLite. Only credential
+    // patterns are masked (not emails/ids), so normal continuity prose is
+    // preserved; PII minimization happens on the remote wire, not local storage.
     const prompt = redactSecretText(input.prompt ?? input.message ?? "");
     const trimmed = (prompt || "").trim();
 
