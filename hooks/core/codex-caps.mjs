@@ -22,16 +22,28 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /**
- * First Codex release verified to honor PreToolUse allow+updatedInput and
- * additionalContext: codex-cli 0.141.0 (#845, validated against the shipped
- * binary's output_parser). Below this we fail closed.
+ * First Codex release that honors PreToolUse allow+updatedInput and
+ * additionalContext: codex-cli 0.131.0. updatedInput landed in
+ * openai/codex#20527 (merged 2026-05-12, first shipped in rust-v0.131.0 on
+ * 2026-05-18); additionalContext shipped earlier (~0.129), so 0.131 covers
+ * both fields. Below this we fail closed.
+ *
+ * NOTE: inferred from the openai/codex release history, NOT re-validated
+ * against a 0.131.x binary. The earlier 0.141.0 floor (ctxscribe #845) was
+ * merely the build the author happened to install and test, not the true
+ * first-supporting release.
  */
-export const MIN_REWRITE_VERSION = [0, 141, 0];
+export const MIN_REWRITE_VERSION = [0, 131, 0];
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // re-probe at most hourly
 const CACHE_FILE = "ctxscribe-codex-caps.json";
+// Tag each cached verdict with the gate version so a change to
+// MIN_REWRITE_VERSION invalidates entries written by an older build. Without
+// this, a codex-cli 0.131-0.140 user who probed under the old 0.141 floor
+// would keep a stale supported:false for up to CACHE_TTL_MS after upgrading.
+const CACHE_GATE = MIN_REWRITE_VERSION.join(".");
 
-/** Parse a `codex --version` line ("codex-cli 0.141.0") → [major, minor, patch]. */
+/** Parse a `codex --version` line ("codex-cli 0.131.0") → [major, minor, patch]. */
 export function parseCodexVersion(raw) {
   const s = String(raw ?? "");
   const isDigit = (c) => c >= "0" && c <= "9";
@@ -93,7 +105,12 @@ export function codexSupportsUpdatedInput(io = {}) {
   // Fast path: a non-expired cache entry.
   try {
     const cached = JSON.parse(readFileSync(cachePath, "utf8"));
-    if (cached && typeof cached.at === "number" && now() - cached.at < CACHE_TTL_MS) {
+    if (
+      cached &&
+      cached.gate === CACHE_GATE &&
+      typeof cached.at === "number" &&
+      now() - cached.at < CACHE_TTL_MS
+    ) {
       return cached.supported === true;
     }
   } catch { /* cache miss / corrupt — re-detect below */ }
@@ -106,7 +123,7 @@ export function codexSupportsUpdatedInput(io = {}) {
     supported = false; // no codex on PATH / probe failed → fail closed
   }
 
-  try { writeFileSync(cachePath, JSON.stringify({ at: now(), supported })); } catch { /* best effort */ }
+  try { writeFileSync(cachePath, JSON.stringify({ at: now(), supported, gate: CACHE_GATE })); } catch { /* best effort */ }
 
   return supported;
 }
