@@ -47,6 +47,7 @@ import {
   type HookEntry,
   type HookRegistration,
 } from "../types.js";
+import { EXTERNAL_MCP_MATCHER_PATTERN } from "./hooks.js";
 
 // ─────────────────────────────────────────────────────────
 // Codex CLI raw input types
@@ -90,8 +91,9 @@ type HooksConfigReadResult =
 // Fix: keep only literal tool names (charset-clean). The hook BODY already
 // filters ctxscribe's own MCP tools via `isExternalMcpTool()` in
 // hooks/core/routing.mjs, so dropping `mcp__.*__ctx_*` and the lookaround
-// preserves end-to-end semantics. The literal `mcp__` final segment is a
-// no-op under exact-matcher mode but kept for parity with hooks/hooks.json.
+// preserves end-to-end semantics. The literal `mcp__` final segment is a no-op
+// under exact-matcher mode; external MCP interception is added via a separate
+// `mcp__.*` regex entry (EXTERNAL_MCP_MATCHER_PATTERN, imported from ./hooks.ts).
 //
 // Keep this as a single string literal — `codex.test.ts` drift-guard parses
 // the source with a `"([^"]+)"` regex.
@@ -502,6 +504,15 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
             },
           ],
         },
+        {
+          matcher: EXTERNAL_MCP_MATCHER_PATTERN,
+          hooks: [
+            {
+              type: "command",
+              command: CODEX_HOOK_COMMANDS.PreToolUse,
+            },
+          ],
+        },
       ],
       PostToolUse: [
         {
@@ -711,9 +722,10 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       }))
       : Object.entries(expected).map(([hookName, entries]) => {
         const actualEntries = hookConfig.config.hooks?.[hookName];
-        const expectedEntry = entries[0];
+        // ALL expected entries must be present (PreToolUse registers two).
         const ok = Array.isArray(actualEntries)
-          && actualEntries.some((entry) => this.isExpectedHookEntry(hookName, entry, expectedEntry));
+          && entries.every((expectedEntry) =>
+            actualEntries.some((entry) => this.isExpectedHookEntry(hookName, entry, expectedEntry)));
         const missingStatus = hookName === "PreCompact" ? "warn" : "fail";
 
         return {
@@ -732,22 +744,24 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
     // every matching entry, so duplicates double the work, can saturate the
     // MCP transport (`Transport closed`), and have been observed to inflate
     // codex-tui.log into the multi-GB range. `ctxscribe upgrade` collapses
-    // them via `upsertManagedHookEntry`, so the fix is one command away.
+    // them via `upsertManagedHookEntries`, so the fix is one command away.
     const duplicateChecks: DiagnosticResult[] = [];
-    for (const hookName of Object.keys(expected)) {
+    for (const [hookName, entries] of Object.entries(expected)) {
       const actualEntries = hookConfig.config.hooks?.[hookName];
       if (!Array.isArray(actualEntries)) continue;
       const managedCount = actualEntries.filter(
         (entry) => this.isManagedContextModeEntry(hookName, entry as HookEntry),
       ).length;
-      if (managedCount > 1) {
+      // A hook may legitimately register more than one ctxscribe entry
+      // (PreToolUse = 2); only entries BEYOND the expected set are duplicates.
+      if (managedCount > entries.length) {
         duplicateChecks.push({
           check: `${hookName} duplicates`,
           status: "warn",
-          message: `${managedCount} ctxscribe entries found for ${hookName} in ${this.getHooksPath()}; Codex will fire all of them`,
+          message: `${managedCount} ctxscribe entries found for ${hookName} in ${this.getHooksPath()} (expected ${entries.length}); Codex will fire all of them`,
           fix: "ctxscribe upgrade (collapses duplicate ctxscribe entries; preserves unrelated hooks)",
         });
-      } else if (codexPluginHooksAvailable && managedCount === 1) {
+      } else if (codexPluginHooksAvailable && managedCount >= 1) {
         duplicateChecks.push({
           check: `${hookName} plugin duplicate`,
           status: "warn",
@@ -863,7 +877,7 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       }
     } else {
       for (const [hookName, entries] of Object.entries(desiredHooks)) {
-        this.upsertManagedHookEntry(hooks, hookName, entries[0], changes);
+        this.upsertManagedHookEntries(hooks, hookName, entries, changes);
       }
     }
 
@@ -1011,36 +1025,29 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
     writeFileSync(hooksPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
   }
 
-  private upsertManagedHookEntry(
+  private upsertManagedHookEntries(
     hooks: HookRegistration,
     hookName: string,
-    expectedEntry: HookEntry,
+    expectedEntries: readonly HookEntry[],
     changes: string[],
   ): void {
     const currentEntries = Array.isArray(hooks[hookName]) ? [...hooks[hookName]] : [];
-    const managedIndices = currentEntries
-      .map((entry, index) => this.isManagedContextModeEntry(hookName, entry) ? index : -1)
-      .filter((index) => index >= 0);
+    const managed = currentEntries.filter((entry) => this.isManagedContextModeEntry(hookName, entry));
+    const nonManaged = currentEntries.filter((entry) => !this.isManagedContextModeEntry(hookName, entry));
 
-    if (managedIndices.length === 0) {
-      currentEntries.push(expectedEntry);
-      hooks[hookName] = currentEntries;
-      changes.push(`Added ${hookName} hook`);
+    // A hook event can register MORE THAN ONE ctxscribe entry (PreToolUse: the
+    // charset-clean exact-name list + the `mcp__.*` external-MCP regex). Reconcile
+    // the managed entries to EXACTLY the expected set (order-sensitive, so it stays
+    // idempotent) while preserving the user's unrelated hooks. This both writes a
+    // missing entry AND collapses accidental duplicates in one pass.
+    if (JSON.stringify(managed) === JSON.stringify([...expectedEntries])) {
       return;
     }
 
-    const primaryIndex = managedIndices[0];
-    if (JSON.stringify(currentEntries[primaryIndex]) !== JSON.stringify(expectedEntry)) {
-      currentEntries[primaryIndex] = expectedEntry;
-      changes.push(`Updated ${hookName} hook`);
-    }
-
-    for (const duplicateIndex of managedIndices.slice(1).reverse()) {
-      currentEntries.splice(duplicateIndex, 1);
-      changes.push(`Removed duplicate ${hookName} ctxscribe hook`);
-    }
-
-    hooks[hookName] = currentEntries;
+    // ctxscribe entries first (preserves prior in-place ordering), then the
+    // user's unrelated hooks.
+    hooks[hookName] = [...expectedEntries, ...nonManaged];
+    changes.push(managed.length === 0 ? `Added ${hookName} hook` : `Updated ${hookName} hook`);
   }
 
   private removeManagedHookEntries(

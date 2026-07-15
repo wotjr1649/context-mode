@@ -1058,36 +1058,16 @@ function extractMcpToolCall(input: HookInput): SessionEvent[] {
     priority: 4,
   };
 
-  // Retrieval cost (the OTHER half of the with/without ratio): when this MCP
-  // call is a `ctx_search` or `ctx_fetch_and_index` retrieval, the tool_response
-  // IS the kept-out content the model paid to access — record its byte length.
-  // Sandbox compute (ctx_execute/batch/file) is work-output, NOT retrieval, so
-  // it is intentionally excluded. Match by suffix char-algorithmically (host
-  // prefixes the name like `mcp__plugin_…__ctx_search`); NO regex.
-  if (isRetrievalToolName(tool_name)) {
-    const response = safeString(input.tool_response);
-    if (response.length > 0) {
-      event.bytes_retrieved = Buffer.byteLength(response, "utf8");
-    }
-  }
+  // Retrieval bytes for ctxscribe's OWN retrieval tools (ctx_search /
+  // ctx_fetch_and_index) are NOT counted here — the server records them directly
+  // (src/server.ts -> appendRetrievalBytes -> retrieval marker, forwarded once by
+  // posttooluse.mjs) from the exact MCP response. Before the `mcp__.*` matcher
+  // fix this PostToolUse hook never fired for own tools, so a byte count here was
+  // dead; now that it DOES fire, counting here too would DOUBLE-COUNT every
+  // retrieval. External MCP tools never carry a retrieval suffix, so nothing else
+  // needs a per-tool byte count on this path.
 
   return [event];
-}
-
-/** Tool-name suffixes that denote a RETRIEVAL call (kept-out content accessed). */
-const RETRIEVAL_TOOL_SUFFIXES = ["ctx_search", "ctx_fetch_and_index"];
-
-/**
- * True when `toolName` ends with one of the retrieval suffixes. Char-level
- * suffix comparison via String.prototype.endsWith — no regex. MCP host names
- * arrive prefixed (e.g. `mcp__plugin_ctxscribe_mcp__ctx_search`),
- * so an exact-name check would miss them; suffix match is host-agnostic.
- */
-function isRetrievalToolName(toolName: string): boolean {
-  for (const suffix of RETRIEVAL_TOOL_SUFFIXES) {
-    if (toolName.endsWith(suffix)) return true;
-  }
-  return false;
 }
 
 /**

@@ -970,7 +970,7 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
   }
 
   // ─── External MCP tools: periodic guidance about routing large payloads ─── (#529, #567 follow-up)
-  // hooks/hooks.json registers a bare `mcp__` catch-all matcher so this
+  // hooks/hooks.json registers an `mcp__.*` regex catch-all matcher so this
   // branch fires for slack/telegram/gdrive/notion-style MCPs whose results would
   // otherwise spill into context. Our own tools never reach here: isExternalMcpTool()
   // keys the own/external split off the `ctx_` tool-leaf, not the server segment.

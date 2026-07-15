@@ -381,6 +381,10 @@ describe("CodexAdapter", () => {
       expect(config.PreToolUse[0]?.matcher).toMatch(/(^|\|)mcp__$/);
       expect(config.PreToolUse[0]?.matcher).not.toMatch(/(^|\|)Read(\||$)/);
       expect(config.PreToolUse[0]?.matcher).not.toContain("mcp__plugin_ctxscribe_mcp__");
+      // v1.0.4: PreToolUse registers a SECOND entry — the `mcp__.*` regex catch-all
+      // for external MCP tools (a bare `mcp__` is a no-op under is_exact_matcher).
+      expect(config.PreToolUse).toHaveLength(2);
+      expect(config.PreToolUse[1]?.matcher).toBe("mcp__.*");
       expect(config.PreCompact[0]?.hooks[0]?.command).toBe("ctxscribe hook codex precompact");
     });
   });
@@ -414,6 +418,30 @@ describe("CodexAdapter", () => {
       expect(readFileSync(join(codexDir, "config.toml"), "utf-8")).toContain("hooks = true");
     });
 
+    it("writes BOTH PreToolUse entries (exact-name list + mcp__.* regex), idempotently", () => {
+      // Regression: generateHookConfig emits 2 PreToolUse entries, but the native
+      // upgrade path wrote only entries[0] (upsertManagedHookEntry replaced one and
+      // treated the second as a duplicate), so standalone Codex silently dropped the
+      // `mcp__.*` external-MCP matcher.
+      adapter.configureAllHooks("/ignored/plugin/root");
+      const written = JSON.parse(readFileSync(hooksPath, "utf-8")) as {
+        hooks: Record<string, Array<{ matcher: string }>>;
+      };
+      const matchers = (written.hooks.PreToolUse ?? []).map((e) => e.matcher);
+      expect(matchers).toHaveLength(2);
+      expect(matchers[0]).toMatch(/(^|\|)mcp__$/); // charset-clean exact-name list
+      expect(matchers).toContain("mcp__.*");        // external-MCP regex entry
+
+      // Idempotent: a second run makes no PreToolUse change and keeps both entries.
+      const secondChanges = adapter.configureAllHooks("/ignored/plugin/root");
+      expect(secondChanges.some((c) => c.includes("PreToolUse hook"))).toBe(false);
+      const rewritten = JSON.parse(readFileSync(hooksPath, "utf-8")) as {
+        hooks: Record<string, Array<{ matcher: string }>>;
+      };
+      expect(rewritten.hooks.PreToolUse).toHaveLength(2);
+      expect(rewritten.hooks.PreToolUse[1]?.matcher).toBe("mcp__.*");
+    });
+
     it("preserves unrelated hook entries while updating ctxscribe hooks", () => {
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
@@ -444,7 +472,7 @@ describe("CodexAdapter", () => {
 
       expect(existsSync(hooksPath)).toBe(true);
       const written = JSON.parse(readFileSync(hooksPath, "utf-8")) as {
-        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+        hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>;
       };
 
       expect(Object.keys(written.hooks).sort()).toEqual([
@@ -540,14 +568,17 @@ describe("CodexAdapter", () => {
       const changes = adapter.configureAllHooks("/ignored/plugin/root");
 
       const written = JSON.parse(readFileSync(hooksPath, "utf-8")) as {
-        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+        hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>;
       };
 
-      expect(written.hooks.PreToolUse).toHaveLength(1);
+      // PreToolUse collapses the twin entries to its canonical SET — the exact-name
+      // list + the `mcp__.*` regex (v1.0.4); single-entry events collapse to one.
+      expect(written.hooks.PreToolUse).toHaveLength(2);
       expect(written.hooks.PreToolUse[0]?.hooks[0]?.command).toBe("ctxscribe hook codex pretooluse");
+      expect(written.hooks.PreToolUse[1]?.matcher).toBe("mcp__.*");
       expect(written.hooks.SessionStart).toHaveLength(1);
       expect(written.hooks.SessionStart[0]?.hooks[0]?.command).toBe("ctxscribe hook codex sessionstart");
-      expect(changes.some((c) => c.includes("Removed duplicate"))).toBe(true);
+      expect(changes.some((c) => c.includes("Updated"))).toBe(true);
     });
 
     it("dedups legacy-direct-node entry coexisting with canonical entry (#603)", () => {
@@ -570,11 +601,12 @@ describe("CodexAdapter", () => {
       adapter.configureAllHooks("/ignored/plugin/root");
 
       const written = JSON.parse(readFileSync(hooksPath, "utf-8")) as {
-        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+        hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>;
       };
 
-      expect(written.hooks.PreToolUse).toHaveLength(1);
+      expect(written.hooks.PreToolUse).toHaveLength(2);
       expect(written.hooks.PreToolUse[0]?.hooks[0]?.command).toBe("ctxscribe hook codex pretooluse");
+      expect(written.hooks.PreToolUse[1]?.matcher).toBe("mcp__.*");
       expect(written.hooks.PostToolUse).toHaveLength(1);
       expect(written.hooks.PostToolUse[0]?.hooks[0]?.command).toBe("ctxscribe hook codex posttooluse");
     });
@@ -600,7 +632,7 @@ describe("CodexAdapter", () => {
       adapter.configureAllHooks("/ignored/plugin/root");
 
       const written = JSON.parse(readFileSync(hooksPath, "utf-8")) as {
-        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+        hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>;
       };
 
       // Both managed UserPromptSubmit entries stripped → the key is removed.
@@ -631,7 +663,7 @@ describe("CodexAdapter", () => {
       const changes = adapter.configureAllHooks(pluginRoot);
 
       const written = JSON.parse(readFileSync(hooksPath, "utf-8")) as {
-        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+        hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>;
       };
       expect(written.hooks.PreToolUse).toHaveLength(1);
       expect(written.hooks.PreToolUse[0]?.hooks[0]?.command).toContain("oh-my-codex");
@@ -659,9 +691,12 @@ describe("CodexAdapter", () => {
       const changes = adapter.configureAllHooks(doctorRoot);
 
       const written = JSON.parse(readFileSync(hooksPath, "utf-8")) as {
-        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+        hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>;
       };
-      expect(written.hooks.PreToolUse).toHaveLength(2);
+      // 2 ctxscribe entries (exact-name list + mcp__.* regex) + the user's Bash hook.
+      expect(written.hooks.PreToolUse).toHaveLength(3);
+      expect(written.hooks.PreToolUse.some((entry) => entry.matcher === "mcp__.*")).toBe(true);
+      expect(written.hooks.PreToolUse.some((entry) => entry.matcher === "Bash")).toBe(true);
       expect(written.hooks.PreToolUse.some((entry) =>
         entry.hooks[0]?.command === "ctxscribe hook codex pretooluse",
       )).toBe(true);
@@ -850,14 +885,16 @@ args = ["-y", "ctxscribe"]
     });
 
     it("warns when duplicate ctxscribe entries exist for the same hook event (#603)", () => {
-      // Mirrors the user-reported scenario: hooks.json carries two
-      // ctxscribe entries for the same event after a partial upgrade.
-      // Doctor should surface this so the user knows to run upgrade.
+      // Mirrors the user-reported scenario: hooks.json carries MORE than the
+      // expected ctxscribe entries for an event after a partial upgrade. PreToolUse
+      // expects 2 (the exact-name list + `mcp__.*`), so 3 is a duplicate; PostToolUse
+      // expects 1, so 2 is a duplicate. Doctor surfaces this to prompt an upgrade.
       writeFileSync(hooksPath, JSON.stringify({
         hooks: {
           PreToolUse: [
             { matcher: "", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
             { matcher: "", hooks: [{ type: "command", command: "node /Users/foo/.nvm/versions/node/v20/lib/node_modules/ctxscribe/hooks/codex/pretooluse.mjs" }] },
+            { matcher: "mcp__.*", hooks: [{ type: "command", command: "ctxscribe hook codex pretooluse" }] },
           ],
           PostToolUse: [
             { hooks: [{ type: "command", command: "ctxscribe hook codex posttooluse" }] },
@@ -883,7 +920,7 @@ args = ["-y", "ctxscribe"]
 
       const preToolDup = results.find((r) => r.check === "PreToolUse duplicates");
       expect(preToolDup?.status).toBe("warn");
-      expect(preToolDup?.message).toMatch(/2 ctxscribe entries/);
+      expect(preToolDup?.message).toMatch(/3 ctxscribe entries/);
       expect(preToolDup?.fix).toMatch(/ctxscribe upgrade/);
 
       const postToolDup = results.find((r) => r.check === "PostToolUse duplicates");
@@ -1217,16 +1254,32 @@ describe("Codex matcher parity + config integrity", () => {
 //
 // Codex `is_exact_matcher` (refs/platforms/codex/codex-rs/hooks/src/events/common.rs:152)
 // short-circuits the regex engine when matcher chars are all
-// [A-Za-z0-9_|]. Pinning matchers to that charset avoids the crate's
-// limitations entirely. Drift-guard for future regressions.
+// [A-Za-z0-9_|]. Pinning the Codex-specific matchers to that charset avoids the
+// crate's limitations entirely. Drift-guard for future regressions.
+//
+// EXCEPTION — the universal hooks/hooks.json MCP catch-all is `mcp__.*`, NOT
+// charset-clean. It MUST be a real regex: Claude Code treats a charset-clean
+// matcher as an EXACT string match, so bare `mcp__` matches a tool literally
+// named "mcp__" and catches zero MCP tools. `mcp__.*` has no look-around, so
+// Codex's Rust `regex` crate still compiles it at boot. The real #547 constraint
+// is "no look-around" — enforced for that file by its own test below.
 describe("Codex matcher #547 — is_exact_matcher charset compliance", () => {
   const EXACT_MATCHER_CHARSET = /^[A-Za-z0-9_|]+$/;
+  const NO_LOOKAROUND = /\(\?[=!<]/;
 
-  it("EXTERNAL_MCP_MATCHER_PATTERN passes is_exact_matcher charset", async () => {
+  it("EXTERNAL_MCP_MATCHER_PATTERN is the `mcp__.*` regex — Codex-boot-safe (no look-around)", async () => {
     const { EXTERNAL_MCP_MATCHER_PATTERN } = await import(
       "../../src/adapters/codex/hooks.js"
     );
-    expect(EXTERNAL_MCP_MATCHER_PATTERN).toMatch(EXACT_MATCHER_CHARSET);
+    // NOT charset-clean: a charset-clean `mcp__` is an is_exact_matcher no-op that
+    // catches zero MCP tools. It MUST be a regex; `.*` has no look-around so Codex's
+    // Rust `regex` compiles it at boot (runtime-verified on codex-cli 0.144.4).
+    expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__.*");
+    expect(EXTERNAL_MCP_MATCHER_PATTERN).not.toMatch(EXACT_MATCHER_CHARSET);
+    expect(EXTERNAL_MCP_MATCHER_PATTERN).not.toMatch(NO_LOOKAROUND);
+    const re = new RegExp(EXTERNAL_MCP_MATCHER_PATTERN);
+    expect(re.test("mcp__slack__list_channels")).toBe(true);
+    expect(re.test("Bash")).toBe(false);
   });
 
   it("PRE_TOOL_USE_MATCHER_PATTERN (adapter source constant) passes is_exact_matcher charset", () => {
@@ -1248,21 +1301,28 @@ describe("Codex matcher #547 — is_exact_matcher charset compliance", () => {
     expect(matcher).toMatch(EXACT_MATCHER_CHARSET);
   });
 
-  it("hooks/hooks.json (universal bundle) MCP catch-all matcher passes is_exact_matcher charset", () => {
-    // hooks/hooks.json is the universal bundled file Codex ALSO loads via
-    // the plugin cache. The MCP catch-all matcher must drop the lookahead so
-    // Codex's regex crate does not reject the file at boot. Claude Code
-    // continues to treat the literal `mcp__` as a substring matcher.
+  it("hooks/hooks.json (universal bundle) MCP catch-all matcher is Codex-boot-safe (no look-around) and matches MCP tools", () => {
+    // hooks/hooks.json is the universal bundled file Codex ALSO loads via the
+    // plugin cache. The #547 constraint is NO LOOK-AROUND (Codex's Rust `regex`
+    // rejects `(?=)/(?!)/(?<)` at boot) — NOT charset-cleanliness. `mcp__.*` is a
+    // plain regex both Claude Code (JS) and Codex (Rust) compile; a charset-clean
+    // `mcp__` would be an EXACT match on Claude Code and catch no MCP tools.
     const path = resolve(__dirname, "..", "..", "hooks", "hooks.json");
     const parsed = JSON.parse(readFileSync(path, "utf8")) as {
       hooks: { PreToolUse: Array<{ matcher: string }> };
     };
     const matchers = (parsed.hooks.PreToolUse ?? []).map((e) => e.matcher);
-    // Whichever entry was the external-MCP catch-all must now be charset-clean.
     const mcpCatchAll = matchers.find(
       (m) => m && m.startsWith("mcp__") && !m.includes("ctx_"),
     );
     expect(mcpCatchAll, "expected an mcp__ catch-all matcher in hooks.json").toBeDefined();
-    expect(mcpCatchAll).toMatch(EXACT_MATCHER_CHARSET);
+    // Codex-boot-safe: no look-around.
+    expect(mcpCatchAll).not.toMatch(NO_LOOKAROUND);
+    // A real regex (not charset-clean) that Claude Code evaluates and matches
+    // against every MCP tool — ctxscribe's own and external — but no bare tool.
+    const re = new RegExp(mcpCatchAll!);
+    expect(re.test("mcp__plugin_ctxscribe_mcp__ctx_execute")).toBe(true);
+    expect(re.test("mcp__slack__list_channels")).toBe(true);
+    expect(re.test("Bash")).toBe(false);
   });
 });

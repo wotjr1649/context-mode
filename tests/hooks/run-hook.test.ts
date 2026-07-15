@@ -120,12 +120,16 @@ describe("runHook wrapper", () => {
     const script = `
       import { runHook } from ${JSON.stringify(RUN_HOOK_URL)};
       await runHook(async () => {
-        // Fire-and-forget rejection (escapes handler's try/catch via microtask)
-        setImmediate(() => { throw new Error("late-uncaught"); });
-        // Return so handler resolves; uncaughtException fires after.
+        // Escape the handler's try/catch via a microtask that throws. A microtask
+        // fires BEFORE runHook's trailing \`process.stdout.write("", () =>
+        // process.exit(0))\`, so it deterministically reaches
+        // process.on("uncaughtException"). (A deferred setImmediate — a macrotask —
+        // RACES that exit callback and, on Windows, the exit wins and the throw
+        // never fires, so the error was silently lost. runHook cannot guarantee
+        // logging an error scheduled AFTER it returns; it can for one that fires
+        // before the exit, which is what this asserts.)
+        queueMicrotask(() => { throw new Error("late-uncaught"); });
       });
-      // Keep event loop alive long enough for setImmediate to fire
-      await new Promise((r) => setTimeout(r, 100));
       console.log("survived");
     `;
     const r = runScript(script, { HOME: tmpHome, USERPROFILE: tmpHome });

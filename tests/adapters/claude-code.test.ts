@@ -790,21 +790,25 @@ describe("ClaudeCodeAdapter", () => {
       expect(PRE_TOOL_USE_MATCHERS).toContain(EXTERNAL_MCP_MATCHER_PATTERN);
     });
 
-    it("EXTERNAL_MCP_MATCHER_PATTERN is the literal `mcp__` substring (#529, #547 hotfix)", () => {
-      // v1.0.124 used a plugin-prefixed negative-lookahead matcher — the same
-      // hooks.json is bundled to Codex CLI whose Rust `regex` crate rejects look-around
-      // at boot. v1.0.125 drops the lookaround on both adapters; the hook
-      // BODY (`isExternalMcpTool()` in hooks/core/routing.mjs) filters
-      // ctxscribe's own MCP tools, so semantics are preserved.
-      expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__");
-      expect(EXTERNAL_MCP_MATCHER_PATTERN).toMatch(/^[A-Za-z0-9_|]+$/);
+    it("EXTERNAL_MCP_MATCHER_PATTERN is a regex that matches every MCP tool (matcher-semantics fix)", () => {
+      // Per the Claude Code hooks docs, a matcher of only [A-Za-z0-9_,|-] + spaces is
+      // an EXACT / `|`-list match, NOT a substring — so bare `mcp__` matches a tool
+      // literally named "mcp__" and catches ZERO MCP tools. The pattern must contain a
+      // regex metacharacter (`.*`) to be evaluated as a JavaScript regex. `.*` has no
+      // look-around, so it is also valid for Codex CLI's Rust `regex` crate (#547).
+      expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__.*");
+      expect(EXTERNAL_MCP_MATCHER_PATTERN).not.toMatch(/^[A-Za-z0-9_,| -]+$/);
+      expect(EXTERNAL_MCP_MATCHER_PATTERN).not.toMatch(/\(\?[=!<]/);
 
-      // Substring semantics: every external MCP tool name starts with `mcp__`.
-      expect("mcp__slack__list_channels".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(true);
-      expect("mcp__plugin_telegram__list_messages".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(true);
-      // Bare non-MCP tool names do not contain the prefix.
-      expect("Bash".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(false);
-      expect("Read".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(false);
+      // Evaluated as a JS regex (Claude's rule for complex matchers) it matches every
+      // MCP tool — ctxscribe's own and external — and no bare non-MCP tool name.
+      const mcpRe = new RegExp(EXTERNAL_MCP_MATCHER_PATTERN);
+      expect(mcpRe.test("mcp__plugin_ctxscribe_mcp__ctx_execute")).toBe(true);
+      expect(mcpRe.test("mcp__plugin_ctxscribe_mcp__ctx_batch_execute")).toBe(true);
+      expect(mcpRe.test("mcp__slack__list_channels")).toBe(true);
+      expect(mcpRe.test("mcp__plugin_telegram__list_messages")).toBe(true);
+      expect(mcpRe.test("Bash")).toBe(false);
+      expect(mcpRe.test("Read")).toBe(false);
     });
 
     it("generateHookConfig includes the external MCP matcher entry (#529)", () => {
@@ -1085,17 +1089,36 @@ describe("ClaudeCodeAdapter", () => {
       expect(parsed.hooks.Stop![0].hooks[0].command).toContain("stop.mjs");
     });
 
-    it("POST_TOOL_USE_MATCHERS contains all tools that extractEvents handles", () => {
+    it("POST_TOOL_USE_MATCHERS contains all exact-name tools that extractEvents handles", () => {
       const required = [
         "Bash", "Read", "Write", "Edit", "NotebookEdit", "Glob", "Grep",
         "TodoWrite", "TaskCreate", "TaskUpdate",
         "EnterPlanMode", "ExitPlanMode",
         "Skill", "Agent", "AskUserQuestion", "EnterWorktree",
-        "mcp__",
       ];
       for (const tool of required) {
         expect(POST_TOOL_USE_MATCHERS).toContain(tool);
       }
+      // MCP tools are matched by a separate `mcp__.*` regex entry (a bare `mcp__`
+      // exact match catches none), so they are NOT in this exact-name list.
+      expect(POST_TOOL_USE_MATCHERS).not.toContain("mcp__");
+    });
+
+    it("hooks/hooks.json PostToolUse has a dedicated `mcp__.*` regex entry so MCP tools are captured", () => {
+      // Pre-fix bug: the single `…|mcp__` exact-list matcher never matched any MCP
+      // tool on Claude Code, so mcp_tool_call / retrieval-byte events were dropped.
+      const repoRoot = resolve(__dirname, "..", "..");
+      const hooksJsonPath = join(repoRoot, "hooks", "hooks.json");
+      const parsed = JSON.parse(readFileSync(hooksJsonPath, "utf8")) as {
+        hooks: { PostToolUse: Array<{ matcher: string }> };
+      };
+      const matchers = parsed.hooks.PostToolUse.map((e) => e.matcher);
+      expect(matchers).toContain(POST_TOOL_USE_MATCHER_PATTERN); // exact-name list, no bare mcp__
+      expect(matchers).toContain("mcp__.*"); // dedicated MCP regex entry
+      expect(matchers).not.toContain(`${POST_TOOL_USE_MATCHER_PATTERN}|mcp__`);
+      const mcpRe = new RegExp("mcp__.*");
+      expect(mcpRe.test("mcp__plugin_ctxscribe_mcp__ctx_search")).toBe(true);
+      expect(mcpRe.test("mcp__slack__post_message")).toBe(true);
     });
 
     it("POST_TOOL_USE_MATCHERS does NOT contain tools that produce zero events (#229)", () => {

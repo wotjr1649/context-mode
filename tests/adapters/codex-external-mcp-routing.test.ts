@@ -30,42 +30,51 @@ describe("CodexAdapter — external MCP routing (#529)", () => {
     expect(EXTERNAL_MCP_MATCHER_PATTERN.length).toBeGreaterThan(0);
   });
 
-  it("EXTERNAL_MCP_MATCHER_PATTERN is the literal `mcp__` prefix (#547 hotfix)", () => {
-    // v1.0.124 used a brand-substring negative-lookahead matcher — Codex's Rust
-    // regex crate rejects look-around at boot, breaking every Codex user. v1.0.125 drops
-    // the lookaround in favor of a literal that satisfies Codex's
-    // `is_exact_matcher` charset (`[A-Za-z0-9_|]`). The hook BODY filters
-    // ctxscribe's own MCP tools via `isExternalMcpTool()` in
-    // hooks/core/routing.mjs, so semantics are preserved end-to-end.
-    expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__");
-    expect(EXTERNAL_MCP_MATCHER_PATTERN).toMatch(/^[A-Za-z0-9_|]+$/);
+  it("EXTERNAL_MCP_MATCHER_PATTERN is the `mcp__.*` regex (no look-around; Codex-boot-safe)", () => {
+    // A charset-clean bare `mcp__` is an is_exact_matcher no-op on Codex — it
+    // matches only a tool literally named "mcp__". Matching the MCP family needs
+    // the regex `mcp__.*` (Codex hooks docs). `.*` has no look-around, so Codex's
+    // Rust regex crate accepts it at boot (the #547 breaker was look-around).
+    // Own tools are separated in the hook BODY by isExternalMcpTool().
+    expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__.*");
+    expect(EXTERNAL_MCP_MATCHER_PATTERN).not.toMatch(/\(\?[=!<]/); // no look-around
 
-    // Substring semantics — the prefix is shared by every external MCP
-    // tool name Codex emits (`mcp__<server>__<tool>`).
-    expect("mcp__slack__list_channels".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(true);
-    expect("mcp__plugin_telegram__list_messages".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(true);
-    // Non-MCP bare codex tool names do not start with the prefix.
-    expect("local_shell".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(false);
-    expect("Bash".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(false);
+    // Regex semantics — matches every external MCP tool name Codex emits
+    // (`mcp__<server>__<tool>`) but not bare non-MCP tool names.
+    const re = new RegExp(EXTERNAL_MCP_MATCHER_PATTERN);
+    expect(re.test("mcp__slack__list_channels")).toBe(true);
+    expect(re.test("mcp__plugin_telegram__list_messages")).toBe(true);
+    expect(re.test("local_shell")).toBe(false);
+    expect(re.test("Bash")).toBe(false);
   });
 
-  it("generateHookConfig PreToolUse matcher includes the external MCP pattern", () => {
+  it("generateHookConfig registers the external MCP `mcp__.*` regex as its OWN entry", () => {
     const config = adapter.generateHookConfig("/some/plugin/root") as Record<
       string,
       Array<{ matcher: string }>
     >;
-    const preToolUseMatcher = config.PreToolUse?.[0]?.matcher ?? "";
-    expect(preToolUseMatcher).toContain(EXTERNAL_MCP_MATCHER_PATTERN);
+    const matchers = (config.PreToolUse ?? []).map((e) => e.matcher);
+    expect(matchers).toContain(EXTERNAL_MCP_MATCHER_PATTERN); // === "mcp__.*"
+    // A SEPARATE entry, not folded into the charset-clean exact-name list.
+    expect(matchers[0]).not.toContain(EXTERNAL_MCP_MATCHER_PATTERN);
   });
 
-  it("configs/codex/hooks.json PreToolUse matcher contains EXTERNAL_MCP_MATCHER_PATTERN", async () => {
+  it("both Codex hook manifests register the `mcp__.*` entry with NO look-around (#547)", async () => {
     const { readFileSync } = await import("node:fs");
     const { resolve } = await import("node:path");
-    const path = resolve(__dirname, "..", "..", "configs", "codex", "hooks.json");
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as {
-      hooks: { PreToolUse: Array<{ matcher: string }> };
-    };
-    const matcher = parsed.hooks.PreToolUse[0]?.matcher ?? "";
-    expect(matcher).toContain(EXTERNAL_MCP_MATCHER_PATTERN);
+    const files = [
+      ["configs", "codex", "hooks.json"],
+      [".codex-plugin", "hooks.json"],
+    ];
+    for (const rel of files) {
+      const path = resolve(__dirname, "..", "..", ...rel);
+      const parsed = JSON.parse(readFileSync(path, "utf8")) as {
+        hooks: { PreToolUse: Array<{ matcher: string }> };
+      };
+      const matchers = parsed.hooks.PreToolUse.map((e) => e.matcher);
+      expect(matchers, path).toContain(EXTERNAL_MCP_MATCHER_PATTERN); // "mcp__.*" as its own entry
+      // #547: Codex's Rust regex rejects look-around at boot — every entry must be free of it.
+      for (const m of matchers) expect(m, path).not.toMatch(/\(\?[=!<]/);
+    }
   });
 });
