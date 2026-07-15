@@ -39,27 +39,31 @@ export type HookType = (typeof HOOK_TYPES)[keyof typeof HOOK_TYPES];
 // ─────────────────────────────────────────────────────────
 
 /**
- * External MCP catch-all matcher for Claude Code (#529, #547 hotfix).
+ * MCP catch-all matcher for Claude Code (#529, #547 hotfix, matcher-semantics fix).
  *
- * Claude Code's hook matcher engine treats this entry as a substring match
- * (it also accepts regex, but `mcp__` alone is enough — every MCP tool
- * surfaces as `mcp__<server>__<tool>`). v1.0.124 used a plugin-prefixed
- * negative-lookahead matcher to skip our own MCP tools,
- * but this same hooks.json is bundled to Codex CLI which uses Rust's
- * `regex` crate (no look-around support) — Codex rejected the matcher at
- * boot, breaking every Codex user (#547). Drop the lookaround on both
- * sides; the hook BODY (`isExternalMcpTool()` in hooks/core/routing.mjs)
- * already filters ctxscribe's own tools, so semantics are preserved.
+ * Matches EVERY MCP tool (`mcp__<server>__<tool>`), ctxscribe's own included
+ * (`mcp__plugin_ctxscribe_mcp__*`); the hook BODY (`isExternalMcpTool()` in
+ * hooks/core/routing.mjs) then separates own vs. external tools.
+ *
+ * MUST be a regex (`mcp__.*`), NOT bare `mcp__`. Per the Claude Code hooks docs,
+ * a matcher containing only [A-Za-z0-9_,|-] and spaces is an EXACT / `|`-list
+ * match — so bare `mcp__` matches a tool literally named "mcp__" and catches
+ * NOTHING. Adding `.*` makes it a JavaScript (unanchored) regex that matches all
+ * `mcp__*` tool names. `.*` has no look-around, so it is also valid for Codex
+ * CLI's Rust `regex` crate — the #547 lookaround that broke Codex is not
+ * reintroduced. (Earlier builds shipped bare `mcp__`, which silently matched no
+ * external MCP tools on Claude Code; this restores the intended interception.)
  */
-export const EXTERNAL_MCP_MATCHER_PATTERN = "mcp__";
+export const EXTERNAL_MCP_MATCHER_PATTERN = "mcp__.*";
 
 /**
  * Tools that ctxscribe's PreToolUse hook intercepts.
  * ctxscribe's own MCP tools (ctx_execute / _file / _batch_execute) are NOT
- * listed separately — they surface as `mcp__plugin_ctxscribe_mcp__*` and are
- * already matched by EXTERNAL_MCP_MATCHER_PATTERN ("mcp__"). Listing them again
- * double-matches (fires pretooluse.mjs twice for the same call); routing.mjs
- * distinguishes external vs. own MCP tools in the hook body via isExternalMcpTool().
+ * listed separately — the `mcp__.*` regex (EXTERNAL_MCP_MATCHER_PATTERN) matches
+ * every `mcp__*` tool, ours included. routing.mjs distinguishes external vs. own
+ * MCP tools in the hook body via isExternalMcpTool(). (Each simple name below is
+ * its own exact matcher; `mcp__.*` is its own regex matcher — they are separate
+ * hooks.json entries, never joined, so the exact names keep exact semantics.)
  */
 export const PRE_TOOL_USE_MATCHERS = [
   "Bash",

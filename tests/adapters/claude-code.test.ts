@@ -790,21 +790,25 @@ describe("ClaudeCodeAdapter", () => {
       expect(PRE_TOOL_USE_MATCHERS).toContain(EXTERNAL_MCP_MATCHER_PATTERN);
     });
 
-    it("EXTERNAL_MCP_MATCHER_PATTERN is the literal `mcp__` substring (#529, #547 hotfix)", () => {
-      // v1.0.124 used a plugin-prefixed negative-lookahead matcher — the same
-      // hooks.json is bundled to Codex CLI whose Rust `regex` crate rejects look-around
-      // at boot. v1.0.125 drops the lookaround on both adapters; the hook
-      // BODY (`isExternalMcpTool()` in hooks/core/routing.mjs) filters
-      // ctxscribe's own MCP tools, so semantics are preserved.
-      expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__");
-      expect(EXTERNAL_MCP_MATCHER_PATTERN).toMatch(/^[A-Za-z0-9_|]+$/);
+    it("EXTERNAL_MCP_MATCHER_PATTERN is a regex that matches every MCP tool (matcher-semantics fix)", () => {
+      // Per the Claude Code hooks docs, a matcher of only [A-Za-z0-9_,|-] + spaces is
+      // an EXACT / `|`-list match, NOT a substring — so bare `mcp__` matches a tool
+      // literally named "mcp__" and catches ZERO MCP tools. The pattern must contain a
+      // regex metacharacter (`.*`) to be evaluated as a JavaScript regex. `.*` has no
+      // look-around, so it is also valid for Codex CLI's Rust `regex` crate (#547).
+      expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__.*");
+      expect(EXTERNAL_MCP_MATCHER_PATTERN).not.toMatch(/^[A-Za-z0-9_,| -]+$/);
+      expect(EXTERNAL_MCP_MATCHER_PATTERN).not.toMatch(/\(\?[=!<]/);
 
-      // Substring semantics: every external MCP tool name starts with `mcp__`.
-      expect("mcp__slack__list_channels".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(true);
-      expect("mcp__plugin_telegram__list_messages".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(true);
-      // Bare non-MCP tool names do not contain the prefix.
-      expect("Bash".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(false);
-      expect("Read".startsWith(EXTERNAL_MCP_MATCHER_PATTERN)).toBe(false);
+      // Evaluated as a JS regex (Claude's rule for complex matchers) it matches every
+      // MCP tool — ctxscribe's own and external — and no bare non-MCP tool name.
+      const mcpRe = new RegExp(EXTERNAL_MCP_MATCHER_PATTERN);
+      expect(mcpRe.test("mcp__plugin_ctxscribe_mcp__ctx_execute")).toBe(true);
+      expect(mcpRe.test("mcp__plugin_ctxscribe_mcp__ctx_batch_execute")).toBe(true);
+      expect(mcpRe.test("mcp__slack__list_channels")).toBe(true);
+      expect(mcpRe.test("mcp__plugin_telegram__list_messages")).toBe(true);
+      expect(mcpRe.test("Bash")).toBe(false);
+      expect(mcpRe.test("Read")).toBe(false);
     });
 
     it("generateHookConfig includes the external MCP matcher entry (#529)", () => {

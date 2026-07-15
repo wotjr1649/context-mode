@@ -1217,10 +1217,18 @@ describe("Codex matcher parity + config integrity", () => {
 //
 // Codex `is_exact_matcher` (refs/platforms/codex/codex-rs/hooks/src/events/common.rs:152)
 // short-circuits the regex engine when matcher chars are all
-// [A-Za-z0-9_|]. Pinning matchers to that charset avoids the crate's
-// limitations entirely. Drift-guard for future regressions.
+// [A-Za-z0-9_|]. Pinning the Codex-specific matchers to that charset avoids the
+// crate's limitations entirely. Drift-guard for future regressions.
+//
+// EXCEPTION — the universal hooks/hooks.json MCP catch-all is `mcp__.*`, NOT
+// charset-clean. It MUST be a real regex: Claude Code treats a charset-clean
+// matcher as an EXACT string match, so bare `mcp__` matches a tool literally
+// named "mcp__" and catches zero MCP tools. `mcp__.*` has no look-around, so
+// Codex's Rust `regex` crate still compiles it at boot. The real #547 constraint
+// is "no look-around" — enforced for that file by its own test below.
 describe("Codex matcher #547 — is_exact_matcher charset compliance", () => {
   const EXACT_MATCHER_CHARSET = /^[A-Za-z0-9_|]+$/;
+  const NO_LOOKAROUND = /\(\?[=!<]/;
 
   it("EXTERNAL_MCP_MATCHER_PATTERN passes is_exact_matcher charset", async () => {
     const { EXTERNAL_MCP_MATCHER_PATTERN } = await import(
@@ -1248,21 +1256,28 @@ describe("Codex matcher #547 — is_exact_matcher charset compliance", () => {
     expect(matcher).toMatch(EXACT_MATCHER_CHARSET);
   });
 
-  it("hooks/hooks.json (universal bundle) MCP catch-all matcher passes is_exact_matcher charset", () => {
-    // hooks/hooks.json is the universal bundled file Codex ALSO loads via
-    // the plugin cache. The MCP catch-all matcher must drop the lookahead so
-    // Codex's regex crate does not reject the file at boot. Claude Code
-    // continues to treat the literal `mcp__` as a substring matcher.
+  it("hooks/hooks.json (universal bundle) MCP catch-all matcher is Codex-boot-safe (no look-around) and matches MCP tools", () => {
+    // hooks/hooks.json is the universal bundled file Codex ALSO loads via the
+    // plugin cache. The #547 constraint is NO LOOK-AROUND (Codex's Rust `regex`
+    // rejects `(?=)/(?!)/(?<)` at boot) — NOT charset-cleanliness. `mcp__.*` is a
+    // plain regex both Claude Code (JS) and Codex (Rust) compile; a charset-clean
+    // `mcp__` would be an EXACT match on Claude Code and catch no MCP tools.
     const path = resolve(__dirname, "..", "..", "hooks", "hooks.json");
     const parsed = JSON.parse(readFileSync(path, "utf8")) as {
       hooks: { PreToolUse: Array<{ matcher: string }> };
     };
     const matchers = (parsed.hooks.PreToolUse ?? []).map((e) => e.matcher);
-    // Whichever entry was the external-MCP catch-all must now be charset-clean.
     const mcpCatchAll = matchers.find(
       (m) => m && m.startsWith("mcp__") && !m.includes("ctx_"),
     );
     expect(mcpCatchAll, "expected an mcp__ catch-all matcher in hooks.json").toBeDefined();
-    expect(mcpCatchAll).toMatch(EXACT_MATCHER_CHARSET);
+    // Codex-boot-safe: no look-around.
+    expect(mcpCatchAll).not.toMatch(NO_LOOKAROUND);
+    // A real regex (not charset-clean) that Claude Code evaluates and matches
+    // against every MCP tool — ctxscribe's own and external — but no bare tool.
+    const re = new RegExp(mcpCatchAll!);
+    expect(re.test("mcp__plugin_ctxscribe_mcp__ctx_execute")).toBe(true);
+    expect(re.test("mcp__slack__list_channels")).toBe(true);
+    expect(re.test("Bash")).toBe(false);
   });
 });
