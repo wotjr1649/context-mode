@@ -28,10 +28,21 @@ import { join } from "node:path";
  * 2026-05-18); additionalContext shipped earlier (~0.129), so 0.131 covers
  * both fields. Below this we fail closed.
  *
- * NOTE: inferred from the openai/codex release history, NOT re-validated
- * against a 0.131.x binary. The earlier 0.141.0 floor (ctxscribe #845) was
- * merely the build the author happened to install and test, not the true
- * first-supporting release.
+ * VALIDATED (v1.0.6) against openai/codex source across rust-v0.131.0 through
+ * rust-v0.140.0 and confirmed on the installed codex-cli 0.144.4 binary:
+ *   - The PreToolUse parse+apply contract (output_parser.rs parse_pre_tool_use
+ *     + unsupported_pre_tool_use_hook_specific_output; events/pre_tool_use.rs
+ *     parse_completed) is byte-/whitespace-identical from rust-v0.131.0 through
+ *     rust-v0.144.4. It binds allow<->updatedInput -- a bare permissionDecision
+ *     "allow" is rejected as invalid -- so "allow honored, updatedInput
+ *     silently ignored" (the fail-open this gate guards against) cannot occur.
+ *   - Upstream tests pre_tool_use_rewrites_{shell,exec,apply_patch}_command_
+ *     before_execution assert the rewrite runs and the original does not, at
+ *     both the band floor (0.131.0) and top (0.140.0).
+ *   - Binary smoke test on 0.144.4: allow+updatedInput ran the rewritten
+ *     command (not the original); an additionalContext hook reached the model.
+ * The earlier 0.141.0 floor (ctxscribe #845) was merely the build the author
+ * happened to install, not the true first-supporting release.
  */
 export const MIN_REWRITE_VERSION = [0, 131, 0];
 
