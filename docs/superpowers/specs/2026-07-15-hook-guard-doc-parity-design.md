@@ -70,3 +70,36 @@ guards** (machine `~/.claude/hooks` and `~/.codex/hooks`), and (3) the **instruc
 - No double-matching of ctx/MCP tools on Claude; matcher set matches Codex's single-regex intent.
 - Codex gains deterministic OOM protection at parity with Claude.
 - B2/B3 intentionally not added; the asymmetry is by mechanism, not coverage.
+
+## Correction (post-implementation — Codex review + Claude Code hooks docs)
+
+Finding #2's premise was wrong. Claude Code evaluates a matcher of only
+`[A-Za-z0-9_,|-]` + spaces as an **EXACT / `|`-list** match — so bare `mcp__`
+matches a tool literally named "mcp__" and catches **no** MCP tools.
+
+- A1 as first written (drop the 3 `ctx_*` matchers, rely on bare `mcp__`) was a
+  **regression**: it lost PreToolUse interception for the ctx tools. The
+  "double-fire" it targeted also did not exist (Claude Code dedups identical
+  handlers).
+- Bare `mcp__` had matched nothing since the #547 charset-pinning — external MCP
+  tools were never intercepted on Claude Code (a pre-existing bug).
+
+**Actual fix:** `EXTERNAL_MCP_MATCHER_PATTERN = "mcp__.*"` — a regex (no
+look-around, so still valid for Codex's Rust `regex` at boot). Keeps A1's dedup
+intent AND fixes the pre-existing bug. The misleading `String.startsWith` test
+was replaced with real exact-vs-regex assertions; the #547 charset drift-guard
+for the universal `hooks/hooks.json` now checks **"no look-around"** (the real
+constraint) instead of charset-cleanliness.
+
+**B1** review-hardened: newline-aware segment split (multi-line bypass closed) +
+quote-tolerant cap values. Wrapper/path bypasses (`pwsh -c`, `dotnet.exe`) remain
+accepted residuals shared with Claude `test-guard`.
+
+**Deferred (same latent bug):** PostToolUse `…|mcp__` misses MCP **session
+capture** (needs a two-entry split); Codex-side matchers still use bare `mcp__`
+(confirm Codex `is_exact_matcher` prefix semantics before changing — avoid a #547
+repeat).
+
+**Lesson:** the original A1 verification (build + drift test + the code's own
+comment) was self-consistent but rested on ctxscribe's own wrong assumption. The
+cross-model review caught what all-Claude verification structurally could not.
