@@ -11,28 +11,43 @@
  * Each codexSupportsUpdatedInput case gets a unique cachePath so the module's
  * 1h-TTL result cache can't leak one case's verdict into the next.
  */
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test } from "vitest";
+import { afterAll, describe, expect, test } from "vitest";
 
 import {
   codexSupportsUpdatedInput,
+  defaultCachePath,
   MIN_REWRITE_VERSION,
   parseCodexVersion,
   versionGte,
 } from "../../hooks/core/codex-caps.mjs";
 
 const FIXED_NOW = () => 1_700_000_000_000;
+const tempRoots: string[] = [];
 /** A never-yet-written cache file, so every probe re-detects from runVersion. */
-const freshCachePath = () =>
-  join(mkdtempSync(join(tmpdir(), "ctxscribe-caps-")), "caps.json");
+const freshCachePath = () => {
+  const dir = mkdtempSync(join(tmpdir(), "ctxscribe-caps-"));
+  tempRoots.push(dir);
+  return join(dir, "caps.json");
+};
 /** A cache file pre-seeded with `entry`, as an older build would have left it. */
 const seededCachePath = (entry: unknown): string => {
   const p = freshCachePath();
   writeFileSync(p, JSON.stringify(entry));
   return p;
 };
+
+afterAll(() => {
+  for (const dir of tempRoots) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* best effort */
+    }
+  }
+});
 
 const supports = (versionLine: string): boolean =>
   codexSupportsUpdatedInput({
@@ -116,5 +131,9 @@ describe("codexSupportsUpdatedInput — cache invalidation across a floor change
         cachePath,
       }),
     ).toBe(true);
+  });
+
+  test("the default cache file is namespaced by the gate version so builds with different floors do not share it", () => {
+    expect(defaultCachePath()).toContain(MIN_REWRITE_VERSION.join("."));
   });
 });

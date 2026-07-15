@@ -125,7 +125,7 @@ Codex CLI's Rust backend (codex-rs) includes a hook system using the same JSON s
 **Blocking:** `permissionDecision: "deny"` in hookSpecificOutput, or exit code 2
 **Arg Modification:** `updatedInput` rewrite supported on codex-cli >= 0.131 (openai/codex#20527); runtime-gated via codex-caps.mjs, older builds fail closed
 **Output Modification:** NOT supported (updatedMCPToolOutput returns error)
-**Context Injection:** `additionalContext` in hookSpecificOutput (PostToolUse, SessionStart). ctxscribe routes PreToolUse context via PostToolUse/SessionStart; the codex formatter emits `updatedInput` rewrites on codex >= 0.131 (else fail-closed deny) and drops PreToolUse `additionalContext`/`ask`.
+**Context Injection:** `additionalContext` in hookSpecificOutput (PostToolUse, SessionStart, and PreToolUse). On codex >= 0.131 the formatter emits both PreToolUse `updatedInput` rewrites and `additionalContext` (gated by codex-caps.mjs); older builds ignore the fields, so ctxscribe drops the advisory and falls back to a fail-closed deny for redirects. `ask` is always dropped.
 
 **Configuration:**
 - Hook config: `$CODEX_HOME/hooks.json` or `~/.codex/hooks.json` (JSON format, same structure as Claude Code)
@@ -149,7 +149,7 @@ ctxscribe hook codex stop
 > keeps it as opt-in raw capture (`CONTEXT_MODE_PROMPT_CAPTURE=1`).
 
 **Known Issues / Caveats:**
-- PreToolUse `additionalContext` is unsupported — context injection works via PostToolUse and SessionStart instead. The codex formatter handles this automatically (deny works, context is dropped). Source: `codex-rs/hooks/src/engine/output_parser.rs:267`.
+- PreToolUse `additionalContext` is emitted on codex >= 0.131 (formatters.mjs `codex.context`, gated by codex-caps.mjs); older builds ignore the field, so the formatter drops it. Redirects still fall back to a fail-closed deny when the build predates the floor.
 - PreToolUse input rewriting (`updatedInput`) is supported on codex-cli >= 0.131 ([openai/codex#20527](https://github.com/openai/codex/pull/20527), formerly tracked as #18491); emitted runtime-gated via `hooks/core/codex-caps.mjs`, older builds fail closed.
 - PreCompact support is runtime-gated: ctxscribe configures it and treats a missing registration as a warning, because older Codex builds may not emit the event. The hook stores the resume snapshot out-of-band and SessionStart restores it.
 - Codex emits structured tool names such as `Bash` and `apply_patch`; ctxscribe only normalizes legacy shell aliases.
@@ -197,7 +197,7 @@ ctxscribe hook codex stop
 | Block Tools | Yes | Yes |
 | MCP/native tool support | Yes | Yes |
 
-\* Codex CLI PreToolUse: deny works on all builds; `updatedInput` rewrite on >= 0.131 (see \*\*\*); `additionalContext` routed via PostToolUse/SessionStart
+\* Codex CLI PreToolUse: deny works on all builds; on >= 0.131 ctxscribe also emits `updatedInput` rewrites (see \*\*\*) and `additionalContext`; older builds fail closed / drop the advisory
 \*\* Codex CLI PreCompact is runtime-gated on builds that emit the event
 \*\*\* Codex CLI `updatedInput` rewrite works on codex-cli >= 0.131 (openai/codex#20527); ctxscribe fails closed on older builds
 

@@ -326,6 +326,10 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
     postToolUse: true,
     preCompact: true,
     sessionStart: true,
+    // Conservative static declaration (reference only — the live hook is the
+    // .mjs path). At RUNTIME ctxscribe emits updatedInput rewrites on codex-cli
+    // >= 0.131, version-gated via hooks/core/codex-caps.mjs; updatedMCPToolOutput
+    // is genuinely unsupported.
     canModifyArgs: false,
     canModifyOutput: false,
     canInjectSessionContext: true,
@@ -394,7 +398,9 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
 
   // ── Response formatting ────────────────────────────────
   // Codex CLI uses hookSpecificOutput wrapper for all hook responses.
-  // Unlike Claude Code, Codex does NOT support updatedInput or updatedMCPToolOutput.
+  // updatedInput IS honored on codex-cli >= 0.131 (openai/codex#20527) via the
+  // runtime hook (see header); updatedMCPToolOutput remains unsupported. The
+  // typed formatter below stays deny/passthrough-only (reference, not live).
 
   formatPreToolUseResponse(response: PreToolUseResponse): unknown {
     if (response.decision === "deny") {

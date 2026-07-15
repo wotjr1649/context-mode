@@ -35,13 +35,22 @@ import { join } from "node:path";
  */
 export const MIN_REWRITE_VERSION = [0, 131, 0];
 
-const CACHE_TTL_MS = 60 * 60 * 1000; // re-probe at most hourly
-const CACHE_FILE = "ctxscribe-codex-caps.json";
-// Tag each cached verdict with the gate version so a change to
-// MIN_REWRITE_VERSION invalidates entries written by an older build. Without
-// this, a codex-cli 0.131-0.140 user who probed under the old 0.141 floor
-// would keep a stale supported:false for up to CACHE_TTL_MS after upgrading.
+// The verdict cache is namespaced by gate version on BOTH the filename and an
+// in-file tag:
+//   - filename: the cache is a machine-global temp file shared by every
+//     ctxscribe on the box. Namespacing it by gate keeps a concurrent OLDER,
+//     gate-unaware build (whose read ignores the tag) from reusing THIS build's
+//     verdict for a codex it was built to fail closed on — each floor gets its
+//     own file, so cross-version reads/writes cannot collide.
+//   - tag: a floor change (or a corrupt entry) still invalidates on read.
 const CACHE_GATE = MIN_REWRITE_VERSION.join(".");
+const CACHE_TTL_MS = 60 * 60 * 1000; // re-probe at most hourly
+const CACHE_FILE = `ctxscribe-codex-caps-${CACHE_GATE}.json`;
+
+/** Default machine-global cache path (gate-namespaced). Exposed for tests. */
+export function defaultCachePath() {
+  return join(tmpdir(), CACHE_FILE);
+}
 
 /** Parse a `codex --version` line ("codex-cli 0.131.0") → [major, minor, patch]. */
 export function parseCodexVersion(raw) {
@@ -99,7 +108,7 @@ function defaultRunVersion() {
  */
 export function codexSupportsUpdatedInput(io = {}) {
   const now = io.now ?? Date.now;
-  const cachePath = io.cachePath ?? join(tmpdir(), CACHE_FILE);
+  const cachePath = io.cachePath ?? defaultCachePath();
   const runVersion = io.runVersion ?? defaultRunVersion;
 
   // Fast path: a non-expired cache entry.
