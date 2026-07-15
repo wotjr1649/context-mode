@@ -759,12 +759,14 @@ function trackResponse(toolName: string, response: ToolResult): ToolResult {
   }
 
   // Retrieval ("With ctxscribe") bridge — ctx_search / ctx_fetch_and_index
-  // response bytes are the kept-out content the model paid to access. The
-  // PostToolUse hook never fires for the plugin's OWN MCP tools, so the
-  // hook-side extractMcpToolCall can never see these calls (bytes_retrieved
-  // was 0/124454 in prod). Drop the count into a marker keyed by the session
-  // DB; the next ordinary-tool PostToolUse consumes it and emits a forwardable
-  // bytes_retrieved event. Off the hot path; never throws.
+  // response bytes are the kept-out content the model paid to access. Recorded
+  // here, server-side, from the exact MCP response — the SINGLE source of truth
+  // for own-tool retrieval bytes. (Since the v1.0.4 `mcp__.*` matcher fix the
+  // PostToolUse hook DOES now fire for own MCP tools, so extractMcpToolCall
+  // deliberately does NOT also count bytes — that would double-count.) Drop the
+  // count into a marker keyed by the session DB; the next ordinary-tool
+  // PostToolUse consumes it and emits a forwardable bytes_retrieved event. Off
+  // the hot path; never throws.
   if (toolName === "ctx_search" || toolName === "ctx_fetch_and_index") {
     setImmediate(() => appendRetrievalBytes(getSessionDbPath(), bytes));
   }

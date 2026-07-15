@@ -1,16 +1,16 @@
 /**
- * Retrieval-cost capture — the OTHER half of the ctxscribe with/without ratio.
+ * Retrieval-byte capture — the OTHER half of the ctxscribe with/without ratio.
  *
- * `bytes_avoided` measures content kept OUT of the model context. `bytes_retrieved`
- * measures the bytes the model PAID to ACCESS that kept-out content — the
- * tool_response size of `ctx_search` and `ctx_fetch_and_index` MCP calls.
+ * `bytes_retrieved` (the bytes the model PAID to access kept-out content from
+ * ctx_search / ctx_fetch_and_index) is recorded SERVER-SIDE (src/server.ts ->
+ * appendRetrievalBytes -> retrieval marker, forwarded once by posttooluse.mjs)
+ * from the exact MCP response — the single source of truth.
  *
- * Sandbox compute (`ctx_execute` / `ctx_batch_execute` / `ctx_execute_file`) is
- * work-output, NOT retrieval — it must NOT carry bytes_retrieved.
- *
- * Suffix-match note: MCP tool names are host-prefixed
- * (`mcp__plugin_ctxscribe_mcp__ctx_search`); we match by suffix,
- * char-algorithmically, never by regex.
+ * The PostToolUse hook's extractMcpToolCall does NOT also set bytes_retrieved:
+ * since the v1.0.4 `mcp__.*` matcher fix the hook DOES now fire for the plugin's
+ * OWN MCP tools, so counting bytes here too would DOUBLE-COUNT every retrieval.
+ * These tests pin that invariant — the hook emits the mcp_tool_call event but
+ * leaves bytes_retrieved unset for every tool.
  */
 
 import { describe, test, expect } from "vitest";
@@ -24,73 +24,45 @@ function mcpEventsOf(toolName: string, toolResponse: string) {
   }).filter((e) => e.type === "mcp_tool_call");
 }
 
-describe("extractMcpToolCall — bytes_retrieved (retrieval cost)", () => {
-  test("ctx_search PostToolUse carries bytes_retrieved = response byte length", () => {
-    const response = "matched section A\nmatched section B — retrieved content";
+describe("extractMcpToolCall — bytes_retrieved is server-owned, never set here (no double-count)", () => {
+  test("ctx_search emits an mcp_tool_call event WITHOUT bytes_retrieved", () => {
     const events = mcpEventsOf(
       "mcp__plugin_ctxscribe_mcp__ctx_search",
-      response,
+      "matched section A\nmatched section B — retrieved content",
     );
-
     expect(events.length).toBe(1);
-    expect(events[0].bytes_retrieved).toBe(Buffer.byteLength(response, "utf8"));
+    expect(events[0].bytes_retrieved).toBeUndefined();
   });
 
-  test("ctx_fetch_and_index carries bytes_retrieved = response byte length", () => {
-    const response = "Fetched and indexed 4 sections (12.5KB)\n…matched windows…";
+  test("ctx_fetch_and_index emits an mcp_tool_call event WITHOUT bytes_retrieved", () => {
     const events = mcpEventsOf(
       "mcp__plugin_ctxscribe_mcp__ctx_fetch_and_index",
-      response,
+      "Fetched and indexed 4 sections (12.5KB)",
     );
-
     expect(events.length).toBe(1);
-    expect(events[0].bytes_retrieved).toBe(Buffer.byteLength(response, "utf8"));
+    expect(events[0].bytes_retrieved).toBeUndefined();
   });
 
-  test("multibyte tool_response is measured in BYTES, not chars", () => {
-    const response = "café — 文字 — 🎯"; // multibyte: bytes > chars
-    const events = mcpEventsOf(
-      "mcp__plugin_ctxscribe_mcp__ctx_search",
-      response,
-    );
-
-    expect(events[0].bytes_retrieved).toBe(Buffer.byteLength(response, "utf8"));
-    expect(events[0].bytes_retrieved).toBeGreaterThan(response.length);
+  test("a suffix-matching retrieval name (any host prefix) still carries no bytes_retrieved", () => {
+    const events = mcpEventsOf("mcp__other_host__ctx_search", "retrieved payload");
+    expect(events.length).toBe(1);
+    expect(events[0].bytes_retrieved).toBeUndefined();
   });
 
-  test("ctx_execute (sandbox compute) does NOT carry bytes_retrieved", () => {
-    const events = mcpEventsOf(
+  test("sandbox compute (ctx_execute / ctx_batch_execute) carries no bytes_retrieved", () => {
+    for (const name of [
       "mcp__plugin_ctxscribe_mcp__ctx_execute",
-      "stdout: 47 files analyzed",
-    );
-
-    expect(events.length).toBe(1);
-    expect(events[0].bytes_retrieved).toBeUndefined();
-  });
-
-  test("ctx_batch_execute (sandbox compute) does NOT carry bytes_retrieved", () => {
-    const events = mcpEventsOf(
       "mcp__plugin_ctxscribe_mcp__ctx_batch_execute",
-      "Executed 4 commands. Indexed 39 sections.",
-    );
-
-    expect(events[0].bytes_retrieved).toBeUndefined();
+    ]) {
+      const events = mcpEventsOf(name, "stdout: 47 files analyzed");
+      expect(events.length, name).toBe(1);
+      expect(events[0].bytes_retrieved, name).toBeUndefined();
+    }
   });
 
-  test("ctx_search with empty tool_response does NOT carry bytes_retrieved", () => {
-    const events = mcpEventsOf(
-      "mcp__plugin_ctxscribe_mcp__ctx_search",
-      "",
-    );
-
+  test("external MCP tool emits an mcp_tool_call event WITHOUT bytes_retrieved", () => {
+    const events = mcpEventsOf("mcp__slack__list_channels", '{"channels":["#general"]}');
     expect(events.length).toBe(1);
     expect(events[0].bytes_retrieved).toBeUndefined();
-  });
-
-  test("suffix match: a tool whose name merely CONTAINS ctx_search mid-string is still retrieval (ends-with the suffix)", () => {
-    // Sanity: a name that ends with the suffix matches regardless of prefix.
-    const response = "retrieved payload";
-    const events = mcpEventsOf("mcp__other_host__ctx_search", response);
-    expect(events[0].bytes_retrieved).toBe(Buffer.byteLength(response, "utf8"));
   });
 });

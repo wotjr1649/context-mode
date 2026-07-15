@@ -1267,11 +1267,19 @@ describe("Codex matcher #547 — is_exact_matcher charset compliance", () => {
   const EXACT_MATCHER_CHARSET = /^[A-Za-z0-9_|]+$/;
   const NO_LOOKAROUND = /\(\?[=!<]/;
 
-  it("EXTERNAL_MCP_MATCHER_PATTERN passes is_exact_matcher charset", async () => {
+  it("EXTERNAL_MCP_MATCHER_PATTERN is the `mcp__.*` regex — Codex-boot-safe (no look-around)", async () => {
     const { EXTERNAL_MCP_MATCHER_PATTERN } = await import(
       "../../src/adapters/codex/hooks.js"
     );
-    expect(EXTERNAL_MCP_MATCHER_PATTERN).toMatch(EXACT_MATCHER_CHARSET);
+    // NOT charset-clean: a charset-clean `mcp__` is an is_exact_matcher no-op that
+    // catches zero MCP tools. It MUST be a regex; `.*` has no look-around so Codex's
+    // Rust `regex` compiles it at boot (runtime-verified on codex-cli 0.144.4).
+    expect(EXTERNAL_MCP_MATCHER_PATTERN).toBe("mcp__.*");
+    expect(EXTERNAL_MCP_MATCHER_PATTERN).not.toMatch(EXACT_MATCHER_CHARSET);
+    expect(EXTERNAL_MCP_MATCHER_PATTERN).not.toMatch(NO_LOOKAROUND);
+    const re = new RegExp(EXTERNAL_MCP_MATCHER_PATTERN);
+    expect(re.test("mcp__slack__list_channels")).toBe(true);
+    expect(re.test("Bash")).toBe(false);
   });
 
   it("PRE_TOOL_USE_MATCHER_PATTERN (adapter source constant) passes is_exact_matcher charset", () => {

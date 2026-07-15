@@ -43,23 +43,23 @@ export const HOOK_TYPES = {
 // ─────────────────────────────────────────────────────────
 
 /**
- * External MCP catch-all matcher for Codex CLI (#529, #547 hotfix).
+ * External MCP catch-all matcher for Codex CLI (#529, #547 hotfix, matcher-semantics fix).
  *
- * Codex CLI's hook `tool_name` payload uses `mcp__<server>__<tool>` for any
- * MCP-namespaced tool. Originally this constant used a brand-substring
- * negative-lookahead matcher to exclude our own MCP tools at the
- * matcher layer. v1.0.124 shipped that pattern and Codex (Rust `regex` crate)
- * rejected the matcher at boot with "look-around not supported", breaking
- * every Codex user (#547).
+ * Codex CLI's hook `tool_name` uses `mcp__<server>__<tool>` for any MCP tool. To
+ * match that family the matcher MUST be a regex: `mcp__.*`. A charset-clean bare
+ * `mcp__` is short-circuited by Codex's `is_exact_matcher`
+ * (refs/platforms/codex/codex-rs/hooks/src/events/common.rs) into an EXACT match
+ * — it matches a tool literally named "mcp__" and catches ZERO MCP tools.
+ * `.*` is NOT look-around, so the Rust `regex` crate accepts it at boot (the #547
+ * breaker was look-around). Runtime-verified on codex-cli 0.144.4: `mcp__.*`
+ * compiled + loaded clean; a look-around control `mcp__(?!ctx).*` was rejected.
  *
- * Fix: drop the lookaround. The matcher is now a charset-clean literal
- * (`[A-Za-z0-9_|]` only), satisfying Codex's `is_exact_matcher`
- * (refs/platforms/codex/codex-rs/hooks/src/events/common.rs:152) which
- * short-circuits the regex engine entirely. ctxscribe's own MCP tools are
- * already filtered in the hook BODY by `isExternalMcpTool()` in
- * hooks/core/routing.mjs — semantics preserved.
+ * Registered as its OWN PreToolUse entry (index.ts generateHookConfig) so the
+ * charset-clean exact-name list stays on the is_exact_matcher fast path.
+ * ctxscribe's own MCP tools are separated in the hook BODY by `isExternalMcpTool()`
+ * (hooks/core/routing.mjs).
  */
-export const EXTERNAL_MCP_MATCHER_PATTERN = "mcp__";
+export const EXTERNAL_MCP_MATCHER_PATTERN = "mcp__.*";
 
 // ─────────────────────────────────────────────────────────
 // Routing instructions

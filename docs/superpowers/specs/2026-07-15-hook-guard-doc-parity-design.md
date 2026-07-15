@@ -102,7 +102,13 @@ accepted residuals shared with Claude `test-guard`.
   confirmed via the official Codex hooks docs, which state the matcher is a regex
   and `mcp__.*` is the family pattern) → added a separate `mcp__.*` entry, leaving
   the charset-clean exact-matcher list unchanged (#547-safe, no look-around).
-  **Docs-verified, not Codex-runtime-tested** — verify on Codex before merge.
+  **Runtime-verified** on codex-cli 0.144.4 (isolated sandbox): `mcp__.*`
+  boot-accepts (a look-around control `mcp__(?!ctx).*` was rejected, proving the
+  config was read) and matches `mcp__server__tool` per the installed Rust matcher
+  source. The Codex review also caught the native-upgrade path writing only
+  `entries[0]` (dropping `mcp__.*` on standalone Codex) — fixed via
+  `upsertManagedHookEntries`; the retrieval-byte double-count from the new
+  own-tool PostToolUse firing was removed (server marker stays authoritative).
 - Codex PostToolUse already uses an empty (`""` = all) matcher, so MCP capture
   there was never affected.
 
