@@ -88,6 +88,12 @@ export const PRE_TOOL_USE_MATCHER_PATTERN = PRE_TOOL_USE_MATCHERS.join("|");
  * Tools that ctxscribe's PostToolUse hook should fire on.
  * Only tools that extractEvents() actually handles — all others
  * produce zero events and cause false "hook error" display.
+ *
+ * MCP tools are NOT listed here — like PreToolUse, they need the `mcp__.*` regex
+ * (EXTERNAL_MCP_MATCHER_PATTERN); a bare `mcp__` is an EXACT match on Claude Code
+ * and catches nothing. extractEvents() DOES handle mcp__ tools (mcp_tool_call +
+ * retrieval byte counts), so hooks/hooks.json registers a separate `mcp__.*`
+ * PostToolUse entry alongside this exact-name list.
  */
 export const POST_TOOL_USE_MATCHERS = [
   "Bash",
@@ -106,11 +112,11 @@ export const POST_TOOL_USE_MATCHERS = [
   "Agent",
   "AskUserQuestion",
   "EnterWorktree",
-  "mcp__",
 ] as const;
 
 /**
- * Combined matcher pattern for PostToolUse in hooks.json / settings.json.
+ * Combined matcher pattern for the exact-name PostToolUse entry in
+ * hooks.json / settings.json. MCP tools are a separate `mcp__.*` entry.
  */
 export const POST_TOOL_USE_MATCHER_PATTERN = POST_TOOL_USE_MATCHERS.join("|");
 

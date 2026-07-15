@@ -95,10 +95,16 @@ constraint) instead of charset-cleanliness.
 quote-tolerant cap values. Wrapper/path bypasses (`pwsh -c`, `dotnet.exe`) remain
 accepted residuals shared with Claude `test-guard`.
 
-**Deferred (same latent bug):** PostToolUse `…|mcp__` misses MCP **session
-capture** (needs a two-entry split); Codex-side matchers still use bare `mcp__`
-(confirm Codex `is_exact_matcher` prefix semantics before changing — avoid a #547
-repeat).
+**Follow-ups — now resolved (same latent bug):**
+- Claude PostToolUse `…|mcp__` (missed MCP mcp_tool_call + retrieval-byte capture)
+  → split into an exact-name list + a dedicated `mcp__.*` regex entry.
+- Codex PreToolUse `…|mcp__` (charset-clean no-op → external MCP never intercepted;
+  confirmed via the official Codex hooks docs, which state the matcher is a regex
+  and `mcp__.*` is the family pattern) → added a separate `mcp__.*` entry, leaving
+  the charset-clean exact-matcher list unchanged (#547-safe, no look-around).
+  **Docs-verified, not Codex-runtime-tested** — verify on Codex before merge.
+- Codex PostToolUse already uses an empty (`""` = all) matcher, so MCP capture
+  there was never affected.
 
 **Lesson:** the original A1 verification (build + drift test + the code's own
 comment) was self-consistent but rested on ctxscribe's own wrong assumption. The

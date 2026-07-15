@@ -6,6 +6,12 @@
         "hooks": [
           { "type": "command", "command": "ctxscribe hook codex pretooluse" }
         ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          { "type": "command", "command": "ctxscribe hook codex pretooluse" }
+        ]
       }
     ],
     "PostToolUse": [

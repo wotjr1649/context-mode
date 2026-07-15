@@ -1089,17 +1089,36 @@ describe("ClaudeCodeAdapter", () => {
       expect(parsed.hooks.Stop![0].hooks[0].command).toContain("stop.mjs");
     });
 
-    it("POST_TOOL_USE_MATCHERS contains all tools that extractEvents handles", () => {
+    it("POST_TOOL_USE_MATCHERS contains all exact-name tools that extractEvents handles", () => {
       const required = [
         "Bash", "Read", "Write", "Edit", "NotebookEdit", "Glob", "Grep",
         "TodoWrite", "TaskCreate", "TaskUpdate",
         "EnterPlanMode", "ExitPlanMode",
         "Skill", "Agent", "AskUserQuestion", "EnterWorktree",
-        "mcp__",
       ];
       for (const tool of required) {
         expect(POST_TOOL_USE_MATCHERS).toContain(tool);
       }
+      // MCP tools are matched by a separate `mcp__.*` regex entry (a bare `mcp__`
+      // exact match catches none), so they are NOT in this exact-name list.
+      expect(POST_TOOL_USE_MATCHERS).not.toContain("mcp__");
+    });
+
+    it("hooks/hooks.json PostToolUse has a dedicated `mcp__.*` regex entry so MCP tools are captured", () => {
+      // Pre-fix bug: the single `…|mcp__` exact-list matcher never matched any MCP
+      // tool on Claude Code, so mcp_tool_call / retrieval-byte events were dropped.
+      const repoRoot = resolve(__dirname, "..", "..");
+      const hooksJsonPath = join(repoRoot, "hooks", "hooks.json");
+      const parsed = JSON.parse(readFileSync(hooksJsonPath, "utf8")) as {
+        hooks: { PostToolUse: Array<{ matcher: string }> };
+      };
+      const matchers = parsed.hooks.PostToolUse.map((e) => e.matcher);
+      expect(matchers).toContain(POST_TOOL_USE_MATCHER_PATTERN); // exact-name list, no bare mcp__
+      expect(matchers).toContain("mcp__.*"); // dedicated MCP regex entry
+      expect(matchers).not.toContain(`${POST_TOOL_USE_MATCHER_PATTERN}|mcp__`);
+      const mcpRe = new RegExp("mcp__.*");
+      expect(mcpRe.test("mcp__plugin_ctxscribe_mcp__ctx_search")).toBe(true);
+      expect(mcpRe.test("mcp__slack__post_message")).toBe(true);
     });
 
     it("POST_TOOL_USE_MATCHERS does NOT contain tools that produce zero events (#229)", () => {

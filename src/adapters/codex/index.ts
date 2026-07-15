@@ -90,13 +90,25 @@ type HooksConfigReadResult =
 // Fix: keep only literal tool names (charset-clean). The hook BODY already
 // filters ctxscribe's own MCP tools via `isExternalMcpTool()` in
 // hooks/core/routing.mjs, so dropping `mcp__.*__ctx_*` and the lookaround
-// preserves end-to-end semantics. The literal `mcp__` final segment is a
-// no-op under exact-matcher mode but kept for parity with hooks/hooks.json.
+// preserves end-to-end semantics. The literal `mcp__` final segment is a no-op
+// under exact-matcher mode; external MCP interception is added via a separate
+// `mcp__.*` regex entry (EXTERNAL_MCP_REGEX_MATCHER_PATTERN, below).
 //
 // Keep this as a single string literal — `codex.test.ts` drift-guard parses
 // the source with a `"([^"]+)"` regex.
 const PRE_TOOL_USE_MATCHER_PATTERN =
   "local_shell|shell|shell_command|exec_command|Bash|Shell|apply_patch|Edit|Write|grep_files|ctx_execute|ctx_execute_file|ctx_batch_execute|ctx_fetch_and_index|ctx_search|ctx_index|mcp__";
+
+// External MCP catch-all for Codex, as a SEPARATE regex matcher entry. Per the
+// Codex hooks docs the `matcher` is a regex string and `mcp__.*` (or
+// `mcp__server__.*`) is the documented way to match an MCP tool family. The
+// charset-clean `mcp__` literal above is a no-op under `is_exact_matcher` (it
+// matches only a tool named exactly "mcp__"), so external MCP tools were never
+// intercepted at PreToolUse. `.*` has NO look-around, so Codex's Rust `regex`
+// compiles it at boot — the #547 breaker was look-around, not `.*`. Kept as its
+// own entry so the exact-matcher list stays on the fast path unchanged.
+// (Not Codex-runtime-verified in this change — see PR notes.)
+const EXTERNAL_MCP_REGEX_MATCHER_PATTERN = "mcp__.*";
 
 const CODEX_HOOK_COMMANDS = {
   PreToolUse: "ctxscribe hook codex pretooluse",
@@ -495,6 +507,15 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       PreToolUse: [
         {
           matcher: PRE_TOOL_USE_MATCHER_PATTERN,
+          hooks: [
+            {
+              type: "command",
+              command: CODEX_HOOK_COMMANDS.PreToolUse,
+            },
+          ],
+        },
+        {
+          matcher: EXTERNAL_MCP_REGEX_MATCHER_PATTERN,
           hooks: [
             {
               type: "command",
