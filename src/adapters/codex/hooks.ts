@@ -17,7 +17,7 @@
  * Known limitations:
  *   - PreToolUse: deny works on all builds. permissionDecision:"allow" +
  *     updatedInput (command rewrite) and additionalContext are honored on
- *     codex-cli >= 0.141.0 (#845), detected at runtime by
+ *     codex-cli >= 0.131.0 (openai/codex#20527), detected at runtime by
  *     hooks/core/codex-caps.mjs; older builds fail closed (redirect → deny).
  *     `ask` remains unsupported.
  *   - PostToolUse: updatedMCPToolOutput parsed but logged as unsupported

@@ -4,14 +4,20 @@
  * Implements HookAdapter for Codex CLI's JSON stdin/stdout paradigm.
  *
  * Codex CLI hook specifics:
- *   - 6 hook events: PreToolUse, PostToolUse, PreCompact, SessionStart, UserPromptSubmit, Stop
+ *   - 5 registered hook events: PreToolUse, PostToolUse, PreCompact,
+ *     SessionStart, Stop (UserPromptSubmit is dispatch-only, NOT registered
+ *     by default — ADR-0005)
  *   - Same wire protocol as Claude Code (JSON stdin → stdout)
  *   - Config: $CODEX_HOME or ~/.codex (hooks.json + config.toml)
  *   - Session dir: $CODEX_HOME/ctxscribe/sessions/
  *
- * Hook dispatch is stable in Codex CLI. PreToolUse deny decisions work,
- * while input rewriting remains blocked on upstream updatedInput support.
- * Track: https://github.com/openai/codex/issues/18491
+ * Hook dispatch is stable in Codex CLI. PreToolUse deny works on all builds;
+ * `updatedInput` rewrites and `additionalContext` are honored on codex-cli
+ * >= 0.131 (openai/codex#20527, formerly tracked as #18491). The version-gated
+ * rewrite is emitted by the RUNTIME hook (hooks/codex/pretooluse.mjs ->
+ * hooks/core/formatters.mjs, gated by hooks/core/codex-caps.mjs); the
+ * formatPreToolUseResponse below is a typed reference formatter, not the live
+ * hook response path.
  */
 
 import { execFileSync } from "node:child_process";
@@ -320,6 +326,10 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
     postToolUse: true,
     preCompact: true,
     sessionStart: true,
+    // Conservative static declaration (reference only — the live hook is the
+    // .mjs path). At RUNTIME ctxscribe emits updatedInput rewrites on codex-cli
+    // >= 0.131, version-gated via hooks/core/codex-caps.mjs; updatedMCPToolOutput
+    // is genuinely unsupported.
     canModifyArgs: false,
     canModifyOutput: false,
     canInjectSessionContext: true,
@@ -388,7 +398,9 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
 
   // ── Response formatting ────────────────────────────────
   // Codex CLI uses hookSpecificOutput wrapper for all hook responses.
-  // Unlike Claude Code, Codex does NOT support updatedInput or updatedMCPToolOutput.
+  // updatedInput IS honored on codex-cli >= 0.131 (openai/codex#20527) via the
+  // runtime hook (see header); updatedMCPToolOutput remains unsupported. The
+  // typed formatter below stays deny/passthrough-only (reference, not live).
 
   formatPreToolUseResponse(response: PreToolUseResponse): unknown {
     if (response.decision === "deny") {
@@ -402,8 +414,8 @@ export class CodexAdapter extends BaseAdapter implements HookAdapter {
       };
     }
     if (response.decision === "context" && response.additionalContext) {
-      // Codex does not support additionalContext in PreToolUse (fails open).
-      // Context injection works via PostToolUse and SessionStart instead.
+      // Reference formatter only (this typed path is not the live hook — see
+      // header). ctxscribe routes PreToolUse context via PostToolUse/SessionStart.
       return {};
     }
     // "allow" — return empty object for passthrough

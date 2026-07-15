@@ -6,7 +6,7 @@ import "../suppress-stderr.mjs";
  *
  * Codex PreToolUse honors `permissionDecision:"deny"` on all builds, and
  * `permissionDecision:"allow" + updatedInput` / `additionalContext` on
- * codex-cli >= 0.141.0 (#845). Capability is detected at runtime by
+ * codex-cli >= 0.131.0 (openai/codex#20527). Capability is detected at runtime by
  * codex-caps.mjs; older builds fail closed (redirect → deny). `ask` is still
  * unsupported. Source: codex-rs/hooks/src/engine/output_parser.rs
  */

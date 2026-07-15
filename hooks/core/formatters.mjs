@@ -79,9 +79,9 @@ export const formatters = {
       },
     }),
     // Codex still rejects permissionDecision:"ask" in PreToolUse (verified
-    // against codex-cli 0.141.0 output_parser.rs). Keep dropping it.
+    // against codex-cli output_parser.rs). Keep dropping it.
     ask: () => null,
-    // #845: modern Codex (>= 0.141.0) honors permissionDecision:"allow" +
+    // modern Codex (>= 0.131.0, openai/codex#20527) honors permissionDecision:"allow" +
     // updatedInput (command rewrite). Emit it when the running Codex supports
     // it; otherwise FAIL CLOSED — turn the redirect into an enforceable deny
     // carrying the same guidance, so the bytes-flood guard never silently

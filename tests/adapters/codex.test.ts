@@ -70,7 +70,7 @@ describe("CodexAdapter", () => {
       expect(adapter.capabilities.preCompact).toBe(true);
     });
 
-    it("canModifyArgs is false (Codex does not support updatedInput)", () => {
+    it("canModifyArgs is false — conservative static; runtime rewrite is gated at codex-caps for codex >= 0.131", () => {
       expect(adapter.capabilities.canModifyArgs).toBe(false);
     });
 
