@@ -83,11 +83,17 @@ marketplace from upstream's, so an existing upstream Codex install is left
 untouched — remove it separately if you no longer want it.
 
 The plugin's PreToolUse hook (from `.codex-plugin/hooks.json`) intercepts the
-context-flooding tools before they run — this matcher is kept in sync with the
-adapter constant in `src/adapters/codex/index.ts`:
+context-flooding tools before they run. It registers **two** matcher entries: the
+first is a charset-clean exact-name list (kept in sync with the adapter constant
+in `src/adapters/codex/index.ts`); the second, `mcp__.*`, is a regex that catches
+external MCP tools. A bare `mcp__` is a no-op under Codex's `is_exact_matcher`
+(matches only a tool named exactly `mcp__`), so the `.*` regex form is required —
+the Codex hooks docs list `mcp__server__.*` as the family-match pattern. `.*` has
+no look-around, so Codex's Rust `regex` crate still compiles it at boot (#547):
 
 ```json
-"PreToolUse": [{ "matcher": "local_shell|shell|shell_command|exec_command|Bash|Shell|apply_patch|Edit|Write|grep_files|ctx_execute|ctx_execute_file|ctx_batch_execute|ctx_fetch_and_index|ctx_search|ctx_index|mcp__", "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/hooks/codex/pretooluse.mjs\"" }] }]
+"PreToolUse": [{ "matcher": "local_shell|shell|shell_command|exec_command|Bash|Shell|apply_patch|Edit|Write|grep_files|ctx_execute|ctx_execute_file|ctx_batch_execute|ctx_fetch_and_index|ctx_search|ctx_index|mcp__", "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/hooks/codex/pretooluse.mjs\"" }] },
+{ "matcher": "mcp__.*", "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/hooks/codex/pretooluse.mjs\"" }] }]
 ```
 
 ## Development
