@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-07-16
-- **Release**: v1.0.7 (unreleased)
+- **Release**: v1.0.7
 - **Scope**: `src/server.ts` — `installStrictClientSchemaCompat`, `ctx_execute`, `ctx_search`
 
 ## Context
