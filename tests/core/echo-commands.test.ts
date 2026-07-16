@@ -12,10 +12,12 @@
  *      "## Indexed Sections", listing each `- <label>: \`<command>\``
  *   3. Long commands (>500 chars) are truncated with `…` so heredoc payloads
  *      cannot dominate the response body
- *   4. ctx_execute prepends a fenced `${language}` block carrying the source
- *      code before stdout
- *   5. ctx_execute_file prepends a header naming the path + a fenced
- *      `${language}` block carrying the source code before stdout
+ *   4. ctx_execute does NOT return the source code (audit 2026-07: the echo
+ *      was ~26% of ctx_execute response bytes while the caller already holds
+ *      the code it sent); the provenance copy goes to the FTS5 index instead
+ *      and is ctx_search-hittable (Behaviour 4b)
+ *   5. ctx_execute_file likewise returns stdout only — no path header, no
+ *      fenced source block
  *
  * Tests 1-3 hit the pure runBatchCommands/formatCommandOutput surface (fast,
  * no spawn). Tests 4-5 hit the live MCP server over JSON-RPC (covers the
@@ -184,9 +186,12 @@ async function initServer(proc: ChildProcess): Promise<void> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Behaviour 4 — ctx_execute echoes the source code before stdout
+// Behaviour 4 — ctx_execute keeps the source code OUT of the response.
+// The caller already holds the code it sent (it is in the tool_use params);
+// returning it again measured ~26% of ctx_execute response bytes (audit
+// 2026-07). Provenance now lives in the FTS5 index only (Behaviour 4b).
 // ════════════════════════════════════════════════════════════════════════════
-describe("issue #717 — ctx_execute echoes the language + code it ran", () => {
+describe("issue #717 follow-up — ctx_execute does not echo the code back", () => {
   let projectDir: string;
   beforeAll(() => {
     projectDir = mkdtempSync(join(tmpdir(), "echo-exec-"));
@@ -195,7 +200,7 @@ describe("issue #717 — ctx_execute echoes the language + code it ran", () => {
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  test("success path: response carries fenced ```javascript block with the exact code, before stdout", async () => {
+  test("success path: response carries stdout but no fenced block and no source", async () => {
     const proc = spawnServer({ CLAUDE_PROJECT_DIR: projectDir });
     try {
       await initServer(proc);
@@ -208,13 +213,46 @@ describe("issue #717 — ctx_execute echoes the language + code it ran", () => {
       expect(resp?.error).toBeUndefined();
       expect(resp?.result?.isError ?? false).toBe(false);
       const text = resp?.result?.content?.[0]?.text ?? "";
-      // The fenced code block must appear and carry the exact source
-      expect(text).toContain("```javascript");
-      expect(text).toContain(code);
-      // Stdout content still arrives
+      // Stdout content arrives…
       expect(text).toContain(marker);
-      // Code echo MUST precede the stdout marker
-      expect(text.indexOf("```javascript")).toBeLessThan(text.indexOf(marker));
+      // …but the source code does not round-trip
+      expect(text).not.toContain("```javascript");
+      expect(text).not.toContain(code);
+    } finally {
+      try { proc.kill("SIGTERM"); } catch { /* best effort */ }
+    }
+  }, 30_000);
+
+  test("Behaviour 4b: intent path indexes the code — a code-only token is ctx_search-hittable, yet absent from the execute response", async () => {
+    const proc = spawnServer({ CLAUDE_PROJECT_DIR: projectDir });
+    try {
+      await initServer(proc);
+      // Token appears ONLY in the source, never in stdout. Discriminating
+      // case: before the fix, indexed chunks carried raw stdout only, so
+      // this search MISSED (live-fired 2026-07-17); it must now hit.
+      const codeToken = `CODETOKEN${Math.random().toString(36).slice(2)}`;
+      const code = [
+        `const ${codeToken} = 1;`,
+        `for (let i = 0; i < 700; i++) console.log("line " + i + " lorem ipsum dolor sit amet");`,
+      ].join("\n");
+      const execResp = await awaitRpc(proc, 110, {
+        jsonrpc: "2.0", id: 110, method: "tools/call",
+        params: { name: "ctx_execute", arguments: { language: "javascript", code, intent: "lorem lines" } },
+      });
+      expect(execResp?.error).toBeUndefined();
+      const execText = execResp?.result?.content?.[0]?.text ?? "";
+      // The declaration line must not ride back in the response
+      expect(execText).not.toContain(`const ${codeToken}`);
+      expect(execText).not.toContain("```javascript");
+
+      const searchResp = await awaitRpc(proc, 111, {
+        jsonrpc: "2.0", id: 111, method: "tools/call",
+        params: { name: "ctx_search", arguments: { queries: [codeToken] } },
+      });
+      expect(searchResp?.error).toBeUndefined();
+      const searchText = searchResp?.result?.content?.[0]?.text ?? "";
+      // Provenance is recallable on demand from the index
+      expect(searchText).toContain(codeToken);
     } finally {
       try { proc.kill("SIGTERM"); } catch { /* best effort */ }
     }
@@ -275,9 +313,9 @@ describe("issue #736 — ctx_batch_execute summary includes a Commands inventory
 });
 
 // ════════════════════════════════════════════════════════════════════════════
-// Behaviour 5 — ctx_execute_file echoes path + code before stdout
+// Behaviour 5 — ctx_execute_file returns stdout only (no path/code preamble)
 // ════════════════════════════════════════════════════════════════════════════
-describe("issue #717 — ctx_execute_file echoes the path + code it ran", () => {
+describe("issue #717 follow-up — ctx_execute_file does not echo path + code", () => {
   let projectDir: string;
   let dataFile: string;
   beforeAll(() => {
@@ -289,7 +327,7 @@ describe("issue #717 — ctx_execute_file echoes the path + code it ran", () => 
     rmSync(projectDir, { recursive: true, force: true });
   });
 
-  test("success path: response carries `path=<file>` + fenced code block before stdout", async () => {
+  test("success path: response carries stdout only — no path header, no fenced code", async () => {
     const proc = spawnServer({ CLAUDE_PROJECT_DIR: projectDir });
     try {
       await initServer(proc);
@@ -302,14 +340,12 @@ describe("issue #717 — ctx_execute_file echoes the path + code it ran", () => 
       expect(resp?.error).toBeUndefined();
       expect(resp?.result?.isError ?? false).toBe(false);
       const text = resp?.result?.content?.[0]?.text ?? "";
-      // Path attribution present
-      expect(text).toMatch(/path=.*sample\.txt/);
-      // Fenced code block carrying exact source
-      expect(text).toContain("```javascript");
-      expect(text).toContain(code);
-      // Stdout still arrives, AFTER the echo
+      // Stdout arrives…
       expect(text).toContain(marker);
-      expect(text.indexOf("```javascript")).toBeLessThan(text.indexOf(marker));
+      // …with no provenance preamble riding along
+      expect(text).not.toMatch(/path=.*sample\.txt/);
+      expect(text).not.toContain("```javascript");
+      expect(text).not.toContain(code);
     } finally {
       try { proc.kill("SIGTERM"); } catch { /* best effort */ }
     }

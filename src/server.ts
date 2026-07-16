@@ -1287,11 +1287,11 @@ export function resolveExecTimeout(timeout: number | undefined): number | undefi
 }
 
 /**
- * Per-call budget for the source-code echo prepended by `ctx_execute` and
- * `ctx_execute_file` (Issues #717 + #736). The full code always reaches the
- * sandbox — only the echo is clipped so massive payloads don't dominate
- * the response. Multi-line preserved (unlike command echo) so the user
- * sees the actual program shape.
+ * Per-call budget for the source-code provenance block indexed alongside
+ * `ctx_execute` / `ctx_execute_file` output (Issues #717 + #736). The full
+ * code always reaches the sandbox — only the indexed copy is clipped so
+ * massive payloads don't bloat the FTS5 store. Multi-line preserved (unlike
+ * command echo) so search hits show the actual program shape.
  */
 const CODE_ECHO_MAX = 2000;
 
@@ -1301,9 +1301,9 @@ function truncateCodeForEcho(code: string): string {
 }
 
 /**
- * Build the source-code preamble surfaced before tool stdout. Provenance
- * survives in indexed chunks (FTS5 sees the fenced block) so later
- * ctx_search hits remember what ran.
+ * Source-code provenance block. Prepended to the content handed to
+ * intentSearch()/indexStdout() so FTS5 remembers what ran; never part of
+ * the tool response — the caller already holds the code it sent.
  */
 function buildExecuteEcho(language: string, code: string, path?: string): string {
   const header = path ? `path=${path}\n` : "";
@@ -1462,7 +1462,7 @@ RETURNS:
 
 EXAMPLE: ctx_execute(language: "javascript", code: "const fs=require('fs'); const f=fs.readdirSync('src').filter(x=>x.endsWith('.ts')); console.log(f.length+' TS files; largest: '+f.map(x=>[x,fs.statSync('src/'+x).size]).sort((a,b)=>b[1]-a[1])[0].join(' '))")
 
-Deferred siblings — load via ToolSearch when the task needs them: ctx_index (index a file or a whole directory), ctx_fetch_and_index (web pages), ctx_batch_execute (parallel commands), ctx_execute_file, ctx_stats, ctx_doctor, ctx_upgrade, ctx_purge, ctx_insight. (ctx_search, for session memory, is already loaded alongside this tool.)`,
+Deferred siblings — load via ToolSearch when the task needs them: ctx_index (index a file or a whole directory), ctx_fetch_and_index (web pages), ctx_batch_execute (parallel commands), ctx_execute_file, ctx_stats, ctx_doctor, ctx_upgrade, ctx_purge. (ctx_search, for session memory, is already loaded alongside this tool.)`,
     inputSchema: z.object({
       // Enum mirrors the runtimes actually detected on this host — same source as
       // `langList` in the description above. The old static 12-language list
@@ -1584,8 +1584,8 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
       const effTimeout = resolveExecTimeout(timeout);
       const result = await executor.execute({ language, code: instrumentedCode, timeout: effTimeout, background, cwd });
 
-      // Echo the executed source code before stdout so users can audit
-      // and tooling can block command patterns (Issues #717 + #736).
+      // Provenance block for the index — never prepended to the response;
+      // the caller already holds the code it sent (Issues #717 + #736).
       // Built from the user-supplied `code`, NOT the instrumented variant.
       const echo = buildExecuteEcho(language, code);
 
@@ -1612,7 +1612,7 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
             content: [
               {
                 type: "text" as const,
-                text: `${echo}${partialOutput}\n\n_(process backgrounded after ${effTimeout}ms — still running)_`,
+                text: `${partialOutput}\n\n_(process backgrounded after ${effTimeout}ms — still running)_`,
               },
             ],
           });
@@ -1623,7 +1623,7 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
             content: [
               {
                 type: "text" as const,
-                text: `${echo}${partialOutput}\n\n_(timed out after ${effTimeout}ms — partial output shown above)_`,
+                text: `${partialOutput}\n\n_(timed out after ${effTimeout}ms — partial output shown above)_`,
               },
             ],
           });
@@ -1632,7 +1632,7 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
           content: [
             {
               type: "text" as const,
-              text: `${echo}Execution timed out after ${effTimeout}ms\n\nstderr:\n${result.stderr}`,
+              text: `Execution timed out after ${effTimeout}ms\n\nstderr:\n${result.stderr}`,
             },
           ],
           isError: true,
@@ -1647,7 +1647,7 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
           trackIndexed(Buffer.byteLength(output));
           return trackResponse("ctx_execute", {
             content: [
-              { type: "text" as const, text: `${echo}${intentSearch(output, intent, isError ? `execute:${language}:error` : `execute:${language}`)}` },
+              { type: "text" as const, text: intentSearch(`${echo}${output}`, intent, isError ? `execute:${language}:error` : `execute:${language}`) },
             ],
             isError,
           });
@@ -1657,14 +1657,14 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
           trackIndexed(Buffer.byteLength(output));
           return trackResponse("ctx_execute", {
             content: [
-              { type: "text" as const, text: `${echo}${intentSearch(output, "errors failures exceptions", isError ? `execute:${language}:error` : `execute:${language}`)}` },
+              { type: "text" as const, text: intentSearch(`${echo}${output}`, "errors failures exceptions", isError ? `execute:${language}:error` : `execute:${language}`) },
             ],
             isError,
           });
         }
         return trackResponse("ctx_execute", {
           content: [
-            { type: "text" as const, text: `${echo}${output}` },
+            { type: "text" as const, text: output },
           ],
           isError,
         });
@@ -1677,29 +1677,21 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
         trackIndexed(Buffer.byteLength(stdout));
         return trackResponse("ctx_execute", {
           content: [
-            { type: "text" as const, text: `${echo}${intentSearch(stdout, intent, `execute:${language}`)}` },
+            { type: "text" as const, text: intentSearch(`${echo}${stdout}`, intent, `execute:${language}`) },
           ],
         });
       }
 
-      // Auto-index large stdout into FTS5 — return pointer, not raw content
+      // Auto-index large stdout into FTS5 — return pointer, not raw content.
+      // The provenance block rides along in the indexed content only.
       if (Buffer.byteLength(stdout) > LARGE_OUTPUT_THRESHOLD) {
-        const indexed = indexStdout(stdout, `execute:${language}`);
-        // Prepend echo to the first text content so provenance still surfaces
-        const echoed = {
-          ...indexed,
-          content: indexed.content.map((c, i) =>
-            i === 0 && c.type === "text"
-              ? { ...c, text: `${echo}${(c as { text: string }).text}` }
-              : c,
-          ),
-        };
-        return trackResponse("ctx_execute", echoed);
+        const indexed = indexStdout(`${echo}${stdout}`, `execute:${language}`);
+        return trackResponse("ctx_execute", indexed);
       }
 
       return trackResponse("ctx_execute", {
         content: [
-          { type: "text" as const, text: `${echo}${stdout}` },
+          { type: "text" as const, text: stdout },
         ],
       });
     } catch (err: unknown) {
@@ -1904,8 +1896,8 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
         timeout: effTimeout,
       });
 
-      // Echo path + executed source code before stdout for audit/debug
-      // (Issues #717 + #736).
+      // Provenance block (path + source) for the index — never prepended
+      // to the response (Issues #717 + #736).
       const echo = buildExecuteEcho(language, code, path);
 
       if (result.timedOut) {
@@ -1913,7 +1905,7 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
           content: [
             {
               type: "text" as const,
-              text: `${echo}Timed out processing ${path} after ${effTimeout}ms`,
+              text: `Timed out processing ${path} after ${effTimeout}ms`,
             },
           ],
           isError: true,
@@ -1928,7 +1920,7 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
           trackIndexed(Buffer.byteLength(output));
           return trackResponse("ctx_execute_file", {
             content: [
-              { type: "text" as const, text: `${echo}${intentSearch(output, intent, isError ? `file:${path}:error` : `file:${path}`)}` },
+              { type: "text" as const, text: intentSearch(`${echo}${output}`, intent, isError ? `file:${path}:error` : `file:${path}`) },
             ],
             isError,
           });
@@ -1938,14 +1930,14 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
           trackIndexed(Buffer.byteLength(output));
           return trackResponse("ctx_execute_file", {
             content: [
-              { type: "text" as const, text: `${echo}${intentSearch(output, "errors failures exceptions", isError ? `file:${path}:error` : `file:${path}`)}` },
+              { type: "text" as const, text: intentSearch(`${echo}${output}`, "errors failures exceptions", isError ? `file:${path}:error` : `file:${path}`) },
             ],
             isError,
           });
         }
         return trackResponse("ctx_execute_file", {
           content: [
-            { type: "text" as const, text: `${echo}${output}` },
+            { type: "text" as const, text: output },
           ],
           isError,
         });
@@ -1957,28 +1949,21 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
         trackIndexed(Buffer.byteLength(stdout));
         return trackResponse("ctx_execute_file", {
           content: [
-            { type: "text" as const, text: `${echo}${intentSearch(stdout, intent, `file:${path}`)}` },
+            { type: "text" as const, text: intentSearch(`${echo}${stdout}`, intent, `file:${path}`) },
           ],
         });
       }
 
-      // Auto-index large stdout into FTS5 — return pointer, not raw content
+      // Auto-index large stdout into FTS5 — return pointer, not raw content.
+      // The provenance block rides along in the indexed content only.
       if (Buffer.byteLength(stdout) > LARGE_OUTPUT_THRESHOLD) {
-        const indexed = indexStdout(stdout, `file:${path}`);
-        const echoed = {
-          ...indexed,
-          content: indexed.content.map((c, i) =>
-            i === 0 && c.type === "text"
-              ? { ...c, text: `${echo}${(c as { text: string }).text}` }
-              : c,
-          ),
-        };
-        return trackResponse("ctx_execute_file", echoed);
+        const indexed = indexStdout(`${echo}${stdout}`, `file:${path}`);
+        return trackResponse("ctx_execute_file", indexed);
       }
 
       return trackResponse("ctx_execute_file", {
         content: [
-          { type: "text" as const, text: `${echo}${stdout}` },
+          { type: "text" as const, text: stdout },
         ],
       });
     } catch (err: unknown) {
@@ -2344,7 +2329,7 @@ RETURNS:
 
 EXAMPLE: ctx_search(queries: ["what did we decide about caching", "why was the retry approach rejected"], sort: "timeline")
 
-Deferred siblings — load via ToolSearch: ctx_index, ctx_fetch_and_index, ctx_batch_execute, ctx_execute_file, ctx_stats, ctx_doctor, ctx_upgrade, ctx_purge, ctx_insight.`,
+Deferred siblings — load via ToolSearch: ctx_index, ctx_fetch_and_index, ctx_batch_execute, ctx_execute_file, ctx_stats, ctx_doctor, ctx_upgrade, ctx_purge.`,
     // Schema construction is centralised in `src/search/ctx-search-schema.ts`
     // so the conditional `project` field (only registered when the host runs
     // in shared-DB mode, `CONTEXT_MODE_PROJECT_DIR` set at module load) is a
@@ -4049,9 +4034,9 @@ server.registerTool(
     const bundlePath = resolve(pluginRoot, "cli.bundle.mjs");
     const fallbackPath = resolve(pluginRoot, "build", "cli.js");
 
-    // Insight is upstream's hosted dashboard (context-mode.com/insight), so
-    // ctx_insight no longer builds a local cache. On upgrade, sweep the legacy
-    // insight-cache and stop any stale local dashboard left from old versions.
+    // Insight was upstream's separately-hosted dashboard; its tool is gone
+    // from this fork and never built a local cache here. On upgrade, sweep the
+    // legacy insight-cache and stop any stale local dashboard from old versions.
     try {
       const sessDir = getSessionDir();
       const insightCacheDir = join(dirname(sessDir), "insight-cache");
@@ -4343,23 +4328,17 @@ EXAMPLE: ctx_purge(confirm: true, scope: "project")`,
   },
 );
 
-// ── ctx_insight process helpers ──────────────────────────────────────────────
-// Cross-platform process helpers used by ctx_insight (below) and the dashboard
-// launcher in cli.ts. All entry points use argv arrays — never `sh -c <string>`
-// — so caller-derived values cannot escape into shell context. See issue #441.
-//
-// `browserOpenArgv` is duplicated as a private 16-LOC copy in cli.ts to avoid
-// pulling server.ts top-level boot side effects into the cli bundle.
+// ── process helpers ──────────────────────────────────────────────────────────
+// Cross-platform helpers for the ctx_upgrade legacy insight-cache sweep
+// (killProcessOnPort below). All entry points use argv arrays — never
+// `sh -c <string>` — so caller-derived values cannot escape into shell
+// context. See issue #441.
 
 export type SpawnSyncFn = (
   cmd: string,
   args: readonly string[],
   opts?: SpawnSyncOptions,
 ) => SpawnSyncReturns<string | Buffer>;
-
-export type BrowserOpenResult =
-  | { ok: true; method: string }
-  | { ok: false; method: "none"; reason: string };
 
 export type KillResult = {
   killedPids: string[];
@@ -4374,50 +4353,6 @@ export type KillResult = {
 // 5s is comfortably above the 99th-percentile completion of every command we
 // invoke; anything past that is hung.
 const HELPER_SPAWN_TIMEOUT_MS = 5000;
-
-// Returns the argv attempts for opening `url` on `platform`, in fall-back order.
-// Pure data — no I/O.
-export function browserOpenArgv(
-  url: string,
-  platform: NodeJS.Platform,
-): readonly { cmd: string; args: readonly string[] }[] {
-  if (platform === "darwin") return [{ cmd: "open", args: [url] }];
-  if (platform === "win32") {
-    // `start` is a cmd.exe builtin; the empty title arg ("") prevents the URL
-    // from being consumed as the window title.
-    return [{ cmd: "cmd", args: ["/c", "start", "", url] }];
-  }
-  // linux/bsd: try xdg-open, then sensible-browser (Debian/Ubuntu).
-  return [
-    { cmd: "xdg-open", args: [url] },
-    { cmd: "sensible-browser", args: [url] },
-  ];
-}
-
-// Opens a browser synchronously, waiting for each attempt to complete.
-// Returns a structured result so callers can surface auto-open failures
-// to the user instead of falsely reporting success.
-export function openBrowserSync(
-  url: string,
-  platform: NodeJS.Platform = process.platform,
-  runner: SpawnSyncFn = spawnSync,
-): BrowserOpenResult {
-  const attempts = browserOpenArgv(url, platform);
-  const errors: string[] = [];
-  for (const { cmd, args } of attempts) {
-    try {
-      const r = runner(cmd, args, { stdio: "ignore", timeout: HELPER_SPAWN_TIMEOUT_MS });
-      // Treat signal-kill (status === null) and any non-zero status as failure
-      // so the next fallback fires.
-      if (!r.error && r.status === 0) return { ok: true, method: cmd };
-      const reason = r.error?.message ?? `status=${r.status === null ? "signaled" : r.status}`;
-      errors.push(`${cmd}: ${reason}`);
-    } catch (e) {
-      errors.push(`${cmd}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-  return { ok: false, method: "none", reason: errors.join("; ") };
-}
 
 // Kills any process listening on `port`. Returns a structured result so
 // the caller can distinguish between (a) port was free, (b) kill succeeded,
@@ -4538,47 +4473,6 @@ export function killProcessOnPort(
   }
   return result;
 }
-
-// ── ctx-insight: open the upstream-hosted Insight dashboard ──────────────────
-// Insight is a SEPARATE B2B product, operated by the upstream project and hosted
-// at context-mode.com/insight (its landing page is the single source of truth for
-// sign-in and pricing) — it is not a ctxscribe feature. This fork does not own
-// that domain, so the URL is left intact on purpose: rebranding it to a domain we
-// do not own would ship a dead link. The tool simply opens that URL in the user
-// default browser via the same cross-platform helper (openBrowserSync).
-const INSIGHT_URL = "https://context-mode.com/insight";
-
-server.registerTool(
-  "ctx_insight",
-  {
-    title: "Open Insight Dashboard",
-    // #846: opens a hosted dashboard URL in the browser — an external side
-    // effect (open world), not a read-only query; safe to repeat.
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: true,
-    },
-    description:
-      "Opens the upstream-hosted Insight dashboard (https://context-mode.com/insight) in your " +
-      "default browser — a dashboard launcher for a separate analytics product run by upstream " +
-      "at context-mode.com; it is not a ctxscribe feature and not a Q&A engine. " +
-      "Insight surfaces per-engineer productive rate, retry waste, blocker detection, and " +
-      "role-narrowed views for CTO, EM, IC, CISO, FinOps, and DevOps. " +
-      "For natural-language queries over your indexed content, use ctx_search.",
-    inputSchema: z.object({}),
-  },
-  async () => {
-    const open = openBrowserSync(INSIGHT_URL);
-    const text = open.ok
-      ? `Opening Insight in your browser: ${INSIGHT_URL}`
-      : `Could not auto-open your browser (${open.reason}).\nOpen Insight manually: ${INSIGHT_URL}`;
-    return trackResponse("ctx_insight", {
-      content: [{ type: "text" as const, text }],
-    });
-  },
-);
 
 // ─────────────────────────────────────────────────────────
 // Server startup

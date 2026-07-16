@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * assert-no-upstream-mksglu — build gate. Runtime source must never reference the
- * upstream repo (mksglu/context-mode) or the upstream npm version endpoint
- * (registry.npmjs.org/context-mode). Charter D9: no upstream-pointing paths ship.
+ * upstream repo (mksglu/context-mode), the upstream npm version endpoint
+ * (registry.npmjs.org/context-mode), or the upstream product domain
+ * (third NEEDLE below). Charter D9: no upstream-pointing paths ship.
  * Locks in the 1.0.2 clone-URL repoint + the 1.0.3 version-check removal.
  *
  * Scope: git-tracked files under src/, hooks/, scripts/ (where code runs).
@@ -12,7 +13,7 @@
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
-const NEEDLES = [/mksglu\/context-mode/i, /registry\.npmjs\.org\/context-mode/i];
+const NEEDLES = [/mksglu\/context-mode/i, /registry\.npmjs\.org\/context-mode/i, /context-mode\.com/i];
 // Runtime + shipped-manifest surfaces: source dirs, the root bootstrap, and the
 // plugin manifests hosts read for homepage/repository/"report issue" affordances.
 const INCLUDE = /^(?:(?:src|hooks|scripts|\.claude-plugin|\.codex-plugin)\/|start\.mjs$)/;

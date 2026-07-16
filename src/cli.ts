@@ -16,7 +16,7 @@
 
 import * as p from "@clack/prompts";
 import color from "picocolors";
-import { execFileSync, execSync, execFile as nodeExecFile, type ExecSyncOptions } from "node:child_process";
+import { execFileSync, execSync, type ExecSyncOptions } from "node:child_process";
 import { readFileSync, writeFileSync, cpSync, accessSync, existsSync, readdirSync, rmSync, closeSync, openSync, chmodSync, mkdirSync, lstatSync, realpathSync, statSync, constants } from "node:fs";
 import { resolve, dirname, join, sep, basename, isAbsolute } from "node:path";
 import { tmpdir, devNull, homedir } from "node:os";
@@ -49,23 +49,6 @@ import { discoverSiblingMcpPids, killSiblingMcpServers } from "./util/sibling-mc
 import { healPluginJsonMcpServers, sweepStaleMcpJson, derivePluginKey } from "../scripts/heal-installed-plugins.mjs";
 // @ts-expect-error — JS module, no TS declarations
 import { detectWindowsVsYear } from "../scripts/heal-better-sqlite3.mjs";
-// Private 16-LOC copy of browserOpenArgv. Canonical version lives in src/server.ts;
-// duplicated here so the cli bundle does not pull server.ts top-level boot side effects.
-// Keep in sync — pure data, no I/O.
-function browserOpenArgv(
-  url: string,
-  platform: NodeJS.Platform,
-): readonly { cmd: string; args: readonly string[] }[] {
-  if (platform === "darwin") return [{ cmd: "open", args: [url] }];
-  if (platform === "win32") {
-    return [{ cmd: "cmd", args: ["/c", "start", "", url] }];
-  }
-  return [
-    { cmd: "xdg-open", args: [url] },
-    { cmd: "sensible-browser", args: [url] },
-  ];
-}
-
 // ── Adapter imports ──────────────────────────────────────
 import { detectPlatform, getAdapter } from "./adapters/detect.js";
 
@@ -195,8 +178,6 @@ if (args[0] === "--help" || args[0] === "-h" || args[0] === "help") {
   });
 } else if (args[0] === "hook") {
   hookDispatch(args[1], args[2]);
-} else if (args[0] === "insight") {
-  insight();
 } else if (args[0] === "statusline") {
   // Status line implementation lives in bin/statusline.mjs to keep it
   // dependency-free and fast. Forward stdin and exit with its result.
@@ -240,48 +221,6 @@ export function npmExec(command: string, opts: Record<string, unknown> = {}): vo
     ...(isWin ? { shell: true } : {}),
   } as unknown as ExecSyncOptions;
   execSync(isWin ? command.replace(/^npm /, "npm.cmd ") : command, execOpts);
-}
-
-/**
- * Open a URL in the user's default browser without invoking a shell.
- *
- * Uses `execFile` with an arg array so the URL cannot be interpreted as
- * shell metacharacters.  Original code used `execSync(`open "${url}"`)`
- * which would shell-interpolate the URL — fragile if the URL ever
- * becomes attacker-controlled (remote, weak port-validation, etc).
- *
- * Best-effort: if the OS opener is missing the function logs a copyable
- * URL hint and returns; it never throws.  `runner` is injectable for
- * tests; default is `child_process.execFile` (callback form, fire-and-
- * forget).
- */
-export type ExecFileFn = (
-  file: string,
-  args: readonly string[],
-  opts?: Record<string, unknown>,
-) => unknown;
-
-export function openInBrowser(
-  url: string,
-  platform: NodeJS.Platform = process.platform,
-  runner: ExecFileFn = nodeExecFile as unknown as ExecFileFn,
-): void {
-  const opts = { stdio: "ignore" as const };
-  const hint = () =>
-    console.error(`\nCould not auto-open browser. Open manually: ${url}`);
-
-  // Platform→argv mapping is canonical in src/server.ts; mirrored privately
-  // above to avoid pulling server boot side effects into the cli bundle.
-  const attempts = browserOpenArgv(url, platform);
-  let opened = false;
-  for (const { cmd, args } of attempts) {
-    try {
-      runner(cmd, args as string[], opts);
-      opened = true;
-      break;
-    } catch { /* try next fallback */ }
-  }
-  if (!opened) hint();
 }
 
 function defaultPluginRoot(): string {
@@ -971,22 +910,6 @@ async function doctor(): Promise<number> {
       : color.green("Diagnostics complete!"),
   );
   return 0;
-}
-
-/* -------------------------------------------------------
- * Insight — upstream-hosted analytics dashboard
- * ------------------------------------------------------- */
-
-// Insight is a SEPARATE product, operated by the upstream project and hosted at
-// context-mode.com/insight (its landing page is the single source of truth for
-// sign-in and pricing) — it is not a ctxscribe feature. This fork does not own
-// that domain, so the URL is left intact on purpose: rebranding it to a domain
-// we do not own would ship a dead link. The command just opens it in the browser.
-async function insight() {
-  const url = "https://context-mode.com/insight";
-  console.log(`\n  Insight — upstream-hosted dashboard (a separate product)\n  ${url}\n`);
-  // Open browser — execFile with arg array, no shell interpolation.
-  openInBrowser(url);
 }
 
 /* -------------------------------------------------------

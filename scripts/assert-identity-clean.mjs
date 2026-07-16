@@ -66,15 +66,11 @@ const WHITELIST = [
   //   `/Users/mksglu/Server/Mert/context-mode-claude-code-plugin/context-mode`, hard-coded in a
   //   manual (non-vitest) benchmark script. Renaming someone else's machine path would invent a
   //   directory that exists on nobody's disk. Scoped to file + the `/Users/mksglu/` home shape.
-  // Task 10b. Both entries below are EXTERNAL references — third-party names this fork
+  // Task 10b. The entry below is an EXTERNAL reference — a third-party name this fork
   // does not own — exactly the class of the context-mode-platform entry above.
-  /context-mode\.com/,
-  //   EXTERNAL DOMAIN (ctx_insight). Insight is upstream's separately-hosted product; this
-  //   fork owns neither context-mode.com nor any replacement domain, so `ctxscribe.com` would
-  //   ship a DEAD LINK. The copy around it was reworded (task 10b) to state plainly that
-  //   Insight is upstream's, not ours — the URL itself stays. Scoped to the literal domain
-  //   (escaped dot): a bare `context-mode` elsewhere on the same line is NOT matched, so this
-  //   cannot false-clean a real target. Sites: src/cli.ts, src/server.ts, skills/ctx-insight.
+  // (The former upstream product-domain EXTERNAL DOMAIN exemption left with
+  //  ctx_insight: no runtime source may point at that domain anymore, and
+  //  assert-no-upstream-mksglu now carries it as a hard needle.)
   /github\.com\/anthropic-experimental\/context-mode/,
   //   EXTERNAL REPO (src/store-directory.ts:12) — an issue URL on Anthropic's
   //   `anthropic-experimental/context-mode` repo, cited as the provenance of the store-dir
