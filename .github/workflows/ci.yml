@@ -67,8 +67,18 @@ jobs:
           # solely on the exit code.
           set +e
           npx vitest run 2>&1 | tee /tmp/vitest-output.txt
-          VITEST_EXIT=$?
+          # PIPESTATUS[0], not $?. `shell: bash` gets us `-eo pipefail`, so $? does
+          # read vitest today — but the check below is worthless if this ever reads
+          # tee's status instead, and that would happen silently the moment someone
+          # drops the `shell: bash` line. Don't rest a guard on an invisible default.
+          VITEST_EXIT=${PIPESTATUS[0]}
           set -e
+
+          # The only excuse for a non-zero exit is the known worker-teardown race
+          # (Windows, kill EPERM / errno -4048). Anything else is a real failure.
+          teardown_race() {
+            [ "$RUNNER_OS" = "Windows" ] && grep -q "Error: kill EPERM" /tmp/vitest-output.txt
+          }
 
           # Extract results from vitest output
           if grep -q "Tests.*failed" /tmp/vitest-output.txt; then
@@ -78,12 +88,18 @@ jobs:
             echo "❌ Test file failures detected"
             exit 1
           elif grep -q "Tests.*passed" /tmp/vitest-output.txt; then
-            echo "✅ All tests passed (exit code $VITEST_EXIT may reflect worker cleanup noise)"
+            # A clean summary does not clear a non-zero exit on its own: vitest also
+            # reports unhandled errors after the summary and exits non-zero with every
+            # test passing. Only the teardown race gets excused.
+            if [ "$VITEST_EXIT" -ne 0 ] && ! teardown_race; then
+              echo "❌ All tests passed but vitest exited $VITEST_EXIT — not the known teardown race"
+              exit "$VITEST_EXIT"
+            fi
+            echo "✅ All tests passed (exit $VITEST_EXIT)"
             exit 0
-          elif grep -q "Error: kill EPERM" /tmp/vitest-output.txt; then
-            # Vitest crashed during worker teardown (Windows-only kill EPERM race, errno -4048)
-            # BEFORE printing the summary line. Look for per-suite failure markers instead —
-            # if none, treat as pass (the same cleanup noise the comment above acknowledges).
+          elif teardown_race; then
+            # Crashed during worker teardown BEFORE printing the summary line. Look for
+            # per-suite failure markers instead — if none, treat as pass.
             if grep -qE "FAIL +tests/|⨯ +tests/" /tmp/vitest-output.txt; then
               echo "❌ Per-suite failures detected before teardown crash"
               exit 1
