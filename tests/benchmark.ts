@@ -427,7 +427,9 @@ print(f"filtered: {len(filtered)}")
   console.log(
     "With ctxscribe execute_file, only the summary (typically 100-500 bytes) enters context.",
   );
-  console.log("This means 95-99% context savings on large files.\n");
+  console.log(
+    "For a file that size the summary path keeps most of the bytes out of context; whole-session savings are workload-dependent (BENCHMARK.md: 13-99% per scenario).\n",
+  );
 }
 
 main().catch((err) => {

@@ -99,6 +99,11 @@ const ALLOW = [
   // (renderCostExample), emitted for EVERY session alongside "Claude Max" —
   // traced in Task 10: no platform gate anywhere near it (LIVE#2 verdict).
   { file: "src/session/analytics.ts", needle: /^cursor$/, reason: "Cursor Pro public list price anchor — renders for kept platforms" },
+
+  // ADR-0008 compares vendor-published context-saving numbers; Cursor the
+  // IDE is named there as a third-party product being measured against,
+  // not as a supported platform.
+  { file: "docs/adr/0008-what-actually-saves-context.md", needle: /^cursor$/, reason: "external-vendor comparison in the measured-levers ADR" },
   { file: "tests/session/format-cost.test.ts", needle: /^cursor$/, reason: "pins the Cursor Pro price-anchor line (live feature)" },
 
   // Coordinator-pinned root resolution contract: `main` and exports["."]

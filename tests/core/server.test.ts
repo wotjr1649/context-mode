@@ -1603,10 +1603,10 @@ describe("ctx_index: Read deny-policy enforcement (#442)", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ctx_insight: execFile migration + port schema hardening (#441)
+// Process helpers: execFile migration + injection hardening (#441)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Three layers of regression protection:
+// Two layers of regression protection:
 //
 //   1. Coarse source guard — `src/server.ts` must not reintroduce the
 //      `execSync(\`…${…}…\`)` template-string injection pattern anywhere.
@@ -1614,16 +1614,11 @@ describe("ctx_index: Read deny-policy enforcement (#442)", () => {
 //      same file (mocked spawnSync, asserts argv arrays + no shell:true +
 //      Windows LISTENING anchoring + per-pid failure isolation).
 //
-//   2. Cross-reference — server.ts must define the structured helpers
-//      (openBrowserSync / killProcessOnPort) inline so the handler can
-//      surface auto-open / kill failures to the agent rather than silently
-//      reporting success.
-//
-//   3. Real-MCP integration — spawn the server via stdio JSON-RPC and
-//      verify the tightened port schema rejects out-of-range and
-//      non-integer values BEFORE the handler runs.
+//   2. Cross-reference — server.ts must define the structured helper
+//      (killProcessOnPort) inline so the ctx_upgrade legacy sweep can
+//      surface kill failures rather than silently reporting success.
 
-describe("ctx_insight: execFile migration source guard (#441)", () => {
+describe("process helpers: execFile migration source guard (#441)", () => {
   const serverSrc = readFileSync(
     resolve(__dirname, "../../src/server.ts"),
     "utf-8",
@@ -1631,20 +1626,17 @@ describe("ctx_insight: execFile migration source guard (#441)", () => {
 
   test("server.ts contains no execSync template-string interpolation anywhere", () => {
     // Match: execSync(`...${...}...`) — the original injection pattern.
-    // Scoped to the entire file (not just the ctx_insight handler) because
-    // any reintroduction of the pattern in server.ts is a regression worth
-    // catching.
+    // Scoped to the entire file because any reintroduction of the pattern
+    // in server.ts is a regression worth catching.
     const templateInterpolation = /execSync\(`[^`]*\$\{/m;
     expect(serverSrc).not.toMatch(templateInterpolation);
   });
 
-  test("server.ts defines structured helpers (openBrowserSync, killProcessOnPort)", () => {
-    // The helpers must be the ones that return BrowserOpenResult / KillResult
-    // so the ctx_insight handler can surface failures. They live inline in
-    // server.ts (PR #452 folded the prior src/process-utils.ts back in).
-    expect(serverSrc).toMatch(/export function openBrowserSync\b/);
+  test("server.ts defines the structured helper (killProcessOnPort)", () => {
+    // The helper must be the one that returns KillResult so the ctx_upgrade
+    // legacy sweep can surface failures. It lives inline in server.ts
+    // (PR #452 folded the prior src/process-utils.ts back in).
     expect(serverSrc).toMatch(/export function killProcessOnPort\b/);
-    expect(serverSrc).toMatch(/export type BrowserOpenResult\b/);
     expect(serverSrc).toMatch(/export type KillResult\b/);
   });
 });
@@ -4270,15 +4262,14 @@ describe("ctx_fetch_and_index cache key includes URL (Fix 6/10)", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ctx_insight process helpers (formerly tests/core/process-utils.test.ts)
+// Process helpers (formerly tests/core/process-utils.test.ts)
 //
-// Behavioral tests for browserOpenArgv / openBrowserSync / killProcessOnPort
-// (canonical home: src/server.ts). PR #452 review flagged that source-grep
-// tests pin implementation strings, not the actual security property. These
-// tests mock spawnSync directly and assert:
+// Behavioral tests for killProcessOnPort (canonical home: src/server.ts).
+// PR #452 review flagged that source-grep tests pin implementation strings,
+// not the actual security property. These tests mock spawnSync directly and
+// assert:
 //
 //   - argv arrays only — never `shell: true`
-//   - per-platform fallback semantics (xdg-open → sensible-browser)
 //   - Windows netstat parser anchors on LISTENING + local-address column
 //   - per-pid kill failures do not abort the remaining loop
 //   - structured results surface failure to callers
@@ -4286,8 +4277,6 @@ describe("ctx_fetch_and_index cache key includes URL (Fix 6/10)", () => {
 
 import { vi } from "vitest";
 import {
-  browserOpenArgv,
-  openBrowserSync,
   killProcessOnPort,
   type SpawnSyncFn,
 } from "../../src/server.js";
@@ -4316,122 +4305,6 @@ function makeRunner(
   };
   return { runner, calls };
 }
-
-describe("browserOpenArgv", () => {
-  test("darwin → open url", () => {
-    expect(browserOpenArgv("http://x", "darwin")).toEqual([
-      { cmd: "open", args: ["http://x"] },
-    ]);
-  });
-
-  test("win32 → cmd /c start with empty title", () => {
-    // The empty-string title arg is the security-relevant detail: if it were
-    // dropped, `start "http://attacker?evil=1"` would be parsed as a window
-    // title rather than a URL.
-    expect(browserOpenArgv("http://x", "win32")).toEqual([
-      { cmd: "cmd", args: ["/c", "start", "", "http://x"] },
-    ]);
-  });
-
-  test("linux → xdg-open then sensible-browser fallback", () => {
-    expect(browserOpenArgv("http://x", "linux")).toEqual([
-      { cmd: "xdg-open", args: ["http://x"] },
-      { cmd: "sensible-browser", args: ["http://x"] },
-    ]);
-  });
-
-  test("argv contains url as a single argument — no shell metachar expansion", () => {
-    // A URL with shell metachars must appear verbatim as one argv entry on
-    // every platform. If it were ever interpolated into a shell string, the
-    // `; rm -rf /` would split into a separate command.
-    const evil = "http://x; rm -rf /; #";
-    for (const platform of ["darwin", "win32", "linux"] as const) {
-      const attempts = browserOpenArgv(evil, platform);
-      for (const { args } of attempts) {
-        expect(args).toContain(evil);
-      }
-    }
-  });
-});
-
-describe("openBrowserSync", () => {
-  test("darwin: spawnSync('open', [url]) with no shell:true", () => {
-    const { runner, calls } = makeRunner([{ status: 0 }]);
-    const r = openBrowserSync("http://x", "darwin", runner);
-
-    expect(r.ok).toBe(true);
-    expect(calls).toHaveLength(1);
-    expect(calls[0].cmd).toBe("open");
-    expect(calls[0].args).toEqual(["http://x"]);
-    expect(calls[0].opts).not.toHaveProperty("shell", true);
-  });
-
-  test("win32: cmd /c start '' url, no shell:true", () => {
-    const { runner, calls } = makeRunner([{ status: 0 }]);
-    openBrowserSync("http://x", "win32", runner);
-
-    expect(calls[0].cmd).toBe("cmd");
-    expect(calls[0].args).toEqual(["/c", "start", "", "http://x"]);
-    expect(calls[0].opts).not.toHaveProperty("shell", true);
-  });
-
-  test("linux: xdg-open status=0 → sensible-browser is NOT called", () => {
-    const { runner, calls } = makeRunner([{ status: 0 }]);
-    const r = openBrowserSync("http://x", "linux", runner);
-
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.method).toBe("xdg-open");
-    expect(calls.map(c => c.cmd)).toEqual(["xdg-open"]);
-  });
-
-  test("linux: xdg-open status!=0 → sensible-browser fallback fires", () => {
-    const { runner, calls } = makeRunner([
-      { status: 3 },
-      { status: 0 },
-    ]);
-    const r = openBrowserSync("http://x", "linux", runner);
-
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.method).toBe("sensible-browser");
-    expect(calls.map(c => c.cmd)).toEqual(["xdg-open", "sensible-browser"]);
-  });
-
-  test("linux: xdg-open killed by signal (status=null + error) → fallback fires", () => {
-    // The pre-fix bug: status===null was treated as success. Verify both
-    // signal-kill and ENOENT trigger the fallback.
-    const { runner, calls } = makeRunner([
-      { status: null, error: new Error("Killed by signal") },
-      { status: 0 },
-    ]);
-    const r = openBrowserSync("http://x", "linux", runner);
-
-    expect(r.ok).toBe(true);
-    expect(calls.map(c => c.cmd)).toEqual(["xdg-open", "sensible-browser"]);
-  });
-
-  test("linux: both xdg-open and sensible-browser fail → ok=false with reason", () => {
-    const { runner } = makeRunner([
-      { status: 1, error: new Error("ENOENT xdg-open") },
-      { status: 1, error: new Error("ENOENT sensible-browser") },
-    ]);
-    const r = openBrowserSync("http://x", "linux", runner);
-
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.method).toBe("none");
-      expect(r.reason).toContain("xdg-open");
-      expect(r.reason).toContain("sensible-browser");
-    }
-  });
-
-  test("runner throws synchronously → caught, surfaced in reason", () => {
-    const runner: SpawnSyncFn = () => { throw new Error("EMFILE"); };
-    const r = openBrowserSync("http://x", "darwin", runner);
-
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toContain("EMFILE");
-  });
-});
 
 describe("killProcessOnPort — Linux/macOS (lsof)", () => {
   test("port free (lsof status=1, empty stdout) → no kill, no error", () => {
@@ -4603,10 +4476,10 @@ describe("killProcessOnPort — input validation", () => {
   });
 });
 
-// ─── ctx_insight helper follow-ups (#441 follow-up) ──────────────────────────
+// ─── process helper follow-ups (#441 follow-up) ──────────────────────────────
 //
-// 1. Hard timeout on every helper-internal spawnSync. A hung lsof/xdg-open/
-//    taskkill would otherwise block the MCP tool indefinitely. We assert the
+// 1. Hard timeout on every helper-internal spawnSync. A hung lsof/taskkill
+//    would otherwise block ctx_upgrade indefinitely. We assert the
 //    timeout option is propagated to the runner — the actual cap value is an
 //    implementation detail, but its presence is the regression we lock.
 //
@@ -4618,16 +4491,6 @@ describe("killProcessOnPort — input validation", () => {
 //    locale-translated; we now key off it instead.
 
 describe("Helper spawnSync timeout (#441 follow-up)", () => {
-  test("openBrowserSync passes a timeout to the runner", () => {
-    const { runner, calls } = makeRunner([{ status: 0 }]);
-    openBrowserSync("http://x", "darwin", runner);
-
-    expect(calls).toHaveLength(1);
-    expect(calls[0].opts).toBeDefined();
-    expect(typeof (calls[0].opts as { timeout?: number }).timeout).toBe("number");
-    expect((calls[0].opts as { timeout: number }).timeout).toBeGreaterThan(0);
-  });
-
   test("killProcessOnPort (Linux) passes a timeout to lsof and kill", () => {
     const { runner, calls } = makeRunner([
       { status: 0, stdout: "1234\n" },
@@ -5009,9 +4872,9 @@ describe("parseJsonc / stripJsonComments (src/util/jsonc)", () => {
 // Per CONTRIBUTING.md "Test file organization", we fold the contract into
 // tests/core/server.test.ts rather than creating tests/server/*.test.ts.
 //
-// Exemptions: ctx_stats, ctx_doctor, ctx_insight have minimal one-line
-// descriptions by design — they are GUI/diagnostic affordances, not routing
-// targets, so the WHEN: structural requirement does not apply.
+// Exemptions: ctx_stats, ctx_doctor have minimal one-line descriptions by
+// design — they are diagnostic affordances, not routing targets, so the
+// WHEN: structural requirement does not apply.
 describe("tool description style contract (#683 ADR-0002)", () => {
   const serverTsPath = resolve(__dirname, "../../src/server.ts");
   const serverTs = readFileSync(serverTsPath, "utf-8");
@@ -5058,8 +4921,8 @@ describe("tool description style contract (#683 ADR-0002)", () => {
   // Tools exempt from the WHEN: structural requirement, with documented
   // rationale per the audit (see TOOL-DESCRIPTIONS-AUDIT.md §3 table).
   //
-  // - ctx_stats / ctx_doctor / ctx_insight: minimal one-line descriptions by
-  //   design — diagnostic/GUI affordances, not routing targets. Audit row:
+  // - ctx_stats / ctx_doctor: minimal one-line descriptions by design —
+  //   diagnostic affordances, not routing targets. Audit row:
   //   "NIT — Clean, minimal, no change."
   // - ctx_upgrade: MUST is appropriate here (post-call obligation on the
   //   agent to run the returned shell command). Audit row: "LOW — MUST is
@@ -5067,7 +4930,6 @@ describe("tool description style contract (#683 ADR-0002)", () => {
   const EXEMPT_FROM_WHEN = new Set([
     "ctx_stats",
     "ctx_doctor",
-    "ctx_insight",
     "ctx_upgrade",
   ]);
 
@@ -5081,9 +4943,9 @@ describe("tool description style contract (#683 ADR-0002)", () => {
   // meets the canonical contract enforced below.
   const EXEMPT_FROM_FORBIDDEN_TOKENS = new Set<string>([]);
 
-  test("at least 11 ctx_* tools are registered", () => {
+  test("at least 10 ctx_* tools are registered", () => {
     // Sanity check that the extractor found the corpus.
-    expect(tools.length).toBeGreaterThanOrEqual(11);
+    expect(tools.length).toBeGreaterThanOrEqual(10);
   });
 
   // Forbidden tokens per ADR-0002. Each pattern is documented inline so
@@ -5659,11 +5521,10 @@ describe("tool description source form contract (#683 PR follow-up)", () => {
     "ctx_stats",
     "ctx_doctor",
     "ctx_upgrade",
-    "ctx_insight",
   ]);
 
-  test("at least 11 ctx_* tools surfaced for source-form contract", () => {
-    expect(blocks.length).toBeGreaterThanOrEqual(11);
+  test("at least 10 ctx_* tools surfaced for source-form contract", () => {
+    expect(blocks.length).toBeGreaterThanOrEqual(10);
   });
 
   for (const block of blocks) {
@@ -6088,26 +5949,6 @@ describe("getStatsFilePath: sanitize CLAUDE_SESSION_ID before path.join", () => 
 // Cross-platform audit follow-up — schema/observability fixes for #696 #697
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe("ctx_insight schema description (issue #697)", () => {
-  const serverSrc = readFileSync(
-    resolve(__dirname, "../../src/server.ts"),
-    "utf-8",
-  );
-
-  test("description states it is a dashboard launcher, not a Q&A engine", () => {
-    expect(serverSrc).toMatch(/ctx_insight[\s\S]{0,2000}dashboard launcher/);
-  });
-
-  test("description redirects natural-language queries to ctx_search", () => {
-    expect(serverSrc).toMatch(/ctx_insight[\s\S]{0,2000}use ctx_search/);
-  });
-
-  test("description frames Insight as a separate, upstream-hosted product", () => {
-    expect(serverSrc).toMatch(/Opens the upstream-hosted Insight dashboard/);
-    expect(serverSrc).toMatch(/not a ctxscribe feature/);
-  });
-});
-
 describe("ctx_batch_execute query_scope (issue #696)", () => {
   const serverSrc = readFileSync(
     resolve(__dirname, "../../src/server.ts"),
@@ -6397,7 +6238,6 @@ describe("ctx_* MCP tool annotations (#846)", () => {
     ctx_doctor:          { readOnlyHint: true,  destructiveHint: false, idempotentHint: true,  openWorldHint: false },
     ctx_upgrade:         { readOnlyHint: false, destructiveHint: false, idempotentHint: true,  openWorldHint: false },
     ctx_purge:           { readOnlyHint: false, destructiveHint: true,  idempotentHint: true,  openWorldHint: false },
-    ctx_insight:         { readOnlyHint: false, destructiveHint: false, idempotentHint: true,  openWorldHint: true  },
   };
   const tools = REGISTERED_CTX_TOOLS as Array<{ name: string; config: { annotations?: Hints } }>;
   const find = (name: string) => tools.find((t) => t.name === name);
@@ -6424,7 +6264,7 @@ describe("ctx_* MCP tool annotations (#846)", () => {
   test("never blanket-marks executing/mutating/destructive tools read-only", () => {
     for (const name of [
       "ctx_execute", "ctx_execute_file", "ctx_batch_execute", "ctx_index",
-      "ctx_fetch_and_index", "ctx_purge", "ctx_upgrade", "ctx_insight",
+      "ctx_fetch_and_index", "ctx_purge", "ctx_upgrade",
     ]) {
       expect(find(name)!.config.annotations!.readOnlyHint).toBe(false);
     }

@@ -896,6 +896,13 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
     projectDir.length > 0;
 
   if (matchesContextModeTool(toolName, "ctx_execute", "execute")) {
+    // Shell-only by design: raw JS/Python source would false-positive the
+    // command patterns on strings/comments. Non-shell languages are enforced
+    // one layer down — the server's extractShellCommands() parses
+    // child_process/subprocess call sites out of the code and runs the same
+    // deny policies (live-fire verified 2026-07-16: a javascript payload
+    // spawning a denied command is refused server-side even though this hook
+    // passes it through).
     if (security && toolInput.language === "shell") {
       const code = toolInput.code ?? "";
       const policies = security.readBashPolicies(projectDir, platformSettingsPath);
@@ -926,7 +933,9 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
         return { action: "deny", reason: `Blocked by security policy: file path matches Read deny pattern ${evalResult.matchedPattern}` };
       }
 
-      // Check code parameter against Bash deny patterns (same as execute)
+      // Check code parameter against Bash deny patterns (same as execute).
+      // Shell-only for the same layered-defense reason as the ctx_execute
+      // gate above — the server covers non-shell via extractShellCommands().
       const lang = toolInput.language ?? "";
       const code = toolInput.code ?? "";
       if (lang === "shell") {

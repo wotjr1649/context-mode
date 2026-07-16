@@ -166,6 +166,7 @@ Descriptions SHOULD be ≤ 1,000 characters. Hard cap 1,500.
 
 - `ctx_stats`, `ctx_doctor`, `ctx_insight` — minimal one-line descriptions
   by design (diagnostic / GUI affordances, not routing targets).
+  *(`ctx_insight` was removed from the fork on 2026-07-17 — see ADR-0007.)*
 - `ctx_upgrade` — `MUST` is permitted per the post-call obligation rule
   above.
 - `ctx_purge` — rewritten in PR #683 WS2 with carve-outs (`DESTRUCTIVE`,

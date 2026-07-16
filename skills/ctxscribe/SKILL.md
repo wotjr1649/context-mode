@@ -227,7 +227,7 @@ Step 3: ctx_search(queries: ["login form email password"], source: "Playwright")
         → returns only matching chunks (~300B)
 ```
 
-**Total context: ~430B** instead of 270K tokens. Real 99% savings.
+**Total context: ~430B** instead of 270K tokens — in this idealized flow the snapshot never touches context. Whole-session savings are workload-dependent: BENCHMARK.md measures 13–99% per scenario.
 
 ### Workflow B: Snapshot → File → Execute File (one-shot extraction)
 

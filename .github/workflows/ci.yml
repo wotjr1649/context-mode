@@ -110,7 +110,3 @@ jobs:
             echo "❌ Could not parse test results"
             exit $VITEST_EXIT
           fi
-
-      - name: Doctor (verify server starts)
-        run: npx tsx src/cli.ts doctor
-        continue-on-error: true
