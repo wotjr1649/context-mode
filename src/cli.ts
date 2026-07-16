@@ -26,6 +26,7 @@ import {
   getRuntimeSummary,
   hasBunRuntime,
   getAvailableLanguages,
+  LANGUAGES,
 } from "./runtime.js";
 import { getHookScriptPaths } from "./util/hook-config.js";
 import { resolveClaudeConfigDir } from "./util/claude-config.js";
@@ -665,8 +666,10 @@ async function doctor(): Promise<number> {
     );
   }
 
-  // Language coverage
-  const total = 11;
+  // Language coverage. Denominator from LANGUAGES, not a literal — this was the
+  // second hand-written copy of "11" against a 12-entry list (server.ts had the
+  // other), which is exactly why neither tracked the list.
+  const total = LANGUAGES.length;
   const pct = ((available.length / total) * 100).toFixed(0);
   if (available.length < 2) {
     fail(

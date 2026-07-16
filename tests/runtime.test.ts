@@ -1175,4 +1175,52 @@ describe("detectRuntimes — JS runtime fallback for non-JS host binaries (#731)
     expect(summary).toMatch(/not available|install/i);
     expect(summary).not.toMatch(/JavaScript: null/);
   });
+
+  // v1.0.7 derives ctx_execute's `language` enum from getAvailableLanguages(),
+  // on the invariant ADR-0006 states outright: an enum that mirrors detection
+  // cannot offer a runtime the executor will refuse. It was false for exactly
+  // one language — javascript was pushed unconditionally while buildCommand
+  // throws for it on a #731 host. Assert the invariant rather than the fix.
+  test("getAvailableLanguages never offers a language buildCommand refuses (ADR-0006)", async () => {
+    const { getAvailableLanguages, buildCommand, LANGUAGES } = await import(
+      "../src/runtime.js"
+    );
+
+    const none: RuntimeMap = {
+      javascript: null,
+      typescript: null,
+      python: null,
+      shell: "bash",
+      ruby: null,
+      go: null,
+      rust: null,
+      php: null,
+      perl: null,
+      r: null,
+      elixir: null,
+      csharp: null,
+    };
+    const all = {
+      ...Object.fromEntries(LANGUAGES.map((l) => [l, l])),
+      shell: "bash",
+    } as unknown as RuntimeMap;
+
+    for (const runtimes of [none, { ...none, javascript: "node" }, all]) {
+      for (const lang of getAvailableLanguages(runtimes)) {
+        expect(
+          () => buildCommand(runtimes, lang, "/tmp/probe"),
+          `offered "${lang}" but buildCommand refuses it`,
+        ).not.toThrow();
+      }
+    }
+
+    // The #731 host (no JS runtime at all) must not be offered javascript...
+    expect(getAvailableLanguages(none)).not.toContain("javascript");
+    expect(getAvailableLanguages({ ...none, javascript: "node" })).toContain(
+      "javascript",
+    );
+    // ...but shell stays unconditional: RuntimeMap.shell is non-nullable and
+    // buildCommand has no guard for it, so offering it always is correct.
+    expect(getAvailableLanguages(none)).toContain("shell");
+  });
 });

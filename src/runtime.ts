@@ -37,19 +37,27 @@ function isWindowsSystemCmd(shellPath: string): boolean {
   return /\\windows\\(?:system32|sysnative)\\cmd\.exe$/.test(lower);
 }
 
-export type Language =
-  | "javascript"
-  | "typescript"
-  | "python"
-  | "shell"
-  | "ruby"
-  | "go"
-  | "rust"
-  | "php"
-  | "perl"
-  | "r"
-  | "elixir"
-  | "csharp";
+/**
+ * Every language ctxscribe knows how to run. The `Language` type is derived from
+ * this array so the two cannot drift: anything needing a count (doctor's
+ * "Runtimes: n/N") reads LANGUAGES.length rather than restating the number.
+ */
+export const LANGUAGES = [
+  "javascript",
+  "typescript",
+  "python",
+  "shell",
+  "ruby",
+  "go",
+  "rust",
+  "php",
+  "perl",
+  "r",
+  "elixir",
+  "csharp",
+] as const;
+
+export type Language = (typeof LANGUAGES)[number];
 
 export interface RuntimeInfo {
   command: string;
@@ -627,7 +635,12 @@ export function getRuntimeSummary(runtimes: RuntimeMap): string {
 }
 
 export function getAvailableLanguages(runtimes: RuntimeMap): Language[] {
-  const langs: Language[] = ["javascript", "shell"];
+  // javascript is conditional for the same reason buildCommand() throws on it
+  // (#731: a non-JS host binary with no PATH-resolvable node). `shell` is not —
+  // RuntimeMap.shell is non-nullable and buildCommand has no guard for it.
+  const langs: Language[] = runtimes.javascript
+    ? ["javascript", "shell"]
+    : ["shell"];
   if (runtimes.typescript) langs.push("typescript");
   if (runtimes.python) langs.push("python");
   if (runtimes.ruby) langs.push("ruby");
