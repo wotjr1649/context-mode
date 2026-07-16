@@ -1012,7 +1012,14 @@ describe("Bin entry uses cli.bundle.mjs", () => {
 
   it("server.ts ctx_doctor runs diagnostics in-process (no CLI dependency)", () => {
     const src = readFileSync(resolve(ROOT, "src", "server.ts"), "utf-8");
-    const doctorSection = src.slice(src.indexOf("ctx_doctor"), src.indexOf("ctx_upgrade"));
+    // Anchor on the registerTool argument, not the bare name. Since v1.0.7 the
+    // trimmed ctx_execute/ctx_search descriptions close by listing their
+    // deferred siblings (ADR-0006), so a bare indexOf("ctx_doctor") lands in
+    // that prose ~2,400 lines above the tool and slices 12 chars of a sentence.
+    const doctorSection = src.slice(
+      src.indexOf('"ctx_doctor",'),
+      src.indexOf('"ctx_upgrade",'),
+    );
     // Must NOT delegate to CLI — runs server-side
     expect(doctorSection).not.toContain('node "');
     // Must run actual checks
