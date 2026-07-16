@@ -1301,9 +1301,9 @@ function truncateCodeForEcho(code: string): string {
 }
 
 /**
- * Source-code provenance block. Prepended to the content handed to
- * intentSearch()/indexStdout() so FTS5 remembers what ran; never part of
- * the tool response — the caller already holds the code it sent.
+ * Source-code provenance block. Indexed on its own via indexProvenance()
+ * so FTS5 remembers what ran; never part of the tool response — the caller
+ * already holds the code it sent.
  */
 function buildExecuteEcho(language: string, code: string, path?: string): string {
   const header = path ? `path=${path}\n` : "";
@@ -1645,9 +1645,10 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
         });
         if (intent && intent.trim().length > 0 && Buffer.byteLength(output) > INTENT_SEARCH_THRESHOLD) {
           trackIndexed(Buffer.byteLength(output));
+          indexProvenance(echo, language);
           return trackResponse("ctx_execute", {
             content: [
-              { type: "text" as const, text: intentSearch(`${echo}${output}`, intent, isError ? `execute:${language}:error` : `execute:${language}`) },
+              { type: "text" as const, text: intentSearch(output, intent, isError ? `execute:${language}:error` : `execute:${language}`) },
             ],
             isError,
           });
@@ -1655,9 +1656,10 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
         // Auto-index large error output into FTS5 — no data loss
         if (Buffer.byteLength(output) > LARGE_OUTPUT_THRESHOLD) {
           trackIndexed(Buffer.byteLength(output));
+          indexProvenance(echo, language);
           return trackResponse("ctx_execute", {
             content: [
-              { type: "text" as const, text: intentSearch(`${echo}${output}`, "errors failures exceptions", isError ? `execute:${language}:error` : `execute:${language}`) },
+              { type: "text" as const, text: intentSearch(output, "errors failures exceptions", isError ? `execute:${language}:error` : `execute:${language}`) },
             ],
             isError,
           });
@@ -1675,17 +1677,19 @@ __cm_main().catch(e=>{console.error(e);process.exitCode=1});${background ? '\nse
       // Intent-driven search: if intent provided and output is large enough
       if (intent && intent.trim().length > 0 && Buffer.byteLength(stdout) > INTENT_SEARCH_THRESHOLD) {
         trackIndexed(Buffer.byteLength(stdout));
+        indexProvenance(echo, language);
         return trackResponse("ctx_execute", {
           content: [
-            { type: "text" as const, text: intentSearch(`${echo}${stdout}`, intent, `execute:${language}`) },
+            { type: "text" as const, text: intentSearch(stdout, intent, `execute:${language}`) },
           ],
         });
       }
 
       // Auto-index large stdout into FTS5 — return pointer, not raw content.
-      // The provenance block rides along in the indexed content only.
+      // The provenance block is indexed separately (code:<language> label).
       if (Buffer.byteLength(stdout) > LARGE_OUTPUT_THRESHOLD) {
-        const indexed = indexStdout(`${echo}${stdout}`, `execute:${language}`);
+        indexProvenance(echo, language);
+        const indexed = indexStdout(stdout, `execute:${language}`);
         return trackResponse("ctx_execute", indexed);
       }
 
@@ -1733,6 +1737,19 @@ function indexStdout(
 
 const INTENT_SEARCH_THRESHOLD = 5_000; // bytes — ~80-100 lines
 const LARGE_OUTPUT_THRESHOLD = 102_400; // 100KB — auto-index into FTS5, return pointer
+
+/**
+ * Index the provenance block under its own `code:<language>` label —
+ * recallable via global ctx_search, but never inside the per-call source
+ * scope that intentSearch previews come from (like-mode source matching is
+ * substring-based, so this label must not contain the call's source string;
+ * otherwise a preview line could hand the submitted code back).
+ */
+function indexProvenance(echo: string, language: string): void {
+  try {
+    getStore().indexPlainText(echo, `code:${language}`, undefined, currentAttribution());
+  } catch { /* provenance is best-effort — never fail the call for it */ }
+}
 
 function intentSearch(
   stdout: string,
@@ -1918,9 +1935,10 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
         });
         if (intent && intent.trim().length > 0 && Buffer.byteLength(output) > INTENT_SEARCH_THRESHOLD) {
           trackIndexed(Buffer.byteLength(output));
+          indexProvenance(echo, language);
           return trackResponse("ctx_execute_file", {
             content: [
-              { type: "text" as const, text: intentSearch(`${echo}${output}`, intent, isError ? `file:${path}:error` : `file:${path}`) },
+              { type: "text" as const, text: intentSearch(output, intent, isError ? `file:${path}:error` : `file:${path}`) },
             ],
             isError,
           });
@@ -1928,9 +1946,10 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
         // Auto-index large error output into FTS5 — no data loss
         if (Buffer.byteLength(output) > LARGE_OUTPUT_THRESHOLD) {
           trackIndexed(Buffer.byteLength(output));
+          indexProvenance(echo, language);
           return trackResponse("ctx_execute_file", {
             content: [
-              { type: "text" as const, text: intentSearch(`${echo}${output}`, "errors failures exceptions", isError ? `file:${path}:error` : `file:${path}`) },
+              { type: "text" as const, text: intentSearch(output, "errors failures exceptions", isError ? `file:${path}:error` : `file:${path}`) },
             ],
             isError,
           });
@@ -1947,17 +1966,19 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
 
       if (intent && intent.trim().length > 0 && Buffer.byteLength(stdout) > INTENT_SEARCH_THRESHOLD) {
         trackIndexed(Buffer.byteLength(stdout));
+        indexProvenance(echo, language);
         return trackResponse("ctx_execute_file", {
           content: [
-            { type: "text" as const, text: intentSearch(`${echo}${stdout}`, intent, `file:${path}`) },
+            { type: "text" as const, text: intentSearch(stdout, intent, `file:${path}`) },
           ],
         });
       }
 
       // Auto-index large stdout into FTS5 — return pointer, not raw content.
-      // The provenance block rides along in the indexed content only.
+      // The provenance block is indexed separately (code:<language> label).
       if (Buffer.byteLength(stdout) > LARGE_OUTPUT_THRESHOLD) {
-        const indexed = indexStdout(`${echo}${stdout}`, `file:${path}`);
+        indexProvenance(echo, language);
+        const indexed = indexStdout(stdout, `file:${path}`);
         return trackResponse("ctx_execute_file", indexed);
       }
 

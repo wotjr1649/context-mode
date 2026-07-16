@@ -41,8 +41,14 @@ upstream-hosted dashboard funnel violating the fork charter. Removed
    (pre-install) numbers would repeat the era-mixing error this audit spent
    a week correcting: whether always-load *changes* adoption is exactly the
    hypothesis under test.
-2. **Pre-registered verdict rule** (so the judgment cannot be moved later):
-   - post-install organic adoption **< 15%** → demote to deferred: remove
+2. **Pre-registered verdict rule** (so the judgment cannot be moved later).
+   The metric is `adoption.execCallBasis.pct` from
+   `scripts/measure-adoption.mjs` — **ctx_execute + ctx_execute_file calls
+   over all tool calls** in the organic window. The family-wide `callBasis`
+   is explicitly NOT the verdict metric: ctx_batch_execute alone (1,572
+   calls in the corpus) could clear a family bar without measuring this
+   bet at all (adversarial-review finding, 2026-07-17).
+   - post-install `execCallBasis` **< 15%** → demote to deferred: remove
      `ctx_execute` from the always-load set at `src/server.ts`
      (`installStrictClientSchemaCompat` `_meta` hook), keeping `ctx_search`
      always-loaded. One-line change, recorded as an amendment here.

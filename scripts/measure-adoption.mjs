@@ -63,6 +63,10 @@ const CWD_RE = /context-mode|ctxscribe/i;
 // the memory file uses this convention: 26 ctx_*-shaped calls from other registrations existed
 // in the organic window and are NOT counted (they are reported separately under --debug).
 const CTX_RE = /^mcp__plugin_ctxscribe_mcp__ctx_[a-z_]+$/;
+// ADR-0007 verdict metric: the always-load bet is specifically about ctx_execute,
+// so the verdict ratio counts only the execute pair — family-wide callBasis
+// would let ctx_batch_execute alone clear the bar without measuring the bet.
+const CTX_EXEC_RE = /^mcp__plugin_ctxscribe_mcp__ctx_(execute|execute_file)$/;
 const CTX_ANY_RE = /^mcp__.*__ctx_[a-z_]+$/;
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'MultiEdit']);
 const BIG = 2 * 1024;
@@ -109,11 +113,11 @@ function sessRec(sess) {
   let s = S.get(sess);
   if (!s) {
     s = { firstMs: Infinity, cwdHit: false, ctxFiles: new Set(), msgFiles: new Set(), calls: 0,
-          ctxCalls: 0, ctxAnyCalls: 0, bytes: 0, ctxBytes: 0, readBytes: 0, bashBig: 0,
+          ctxCalls: 0, ctxExecCalls: 0, ctxAnyCalls: 0, bytes: 0, ctxBytes: 0, readBytes: 0, bashBig: 0,
           grepBig: 0, reads: [], edits: [], turnTs: [],
           compactAll: 0, compactWin: 0,
           // in-window (event-cut) counters
-          wCalls: 0, wCtxCalls: 0, wBytes: 0, wCtxBytes: 0, wReadBytes: 0, wBashBig: 0, wGrepBig: 0, wFiles: new Set() };
+          wCalls: 0, wCtxCalls: 0, wCtxExecCalls: 0, wBytes: 0, wCtxBytes: 0, wReadBytes: 0, wBashBig: 0, wGrepBig: 0, wFiles: new Set() };
     S.set(sess, s);
   }
   return s;
@@ -178,6 +182,7 @@ for (const f of walk(ROOT)) {
         if (inWin) { s.wCalls++; s.wFiles.add(f); }
         const isCtx = CTX_RE.test(it.name);
         if (isCtx) { s.ctxCalls++; if (inWin) s.wCtxCalls++; }
+        if (CTX_EXEC_RE.test(it.name)) { s.ctxExecCalls++; if (inWin) s.wCtxExecCalls++; }
         if (CTX_ANY_RE.test(it.name)) { s.ctxAnyCalls++; if (!isCtx) (s.ctxOther ??= {})[it.name] = ((s.ctxOther ??= {})[it.name] || 0) + 1; }
         const rec = { name: it.name, isCtx, inWin, b: 0 };
         idMap.set(it.id, rec);
@@ -211,7 +216,7 @@ for (const f of walk(ROOT)) {
 }
 
 // ---- filter sessions & aggregate ----
-const tot = { sessions: 0, contexts: 0, msgContexts: 0, calls: 0, ctxCalls: 0, ctxAnyCalls: 0,
+const tot = { sessions: 0, contexts: 0, msgContexts: 0, calls: 0, ctxCalls: 0, ctxExecCalls: 0, ctxAnyCalls: 0,
               bytes: 0, ctxBytes: 0, readBytes: 0, explAny: 0, explW10: 0, bashBig: 0, grepBig: 0 };
 const excl = { era: 0, cwd: 0, verification: 0, empty: 0 };
 const ctxOtherNames = {};
@@ -258,13 +263,13 @@ for (const [sess, s] of S) {
   if (evCut) {
     tot.contexts += s.wFiles.size + s.compactWin;
     tot.msgContexts += s.wFiles.size;
-    tot.calls += s.wCalls; tot.ctxCalls += s.wCtxCalls; tot.ctxAnyCalls += s.ctxAnyCalls;
+    tot.calls += s.wCalls; tot.ctxCalls += s.wCtxCalls; tot.ctxExecCalls += s.wCtxExecCalls; tot.ctxAnyCalls += s.ctxAnyCalls;
     tot.bytes += s.wBytes; tot.ctxBytes += s.wCtxBytes;
     tot.readBytes += s.wReadBytes; tot.bashBig += s.wBashBig; tot.grepBig += s.wGrepBig;
   } else {
     tot.contexts += s.ctxFiles.size + s.compactAll;
     tot.msgContexts += s.msgFiles.size;
-    tot.calls += s.calls; tot.ctxCalls += s.ctxCalls; tot.ctxAnyCalls += s.ctxAnyCalls;
+    tot.calls += s.calls; tot.ctxCalls += s.ctxCalls; tot.ctxExecCalls += s.ctxExecCalls; tot.ctxAnyCalls += s.ctxAnyCalls;
     tot.bytes += s.bytes; tot.ctxBytes += s.ctxBytes;
     tot.readBytes += s.readBytes; tot.bashBig += s.bashBig; tot.grepBig += s.grepBig;
   }
@@ -304,6 +309,8 @@ const out = {
   sampleWarning: tot.contexts < minContexts ? `N=${tot.contexts} < --min-contexts ${minContexts}: sample too small, treat as indicative only` : null,
   adoption: {
     callBasis: { ctxCalls: tot.ctxCalls, allCalls: tot.calls, pct: pct(tot.ctxCalls, tot.calls) },
+    // ADR-0007 verdict metric (execute pair only — see CTX_EXEC_RE note).
+    execCallBasis: { execCalls: tot.ctxExecCalls, allCalls: tot.calls, pct: pct(tot.ctxExecCalls, tot.calls) },
     byteBasis: { ctxMB: +(tot.ctxBytes / MB).toFixed(2), allMB: +(tot.bytes / MB).toFixed(2), pct: pct(tot.ctxBytes, tot.bytes) },
     ctxShapedCallsFromOtherRegistrations: tot.ctxAnyCalls - tot.ctxCalls,
   },

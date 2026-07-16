@@ -66,6 +66,13 @@ const WHITELIST = [
   //   `/Users/mksglu/Server/Mert/context-mode-claude-code-plugin/context-mode`, hard-coded in a
   //   manual (non-vitest) benchmark script. Renaming someone else's machine path would invent a
   //   directory that exists on nobody's disk. Scoped to file + the `/Users/mksglu/` home shape.
+  /scripts[/\\]measure-adoption\.mjs:.*context-mode\|ctxscribe/,
+  //   ERA-EXCLUSION REGEX (functional, not identity): the adoption instrument
+  //   excludes sessions whose cwd matched the plugin's own checkout across
+  //   BOTH eras — the pre-rename clone was literally named context-mode, so
+  //   the old token is the only way to match historical transcripts. Scoped
+  //   to the `context-mode|ctxscribe` alternation shape (comment + regex
+  //   definition); a lone context-mode elsewhere in that file is still caught.
   // Task 10b. The entry below is an EXTERNAL reference — a third-party name this fork
   // does not own — exactly the class of the context-mode-platform entry above.
   // (The former upstream product-domain EXTERNAL DOMAIN exemption left with
