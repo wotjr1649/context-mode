@@ -4129,7 +4129,10 @@ describe("ctx_doctor hook script checks", () => {
   );
 
   test("resolves relative hook script paths against pluginRoot", () => {
-    const doctorSection = serverSrc.slice(serverSrc.indexOf("ctx_doctor"), serverSrc.indexOf("ctx_upgrade"));
+    // Anchor on the quoted registerTool argument, not a bare name: tool
+    // descriptions list sibling tool names, and an unquoted `ctx_doctor` now
+    // matches one of those first — slicing an empty section that passes nothing.
+    const doctorSection = serverSrc.slice(serverSrc.indexOf('"ctx_doctor",'), serverSrc.indexOf('"ctx_upgrade",'));
     expect(doctorSection).toContain("for (const scriptPath of hookScriptPaths)");
     expect(doctorSection).toContain("const hookPath = resolve(pluginRoot, scriptPath)");
     expect(doctorSection).not.toContain("for (const hookPath of hookScriptPaths)");

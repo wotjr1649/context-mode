@@ -1510,7 +1510,7 @@ RETURNS:
 
 EXAMPLE: ctx_execute(language: "javascript", code: "const fs=require('fs'); const f=fs.readdirSync('src').filter(x=>x.endsWith('.ts')); console.log(f.length+' TS files; largest: '+f.map(x=>[x,fs.statSync('src/'+x).size]).sort((a,b)=>b[1]-a[1])[0].join(' '))")
 
-Siblings are deferred — load via ToolSearch when the task needs them: ctx_search (session memory + indexed content), ctx_index (index a file or a whole directory), ctx_fetch_and_index (web pages), ctx_batch_execute (parallel commands), ctx_stats, ctx_doctor, ctx_purge.`,
+Deferred siblings — load via ToolSearch when the task needs them: ctx_index (index a file or a whole directory), ctx_fetch_and_index (web pages), ctx_batch_execute (parallel commands), ctx_execute_file, ctx_stats, ctx_doctor, ctx_upgrade, ctx_purge, ctx_insight. (ctx_search, for session memory, is already loaded alongside this tool.)`,
     inputSchema: z.object({
       // Enum mirrors the runtimes actually detected on this host — same source as
       // `langList` in the description above. The old static 12-language list
@@ -2391,7 +2391,7 @@ RETURNS:
 
 EXAMPLE: ctx_search(queries: ["what did we decide about caching", "why was the retry approach rejected"], sort: "timeline")
 
-Siblings are deferred — load via ToolSearch: ctx_index, ctx_fetch_and_index, ctx_batch_execute, ctx_stats, ctx_doctor, ctx_purge.`,
+Deferred siblings — load via ToolSearch: ctx_index, ctx_fetch_and_index, ctx_batch_execute, ctx_execute_file, ctx_stats, ctx_doctor, ctx_upgrade, ctx_purge, ctx_insight.`,
     // Schema construction is centralised in `src/search/ctx-search-schema.ts`
     // so the conditional `project` field (only registered when the host runs
     // in shared-DB mode, `CONTEXT_MODE_PROJECT_DIR` set at module load) is a
