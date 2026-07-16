@@ -283,7 +283,7 @@ describe("statusline.mjs — SessionDB-backed reads", () => {
       CLAUDE_SESSION_ID: "any-session-id",
     });
     assert.match(stdout, /ctxscribe/);
-    assert.match(stdout, /saves ~98% of context window/);
+    assert.match(stdout, /routes large output through a sandbox/);
     assert.doesNotMatch(stdout, /\$\d+\/dev\/month/);
   });
 });
