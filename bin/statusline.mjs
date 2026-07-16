@@ -234,10 +234,12 @@ async function main() {
 
   const analytics = await loadAnalytics();
 
-  // BRAND-NEW / build missing — substantiated headline only
+  // BRAND-NEW / build missing — state the mechanism, never a savings figure.
+  // With no analytics there is nothing measured to report, and a plausible
+  // number shown in place of missing data is worse than no number (#894).
   if (!analytics) {
     process.stdout.write(
-      `${brand("ctxscribe")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
+      `${brand("ctxscribe")}  ${green("●")}  ${dim("routes large output through a sandbox")}`,
     );
     return;
   }
@@ -251,7 +253,7 @@ async function main() {
   // Sessions dir doesn't exist yet — first ever launch
   if (!existsSync(sessionsDir)) {
     process.stdout.write(
-      `${brand("ctxscribe")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
+      `${brand("ctxscribe")}  ${green("●")}  ${dim("routes large output through a sandbox")}`,
     );
     return;
   }
@@ -325,10 +327,10 @@ async function main() {
   const realAdapters = (multi?.perAdapter ?? []).filter((a) => a?.isReal);
   const showMultiAdapter = realAdapters.length >= 2;
 
-  // BRAND-NEW: no data at all → marketing headline.
+  // BRAND-NEW: no data at all → mechanism headline, no figure.
   if (lifetimeBytes === 0 && sessionBytes === 0) {
     process.stdout.write(
-      `${brand("ctxscribe")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
+      `${brand("ctxscribe")}  ${green("●")}  ${dim("routes large output through a sandbox")}`,
     );
     return;
   }
@@ -372,7 +374,7 @@ main().catch(() => {
   // Last-resort fallback — a thrown error must never produce a blank statusline.
   try {
     process.stdout.write(
-      `${brand("ctxscribe")}  ${green("●")}  ${dim("saves ~98% of context window")}`,
+      `${brand("ctxscribe")}  ${green("●")}  ${dim("routes large output through a sandbox")}`,
     );
   } catch { /* ignore */ }
 });

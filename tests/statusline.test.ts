@@ -157,27 +157,29 @@ describe("statusline.mjs — render fallbacks", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  // BRAND-NEW state: no SessionDB. Falls back to substantiated README
-  // headline ("~98% of context window") — no fabricated $/dev/month copy.
-  test("brand-new state: no SessionDB shows substantiated headline", () => {
+  // BRAND-NEW state: no SessionDB. Falls back to a headline that states the
+  // mechanism — with nothing measured, any figure would be invented.
+  test("brand-new state: no SessionDB shows fallback headline", () => {
     const out = runStatusline({
       CONTEXT_MODE_DIR: root,
       CLAUDE_SESSION_ID: "pid-doesnotexist",
     });
     assert.match(out, /ctxscribe/);
-    assert.match(out, /saves ~98% of context window/);
+    assert.match(out, /routes large output through a sandbox/);
     assert.doesNotMatch(out, /\$\d+\/dev\/month/, "no fabricated $/dev/month claim");
+    // The no-data branches must never quote a savings figure (#894).
+    assert.doesNotMatch(out, /\d+\s*%/, "no savings percentage without data");
   });
 
   // Empty sessions dir (exists but no .db) — same headline fallback.
-  test("empty sessions dir shows substantiated headline", () => {
+  test("empty sessions dir shows fallback headline", () => {
     // dir is freshly mkdtemp'd — empty, no .db files.
     const out = runStatusline({
       CONTEXT_MODE_DIR: root,
       CLAUDE_SESSION_ID: "pid-empty",
     });
     assert.match(out, /ctxscribe/);
-    assert.match(out, /saves ~98% of context window/);
+    assert.match(out, /routes large output through a sandbox/);
     assert.doesNotMatch(out, /NaN/);
   });
 
@@ -191,7 +193,7 @@ describe("statusline.mjs — render fallbacks", () => {
       CLAUDE_SESSION_ID: "pid-bad",
     });
     assert.match(out, /ctxscribe/);
-    assert.match(out, /saves ~98% of context window/);
+    assert.match(out, /routes large output through a sandbox/);
     assert.doesNotMatch(out, /NaN/);
   });
 });

@@ -1,7 +1,7 @@
 {
   "name": "ctxscribe",
   "version": "1.0.7",
-  "description": "MCP server that saves 98% of your context window with session continuity. Sandboxed code execution in 11 languages, FTS5 knowledge base with BM25 ranking, and automatic state restore across compactions.",
+  "description": "MCP server that keeps large tool output out of your context window — process it in a sandbox, return only the answer. Sandboxed multi-language code execution, FTS5 knowledge base with BM25 ranking, and automatic state restore across compactions.",
   "author": {
     "name": "Kim Jae Seok",
     "url": "https://github.com/wotjr1649"
@@ -24,7 +24,7 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "ctxscribe",
-    "shortDescription": "98% context window savings via FTS5 + sandboxed execution",
+    "shortDescription": "Keeps large tool output out of context — sandboxed execution + FTS5 search",
     "developerName": "Kim Jae Seok",
     "category": "Productivity"
   }
