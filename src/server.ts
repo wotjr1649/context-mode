@@ -27,6 +27,7 @@ import {
   getRuntimeSummary,
   getAvailableLanguages,
   hasBunRuntime,
+  type Language,
 } from "./runtime.js";
 import { classifyNonZeroExit } from "./exit-classify.js";
 import { startLifecycleGuard, noteMcpActivity, noteRequestStart, noteRequestEnd, attachMcpActivityTap } from "./lifecycle.js";
@@ -245,11 +246,20 @@ export function sanitizeSchemaForStrictClients(node: unknown): unknown {
   return out;
 }
 
+// Hosts defer MCP tools once the combined tool surface outgrows their budget
+// (Claude Code: ~10% of the context window), so ctx_* stays invisible until a
+// ToolSearch call surfaces it. These two opt out of that deferral: ctx_execute is
+// the entry point for every derivation, ctx_search the only way into hook-captured
+// session memory. The other nine stay deferred deliberately — their descriptions
+// cost more context every session than the deferral costs in missed use.
+const ALWAYS_LOAD_TOOLS = new Set(["ctx_execute", "ctx_search"]);
+
 // Wrap the SDK-installed tools/list handler so its generated schemas pass through
-// the sanitizer above. Best-effort by design: if the MCP SDK's internals shift,
-// the original handler is left untouched (no regression — strict clients stay as
-// they were, every other client unaffected). Must run AFTER all registerTool()
-// calls so the SDK's default tools/list handler already exists.
+// the sanitizer above, and so always-load hints reach hosts that honour them.
+// Best-effort by design: if the MCP SDK's internals shift, the original handler is
+// left untouched (no regression — strict clients stay as they were, every other
+// client unaffected). Must run AFTER all registerTool() calls so the SDK's default
+// tools/list handler already exists.
 export function installStrictClientSchemaCompat(target: McpServer = server): void {
   try {
     const low = target.server as unknown as {
@@ -259,11 +269,15 @@ export function installStrictClientSchemaCompat(target: McpServer = server): voi
     if (typeof original !== "function") return;
     target.server.setRequestHandler(ListToolsRequestSchema, async (req, extra) => {
       const result = (await original(req as unknown, extra as unknown)) as
-        | { tools?: Array<{ inputSchema?: unknown }> }
+        | { tools?: Array<{ name?: string; inputSchema?: unknown; _meta?: Record<string, unknown> }> }
         | undefined;
       if (result && Array.isArray(result.tools)) {
         for (const tool of result.tools) {
-          if (!tool || tool.inputSchema == null) continue;
+          if (!tool) continue;
+          if (tool.name != null && ALWAYS_LOAD_TOOLS.has(tool.name)) {
+            tool._meta = { ...(tool._meta ?? {}), "anthropic/alwaysLoad": true };
+          }
+          if (tool.inputSchema == null) continue;
           try {
             tool.inputSchema = sanitizeSchemaForStrictClients(tool.inputSchema);
           } catch {
@@ -1478,62 +1492,43 @@ server.registerTool(
     },
     description: `Run code in a sandboxed subprocess.${bunNote} Languages: ${langList}.
 
-Think-in-Code — the core philosophy: the bytes your code processes never enter your conversation memory; only what you console.log() does. Reading a 700 KB log directly means 700 KB of your remaining reasoning capacity gets spent on raw bytes. Running code over that same log in this sandbox and printing a 3 KB summary leaves you with 697 KB of capacity for the actual work.
-
-Concrete shape — analyze 47 source files without reading any of them:
-  ctx_execute(language: "javascript", code: \`
-    const fs = require('fs');
-    const files = fs.readdirSync('src').filter(f => f.endsWith('.ts'));
-    files.forEach(f => {
-      const lines = fs.readFileSync('src/'+f,'utf8').split('\\\\n').length;
-      console.log(f + ': ' + lines + ' lines');
-    });
-  \`)
-  // 47 files analyzed, 15,314 LoC summarized — output ~3.6 KB instead of 47 Read() calls = ~700 KB.
+Think-in-Code: the bytes your code reads never enter your conversation — only what you console.log() does. A 700 KB log read directly spends 700 KB of your remaining reasoning capacity; the same log processed here and summarised to 3 KB spends 3 KB.
 
 WHEN:
-  - You intend to derive an answer FROM data (filter, count, aggregate, parse, compare, transform) — do the derivation in code and print only the answer
-  - Output shape or size cannot be predicted before execution (recursive finds, repo-wide greps, list endpoints, query results, log scans)
-  - You would otherwise read raw output and then mentally compute — that compute belongs here, in code, where its inputs stay out of your conversation
-  - You need to keep a long-running process alive (dev server, watcher, daemon) — pass \`background: true\` to detach on timeout instead of killing the process
-  - The output may legitimately be large but you only want recall-by-topic later — pass an \`intent\` string; outputs over ~5KB are auto-indexed into the knowledge base and only the section titles + previews come back, retrievable via ctx_search
+  - You will derive an answer FROM data (filter, count, aggregate, parse, compare) — do it in code, print only the answer
+  - Output size cannot be predicted before running (recursive finds, repo-wide greps, log scans, query results)
+  - You need a process to outlive the call (dev server, watcher) — pass \`background: true\`
+  - Output may be large but you only want recall-by-topic — pass \`intent\`; over ~5KB it is auto-indexed and only section titles come back, retrievable via ctx_search
 
 WHEN NOT:
-  - Single observational command whose entire short output you intend to consume verbatim (whoami, pwd, git status on a clean tree) — Bash is simpler
-  - File mutations (Edit/Write) or navigation (cd/ls) — Bash is the right surface
-  - You already know the output is one short fixed line and you want to read it as-is
+  - Short fixed output you will read verbatim (whoami, pwd, clean git status) — Bash is simpler
+  - You intend to Edit the file afterwards — Read it instead, so Edit can match the exact bytes
+  - File mutations or navigation — Bash/Write is the right surface
 
 RETURNS:
-  Only what your code prints. Wrap risky calls in try/catch — uncaught errors go to stderr and may leak more than intended. When \`intent\` is set and output exceeds the auto-index threshold, the response carries searchable section titles + previews instead of the raw stdout; use ctx_search(queries: [...]) to drill into specific sections.
+  Only what your code prints. Wrap risky calls in try/catch — uncaught errors go to stderr.
 
-EXAMPLE: ctx_execute(language: "javascript", code: "const out = require('child_process').execSync('npm test', {encoding:'utf8', stdio:['ignore','pipe','pipe']}); console.log(out.split('\\\\n').filter(l => /(FAIL|✗|×|Error:|Tests +.*(failed|passed))/i.test(l)).slice(0, 60).join('\\\\n'))")
-EXAMPLE: ctx_execute(language: "javascript", code: "const out = require('child_process').execSync('gh issue list --json number,title --limit 100', {encoding:'utf8'}); const hooks = JSON.parse(out).filter(i => /hook|routing/i.test(i.title)); console.log(\`\${hooks.length} hook-related issues\`)")`,
+EXAMPLE: ctx_execute(language: "javascript", code: "const fs=require('fs'); const f=fs.readdirSync('src').filter(x=>x.endsWith('.ts')); console.log(f.length+' TS files; largest: '+f.map(x=>[x,fs.statSync('src/'+x).size]).sort((a,b)=>b[1]-a[1])[0].join(' '))")
+
+Deferred siblings — load via ToolSearch when the task needs them: ctx_index (index a file or a whole directory), ctx_fetch_and_index (web pages), ctx_batch_execute (parallel commands), ctx_execute_file, ctx_stats, ctx_doctor, ctx_upgrade, ctx_purge, ctx_insight. (ctx_search, for session memory, is already loaded alongside this tool.)`,
     inputSchema: z.object({
+      // Enum mirrors the runtimes actually detected on this host — same source as
+      // `langList` in the description above. The old static 12-language list
+      // advertised runtimes that were not installed and the model took the offer:
+      // "No Python runtime available" was a recurring dead end. Narrower enum =
+      // smaller schema and no offers we cannot honour.
       language: z
-        .enum([
-          "javascript",
-          "typescript",
-          "python",
-          "shell",
-          "ruby",
-          "go",
-          "rust",
-          "php",
-          "perl",
-          "r",
-          "elixir",
-          "csharp",
-        ])
+        .enum(available as [Language, ...Language[]])
         .describe("Runtime language"),
       code: z
         .string()
         .describe(
-          "Source code to execute. Use console.log (JS/TS), print (Python/Ruby/Perl/R), echo (Shell), echo (PHP), fmt.Println (Go), IO.puts (Elixir), or Console.WriteLine (C#) to output a summary to context.",
+          "Source code. Only what you print reaches the conversation (console.log / print / echo / fmt.Println).",
         ),
       timeout: z
         .coerce.number()
         .optional()
-        .describe("Max execution time in ms. When omitted, no server-side timer fires — the MCP host's RPC timeout governs (which is the right layer for this policy). Pass an explicit value for long-running builds (Gradle/Maven/SBT)."),
+        .describe("Max execution time in ms. Omitted: no server-side timer — the host's RPC timeout governs. Set it for long builds."),
       // background: wrapped in coerceBoolean preprocessor so the literal
       // strings "true"/"false" arriving from several LLM providers'
       // tool-call JSON parse as the boolean the handler expects.
@@ -1543,19 +1538,16 @@ EXAMPLE: ctx_execute(language: "javascript", code: "const out = require('child_p
         .preprocess(coerceBoolean, z.boolean())
         .optional()
         .default(false)
-        .describe("Keep process running after timeout (for servers/daemons). Returns partial output without killing the process. IMPORTANT: Do NOT add setTimeout/self-close timers in background scripts — the process must stay alive until the timeout detaches it. For server+fetch patterns, prefer putting both server and fetch in ONE ctx_execute call instead of using background."),
+        .describe("Detach on timeout instead of killing (servers, daemons); returns partial output. Do NOT add self-close timers — the process must outlive the call. For server+fetch, put both in one call instead."),
       cwd: z
         .string()
         .optional()
-        .describe("Optional working directory for shell commands. Non-shell languages still execute from their sandbox temp directory."),
+        .describe("Working directory for shell commands. Other languages run from the sandbox temp dir."),
       intent: z
         .string()
         .optional()
         .describe(
-          "What you're looking for in the output. When provided and output is large (>5KB), " +
-          "indexes output into knowledge base and returns section titles + previews — not full content. " +
-          "Use ctx_search(queries: [...]) to retrieve specific sections. Example: 'failing tests', 'HTTP 500 errors'." +
-          "\n\nTIP: Use specific technical terms, not just concepts. Check 'Searchable terms' in the response for available vocabulary.",
+          "What you're looking for. Over ~5KB the output is indexed and only section titles return — drill in with ctx_search. Use specific technical terms, e.g. 'failing tests'.",
         ),
     }),
   },
@@ -2380,28 +2372,26 @@ server.registerTool(
       idempotentHint: true,
       openWorldHint: false,
     },
-    description: `Search a unified knowledge base with a multi-strategy ranking pipeline. Two parallel matchers run on every query: a Porter-stemming matcher ("caching" finds "cached", "caches", "cach") and a trigram-substring matcher ("useEff" finds "useEffect"). Their ranked lists are merged via Reciprocal Rank Fusion, so a document that ranks well in both surfaces above one that wins only on a single strategy. Multi-term queries get an additional proximity-rerank pass that boosts passages where the query terms appear close together. Typos are corrected via Levenshtein distance and re-searched. Result snippets are window-extracted around the matched terms, not blindly truncated.
+    description: `Search a unified knowledge base: content you indexed (ctx_index, ctx_fetch_and_index, ctx_batch_execute output) AND session memory auto-captured by hooks — decisions, errors and their fixes, blockers, plans, user prompts, rejected approaches, compaction guides (26 categories). This tool is the only way into that memory.
 
-The knowledge base is unified: queries reach indexed content you stored (ctx_index, ctx_fetch_and_index, ctx_batch_execute output) AND auto-captured session memory written by hooks (decisions, errors, blockers, plans, user prompts, rejected approaches, tool failures, compaction guides — 26 event categories). File-backed sources carry a content hash and auto-flag staleness when the source file changes.
+Ranking: Porter-stemming and trigram-substring matchers run in parallel ("caching" finds "cached"; "useEff" finds "useEffect"), merged via Reciprocal Rank Fusion; multi-term queries get a proximity rerank; typos are corrected via Levenshtein and re-searched. Snippets are window-extracted around matches, not truncated. File-backed sources carry a content hash and flag staleness when the file changes.
 
 WHEN:
-  - You want to recall something that exists in storage (recently indexed content, prior session events, auto-memory) instead of re-reading raw sources
-  - You have multiple related questions about the same body of knowledge — batch every question into one call (the ranking pipeline runs per-query but the round-trip cost is paid once)
-  - You want to scope the query to one labelled source (pass \`source\` — partial match is fine)
-  - You want a chronological view across current session + prior sessions + persistent auto-memory (pass \`sort: "timeline"\` — the default \`relevance\` mode only ranks within the current session)
-  - You want to filter ranked results by content shape (pass \`contentType: "code"\` to surface implementation snippets or \`contentType: "prose"\` to surface explanations)
+  - Recall something already in storage instead of re-reading the raw source
+  - Several related questions — batch them all into \`queries\`; the round-trip is paid once
+  - Look across prior sessions — pass \`sort: "timeline"\` (default \`relevance\` ranks the current session only)
+  - Narrow to one source — pass \`source\` (partial match; e.g. \`decision\`, \`error\`, \`plan\`, \`blocker\`, \`rejected-approach\`, \`compaction\`)
+  - Narrow by shape — pass \`contentType: "code"\` or \`"prose"\`
 
 WHEN NOT:
-  - The data you want to query has never been stored in the knowledge base AND no session memory has accumulated around it — capture first (run a gather-and-index call), then come back here to query
-  - You have one ad-hoc question against data that is not in the knowledge base — answer it inline by running code in the sandbox tool; one round-trip instead of capture-then-query
+  - Nothing on the topic was ever stored and no session memory touches it — capture first, or answer inline with ctx_execute in one round-trip
 
 RETURNS:
-  Per-query ranked sections with window-extracted snippets. Use 2-4 specific technical terms per query. Common session-memory source labels: \`decision\` (user corrections / preferences), \`error\` and \`error-resolution\` (past failures + their fixes), \`blocker\`, \`plan\`, \`user-prompt\`, \`rejected-approach\`, \`compaction\` (post-compact session guide). See ctx_stats for live category counts. Each response carries a throttle counter (call #N/M in the rolling time window); results taper toward the soft cap and calls block after the hard cap. Tune via CONTEXT_MODE_SEARCH_WINDOW_MS, CONTEXT_MODE_SEARCH_MAX_RESULTS_AFTER, CONTEXT_MODE_SEARCH_BLOCK_AFTER.
+  Per-query ranked sections with window-extracted snippets. Use 2-4 specific technical terms per query. Each response carries a throttle counter (call #N/M in the rolling time window); results taper toward the soft cap and calls block past the hard cap. Tune via CONTEXT_MODE_SEARCH_WINDOW_MS, CONTEXT_MODE_SEARCH_MAX_RESULTS_AFTER, CONTEXT_MODE_SEARCH_BLOCK_AFTER.
 
-EXAMPLE: ctx_search(queries: ["root cause", "proposed fix", "test coverage"], source: "issue-#683")
-EXAMPLE: ctx_search(queries: ["what did we decide about caching"], source: "decision", sort: "timeline")
-EXAMPLE: ctx_search(queries: ["useEffect cleanup pattern"], source: "react-docs", contentType: "code", limit: 5)
-EXAMPLE: ctx_search(queries: ["last user prompt", "active skills", "open blockers"], sort: "timeline")`,
+EXAMPLE: ctx_search(queries: ["what did we decide about caching", "why was the retry approach rejected"], sort: "timeline")
+
+Deferred siblings — load via ToolSearch: ctx_index, ctx_fetch_and_index, ctx_batch_execute, ctx_execute_file, ctx_stats, ctx_doctor, ctx_upgrade, ctx_purge, ctx_insight.`,
     // Schema construction is centralised in `src/search/ctx-search-schema.ts`
     // so the conditional `project` field (only registered when the host runs
     // in shared-DB mode, `CONTEXT_MODE_PROJECT_DIR` set at module load) is a
