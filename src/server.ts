@@ -18,15 +18,14 @@ import {
   evaluateCommandDenyOnly,
   extractShellCommands,
   readToolDenyPatterns,
-  readToolPermissionPatterns,
   evaluateFilePath,
-  evaluateProjectContainment,
 } from "./security.js";
 import {
   detectRuntimes,
   getRuntimeSummary,
   getAvailableLanguages,
   hasBunRuntime,
+  LANGUAGES,
   type Language,
 } from "./runtime.js";
 import { classifyNonZeroExit } from "./exit-classify.js";
@@ -1001,53 +1000,6 @@ function checkNonShellDenyPolicy(
 }
 
 /**
- * Issue #852 — project-boundary containment for `ctx_execute_file`.
- *
- * The harness sandbox (Claude Code, etc.) cannot inspect MCP input params, so a
- * user approving a `ctx_execute_file` call cannot see that its `path` escapes
- * the workspace. This guard refuses a `path` that resolves outside the project
- * root (absolute escape, `../` traversal, or symlink-out), restoring the
- * boundary the host believes it is enforcing.
- *
- * Escape hatch — NO bespoke opt-out env. A deliberate out-of-project read is
- * expressed in the SAME host config the user already maintains: a
- * `permissions.allow` rule like `Read(/var/log/**)`. This reuses the exact
- * mechanism Claude Code uses to whitelist a path outside its sandbox, so the
- * grant lives in one place and stays meaningful instead of rotting into a
- * ctxscribe-only env flag nobody sets.
- *
- * Fail-open on resolver failure (consistent with the other deny checks): if the
- * project root cannot be resolved, containment evaluates as "inside" and the
- * path is allowed through rather than spuriously blocking legitimate work.
- */
-function checkProjectBoundary(
-  filePath: string,
-  toolName: string,
-): ToolResult | null {
-  try {
-    const projectDir = getProjectDir();
-    const allowGlobs = readToolPermissionPatterns("Read", "allow", projectDir);
-    const verdict = evaluateProjectContainment(filePath, projectDir, allowGlobs);
-    if (verdict.allowed) return null;
-    return trackResponse(toolName, {
-      content: [{
-        type: "text" as const,
-        text:
-          `File access blocked: "${filePath}" resolves outside the project root ` +
-          `(${projectDir}). ctxscribe confines ${toolName} to the workspace so it ` +
-          `cannot be used to bypass the host's sandbox/permission controls (issue #852). ` +
-          `To intentionally process a file outside the project, add a host allow rule, ` +
-          `e.g. "permissions": { "allow": ["Read(${filePath})"] } in your settings.`,
-      }],
-      isError: true,
-    });
-  } catch {
-    // Fail-open — resolver failure must not block legitimate in-project work.
-  }
-  return null;
-}
-
-/**
  * Check a file path against Read deny patterns.
  * Returns an error ToolResult if denied, or null if allowed.
  */
@@ -1923,11 +1875,12 @@ EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const
     }),
   },
   async ({ path, language, code, timeout, intent }) => {
-    // Security (#852): confine the processed file to the project root so
-    // ctx_execute_file cannot be used to escape the host's sandbox/permission
-    // controls. Runs before the deny-glob check — boundary first, then policy.
-    const boundaryDenied = checkProjectBoundary(path, "ctx_execute_file");
-    if (boundaryDenied) return boundaryDenied;
+    // No project-boundary check here (#852). It only ever validated `path`,
+    // while the `code` in the same call can read anything the process can — so
+    // it cost an attacker nothing and cost honest callers a false rejection on
+    // every out-of-root path, including the host's own scratchpad. The tool
+    // title is the disclosure that actually reaches the user; the deny policy
+    // below enforces a rule the user actually wrote.
 
     // Security: check file path against Read deny patterns
     const pathDenied = checkFilePathDenyPolicy(path, "ctx_execute_file");
@@ -3952,8 +3905,9 @@ server.registerTool(
     // current package root, diagnose the root Codex will actually execute.
     const pluginRoot = getRuntimeAwarePackageRoot(currentPlatform);
 
-    // Runtimes
-    const total = 11;
+    // Runtimes. The denominator comes from LANGUAGES, not a literal — it was
+    // written as 11 while the list held 12, so doctor could report 109%.
+    const total = LANGUAGES.length;
     const pct = ((available.length / total) * 100).toFixed(0);
     lines.push(`[OK] Runtimes: ${available.length}/${total} (${pct}%) — ${available.join(", ")}`);
 

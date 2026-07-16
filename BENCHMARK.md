@@ -50,6 +50,12 @@
 
 **Subtotal: 315 KB raw → 5.5 KB context (98% savings)**
 
+Read that as per-call compression across the 14 scenarios above, most of them
+large outputs — not a whole-session figure. It describes the inputs chosen as
+much as the tool: the 0.4 KB Playwright row saves 13%, and nothing is saved on a
+call that never routes through the sandbox. It does not generalise to "saves 98%
+of your context window", and was previously restated that way in four manifests.
+
 ## Part 2: `ctx_index` + `ctx_search` — Knowledge Retrieval (FTS5 BM25)
 
 *Best for: documentation, code examples, API references, Skills — content where you need EXACT text, not summaries.*
