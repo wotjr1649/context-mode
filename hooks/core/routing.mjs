@@ -17,6 +17,7 @@ import {
 } from "../routing-block.mjs";
 import { createToolNamer } from "./tool-naming.mjs";
 import { isMCPReady } from "./mcp-ready.mjs";
+import { evaluateReadGuard } from "./readstate.mjs";
 import { existsSync, mkdirSync, rmSync, rmdirSync, readdirSync, unlinkSync, openSync, closeSync, readFileSync, writeFileSync, statSync, constants as fsConstants } from "node:fs";
 
 /**
@@ -820,6 +821,17 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
   // smaller reads stay on the existing one-shot guidance nudge.
   if (canonical === "Read") {
     const filePath = getReadFilePath(toolInput);
+    // ─── ADR-0008 R1 read-guard ───
+    // Deny an exact full-file re-read whose bytes are already in this
+    // conversation AND indexed (armed by posttooluse → core/toolindex.mjs).
+    // Every mismatch returns null and falls through to the nudge (fail-open).
+    const readGuard = evaluateReadGuard({
+      toolInput,
+      filePath,
+      sessionId,
+      isSubagent: options.isSubagent === true,
+    });
+    if (readGuard) return readGuard;
     if (filePath) {
       try {
         const st = statSync(filePath);

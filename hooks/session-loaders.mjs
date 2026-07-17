@@ -57,6 +57,22 @@ export function createSessionLoaders(hookDir) {
     async loadSnapshot() {
       return await loadModule("session-snapshot.bundle.mjs", "snapshot.js");
     },
+    // ContentStore + security for R1 passive indexing (ADR-0008 R1).
+    // Both live at build/ root (not build/session/), hence explicit fallbacks.
+    async loadStore() {
+      const bundlePath = join(bundleDir, "store.bundle.mjs");
+      if (existsSync(bundlePath)) {
+        return await import(pathToFileURL(bundlePath).href);
+      }
+      return await import(pathToFileURL(join(pluginRoot, "build", "store.js")).href);
+    },
+    async loadSecurity() {
+      const bundlePath = join(bundleDir, "security.bundle.mjs");
+      if (existsSync(bundlePath)) {
+        return await import(pathToFileURL(bundlePath).href);
+      }
+      return await import(pathToFileURL(join(pluginRoot, "build", "security.js")).href);
+    },
   };
 }
 

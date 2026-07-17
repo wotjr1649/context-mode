@@ -135,6 +135,9 @@ const SOFT_FALLBACK_BUNDLES = new Set([
   "hooks/session-snapshot.bundle.mjs",
   "hooks/session-db.bundle.mjs",
   "hooks/session-attribution.bundle.mjs",
+  // R1 passive indexing (ADR-0008): loadStore falls back to build/store.js,
+  // and absence merely disables indexing (fail-open) — not boot-critical.
+  "hooks/store.bundle.mjs",
 ]);
 
 /**

@@ -152,6 +152,15 @@ function maxEditDistance(wordLength: number): number {
 // boundaries when a chunk exceeds this cap.
 const MAX_CHUNK_BYTES = 4096;
 
+// Max expensive stale-source examinations (re-hash and/or re-index) per
+// search. R1 passive Read indexing (ADR-0008 amendment) multiplies
+// file-backed sources; without a bound, a git checkout touching hundreds of
+// indexed files would stall the next search behind synchronous re-index
+// work. Leftovers refresh on subsequent searches.
+// ponytail: fixed budget — make it adaptive only if real searches miss stale
+// content for many consecutive calls.
+export const REFRESH_BUDGET = 24;
+
 // Blank-line sectioning is used only for output that is *naturally* sectioned:
 // at least a few sections, not an unbounded explosion, and no single section so
 // large that the split is clearly not the real structure (those fall back to
@@ -1414,8 +1423,12 @@ export class ContentStore {
    */
   #refreshStaleSources(): void {
     this.lastRefreshCount = 0;
+    let examined = 0; // mtime-gate passers (re-hash and/or re-index) this call
+    // Random iteration order: a persistently failing stale source (perms
+    // error, file→directory swap) consumes budget without progress; random
+    // order keeps it from starving the same tail rows on every search.
     const sources = this.#db.prepare(
-      "SELECT label, file_path, content_hash, indexed_at FROM sources WHERE file_path IS NOT NULL",
+      "SELECT label, file_path, content_hash, indexed_at FROM sources WHERE file_path IS NOT NULL ORDER BY RANDOM()",
     ).all() as Array<{ label: string; file_path: string; content_hash: string; indexed_at: string }>;
 
     for (const src of sources) {
@@ -1430,6 +1443,12 @@ export class ContentStore {
         const indexedAt = new Date(src.indexed_at + "Z");
         if (mtime <= indexedAt) continue; // file unchanged — fast path
 
+        // Budget gate (ADR-0008 R1 amendment): everything past the mtime
+        // gate is expensive (read + SHA-256, possibly re-index). Stop once
+        // the per-search budget is spent — the rest refresh next search.
+        if (examined >= REFRESH_BUDGET) break;
+        examined++;
+
         // mtime advanced — fd-bound read for hash + indexing in one go.
         // Open once, fstat, read from fd. Closes the swap-mid-flight
         // window between hash read and re-index. #442 round-3.
@@ -1443,7 +1462,13 @@ export class ContentStore {
           closeSync(fd);
         }
         const newHash = createHash("sha256").update(newContent).digest("hex");
-        if (newHash === src.content_hash) continue; // content identical — skip
+        if (newHash === src.content_hash) {
+          // Content identical — advance indexed_at so an mtime-only touch
+          // (git checkout, build step) leaves the stale set instead of
+          // re-hashing on every future search.
+          this.#db.prepare("UPDATE sources SET indexed_at = CURRENT_TIMESTAMP WHERE label = ?").run(src.label);
+          continue;
+        }
 
         // File genuinely changed — re-index using already-read content
         // (avoids a second open/read race) but preserve file_path/hash

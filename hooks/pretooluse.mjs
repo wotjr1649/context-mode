@@ -169,6 +169,9 @@ await runHook(async () => {
   // ─── Route and format response ───
   const decision = routePreToolUse(tool, toolInput, projectDir, "claude-code", getSessionId(input), {
     mcpToolsAvailable: !isSubagentContext,
+    // R1 read-guard scope: never deny inside subagents — a subagent's first
+    // Read of a path is legitimate in ITS conversation (ADR-0008 amendment).
+    isSubagent: isSubagentContext,
   });
   const response = formatDecision("claude-code", decision);
 
