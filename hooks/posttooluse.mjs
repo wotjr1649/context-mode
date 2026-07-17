@@ -216,6 +216,15 @@ await runHook(async () => {
       }
     } catch { /* best-effort — never block the hook */ }
 
+    // ─── ADR-0008 R1: passive indexing of large full-file Read results ───
+    // Indexes the on-disk file into the per-project ContentStore (label =
+    // resolved absolute path) and arms the read-guard sidecar for the main
+    // conversation. Own try/catch — R1 is best-effort and must never block.
+    try {
+      const { maybeIndexToolResult } = await import("./core/toolindex.mjs");
+      await maybeIndexToolResult({ input, projectDir, sessionId, hookDir: HOOK_DIR });
+    } catch { /* fail open */ }
+
     db.close();
   } catch {
     // PostToolUse must never block the session — silent fallback

@@ -1,6 +1,6 @@
 # ADR-0008 — What actually saves context: measured levers, ranked
 
-- **Status**: Proposed
+- **Status**: Proposed — R1 implemented & amended 2026-07-17 (see Amendment)
 - **Date**: 2026-07-17
 - **Scope**: roadmap; no code in this ADR. Companion instrument:
   `scripts/measure-adoption.mjs` (calibrated against the ERA-2 baseline).
@@ -91,3 +91,70 @@ bytes (6.09 vs 7.83 KB) — search-first correlates with windowed reads.
 - T1 (2026-07-19+) arbitrates ADR-0007's always-load bet with
   `scripts/measure-adoption.mjs`; its exclusion rules and calibration are
   documented in the script header.
+
+## Amendment (R1 implemented — Read-only scope + read-guard adopted, 2026-07-17)
+
+R1 shipped with two deliberate deviations from the paragraph above and one
+addition, all stress-tested by an independent adversarial review of the
+design before implementation:
+
+1. **Read-only (Bash deferred).** Large Bash output routinely carries
+   secrets (`printenv`, CI logs, tokens in test failures); passively
+   persisting it would convert transient conversation exposure into durable,
+   project-wide searchable storage. Lever #1's measured bytes are entirely
+   Read traffic, so Bash indexing buys risk without ceiling. Revisit only
+   behind an explicit opt-in or a vetted secret filter.
+2. **Full-file Reads only.** Windowed (`offset`/`limit`) reads are neither
+   indexed nor recorded. Indexing a whole file behind a 4 KB windowed
+   response was the worst-case synchronous-latency path in the hook, and the
+   corpus repeat volume is dominated by full re-reads.
+3. **Read-guard adopted (stage 2 of R1, distinct from R3).** A PreToolUse
+   deny fires ONLY when all hold: main conversation (hook input carries
+   `agent_id`/`agent_type` for subagents — those never deny), no
+   `offset`/`limit`, a same-session sidecar record armed by successful
+   indexing, content-store identity unchanged (ino+birthtime of the db file,
+   so `ctx_purge`/db recreation auto-invalidates), and file size+mtime+sha256
+   all unchanged; records expire after 48 h; `CONTEXT_MODE_READ_GUARD=0`
+   disables. Everything else falls through — fail-open. This is *not* R3's
+   size-based soft enforcement: it denies only byte-identical duplicates
+   whose content is provably recallable, and R3 remains future work.
+   Edit-safety was verified live before adoption: a windowed Read re-arms
+   Edit for the whole file (an edit outside the read window succeeded), so
+   the deny recipe's escape hatch can never permanently block an Edit flow;
+   first reads are never denied (no record) and post-Edit re-reads pass
+   (hash mismatch).
+4. **Volume + sensitivity caps.** Per file ≤1 MiB (larger files are skipped
+   entirely so the deny recipe never overclaims searchability); per session
+   ≤300 files / 24 MiB (subagent reads consume the byte budget too, and a
+   re-read of the same path replaces its byte contribution instead of
+   accumulating); per project store ≤800 sources; a built-in
+   sensitive-basename floor (`.env*`, `*.pem`, `*.key`, `id_rsa*`,
+   `credential*`, `secret*`, …) beneath the user's Read deny patterns;
+   binary detection (extension + NUL sniff). Containment and sensitivity
+   are checked against both the lexical path and the symlink-resolved real
+   path. `CONTEXT_MODE_TOOL_INDEX=0` disables indexing and recording.
+5. **Search-time cost stays bounded.** `searchWithFallback` examined every
+   file-backed source before each search; passive indexing multiplies those
+   sources. `REFRESH_BUDGET` now caps expensive stale-source examinations
+   per search (leftovers refresh on later searches), and a same-hash
+   examination advances `indexed_at` so mtime-only touches (git checkout,
+   build steps) leave the stale set instead of re-hashing forever; the
+   iteration order is randomized so a persistently failing source cannot
+   starve the same tail rows on every search.
+6. **Accounting reuses existing channels.** Guard denies ride the
+   rejected-approach and redirect (`bytes_avoided`) event categories that
+   PreToolUse↔PostToolUse markers already carry; `ctx_stats` gains no new
+   derived-savings claim (the 2026-07 audit rule).
+7. **Plumbing.** `src/store.ts` is now also bundled as
+   `hooks/store.bundle.mjs` (soft-fallback in the boot integrity gate;
+   `loadStore()` falls back to `build/store.js`), mirroring the session-db
+   bundle contract from ADR-0001 — hook-process writes go through the same
+   `withRetry`/WAL multi-writer path the store already uses.
+8. **Measured (livefire, 2026-07-17, n=7 per size, maintainer machine).**
+   Marginal hook-process cost of cold indexing over the ~80–93 ms
+   pre-existing PostToolUse baseline: ~37 ms @8 KB, ~42 ms @100 KB,
+   ~200 ms @1 MB (the cap); a same-hash re-read adds ≤16 ms. A denied
+   100 KB re-read: 602 B deny JSON + 658 B real-server ctx_search recall
+   vs 102,442 B re-entering the window — 98.8% recovered, deny decision
+   68.6 ms, windowed escape verified live against the armed guard. The
+   recall size matches the R1 paragraph's ~0.8 KB/hit estimate.
