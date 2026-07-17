@@ -17,7 +17,7 @@ import {
 } from "../routing-block.mjs";
 import { createToolNamer } from "./tool-naming.mjs";
 import { isMCPReady } from "./mcp-ready.mjs";
-import { evaluateReadGuard } from "./readstate.mjs";
+import { evaluateLargeReadGuard, evaluateReadGuard, isWindowedRead } from "./readstate.mjs";
 import { existsSync, mkdirSync, rmSync, rmdirSync, readdirSync, unlinkSync, openSync, closeSync, readFileSync, writeFileSync, statSync, constants as fsConstants } from "node:fs";
 
 /**
@@ -835,15 +835,31 @@ export function routePreToolUse(toolName, toolInput, projectDir, platform, sessi
     if (filePath) {
       try {
         const st = statSync(filePath);
+        // ─── ADR-0008 R3 large-read guard ───
+        // After the R1 read-guard, before the 50 KB nudge. Stateless; denies
+        // only the > MAX_INDEX_FILE_BYTES band R1 can never index or recall.
+        const largeRead = evaluateLargeReadGuard({
+          toolInput,
+          filePath,
+          st,
+          isSubagent: options.isSubagent === true,
+        });
+        if (largeRead) return largeRead;
         if (st.isFile() && st.size > 50_000) {
           const decision = guidanceOnce("read", readGuidance, sessionId)
             ?? { action: "context", additionalContext: readGuidance };
-          decision.redirectMeta = {
-            tool: "Read",
-            type: "read-redirected",
-            bytesAvoided: st.size,
-            commandSummary: String(filePath).slice(0, 200),
-          };
+          // Accounting fix (ADR-0008 R3 review): only a FULL read forfeits the
+          // file-sized payload. A windowed read returns a slice — claiming the
+          // whole file as bytes_avoided overcounted, and its marker write
+          // clobbered a pending large-read-denied marker (last-write-wins).
+          if (!isWindowedRead(toolInput)) {
+            decision.redirectMeta = {
+              tool: "Read",
+              type: "read-redirected",
+              bytesAvoided: st.size,
+              commandSummary: String(filePath).slice(0, 200),
+            };
+          }
           return decision;
         }
       } catch { /* file missing or unreadable — fall through to plain guidance */ }

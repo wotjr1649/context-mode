@@ -100,3 +100,60 @@ describe("evaluateLargeReadGuard unit matrix", () => {
     expect(rs.isWindowedRead(null)).toBe(false);
   });
 });
+
+/** Arm the R1 guard exactly like posttooluse would (copied from r1-read-guard.test.ts). */
+function armedSetup(bytes = SMALL) {
+  const dir = mkdtempSync(join(tmpdir(), "r3-armed-"));
+  cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+  const file = join(dir, "armed.ts");
+  writeFileSync(file, "x".repeat(bytes), "utf-8");
+  const dbPath = join(dir, "content.db");
+  writeFileSync(dbPath, "fake-db", "utf-8");
+  const sessionId = randomUUID();
+  const st = statSync(file);
+  rs.recordFullRead(sessionId, file, {
+    hash: createHash("sha256").update(readFileSync(file)).digest("hex"),
+    size: st.size,
+    mtimeMs: st.mtimeMs,
+    dbPath,
+    dbFileId: rs.fileIdOf(dbPath),
+  });
+  cleanups.push(() => { try { unlinkSync(rs.statePath(sessionId)); } catch { /* gone */ } });
+  return { file, sessionId };
+}
+
+describe("R3 large-read guard inside routePreToolUse", () => {
+  it("denies a first-ever full Read of a 1.5MB file", () => {
+    const file = tmpFile("fresh.log", BIG);
+    const d = routing.routePreToolUse("Read", { file_path: file }, dirname(file), "claude-code", randomUUID(), { isSubagent: false });
+    expect(d?.action).toBe("deny");
+    expect(d?.redirectMeta?.type).toBe("large-read-denied");
+  });
+
+  it("R1 read-guard still wins for an armed unchanged file in its own band", () => {
+    const { file, sessionId } = armedSetup(SMALL);
+    const d = routing.routePreToolUse("Read", { file_path: file }, dirname(file), "claude-code", sessionId, { isSubagent: false });
+    expect(d?.action).toBe("deny");
+    expect(d?.redirectMeta?.type).toBe("read-guard-denied");
+  });
+
+  it("windowed Read of a big file is not denied AND carries no redirectMeta (accounting fix)", () => {
+    const file = tmpFile("fresh.log", BIG);
+    const d = routing.routePreToolUse("Read", { file_path: file, offset: 1, limit: 100 }, dirname(file), "claude-code", randomUUID(), { isSubagent: false });
+    expect(d?.action).not.toBe("deny");
+    expect(d?.redirectMeta).toBeUndefined();
+  });
+
+  it("full Read in the R1 band keeps the 50KB-nudge redirectMeta (existing accounting preserved)", () => {
+    const file = tmpFile("mid.ts", MID);
+    const d = routing.routePreToolUse("Read", { file_path: file }, dirname(file), "claude-code", randomUUID(), { isSubagent: false });
+    expect(d?.action).not.toBe("deny");
+    expect(d?.redirectMeta?.type).toBe("read-redirected");
+    expect(d?.redirectMeta?.bytesAvoided).toBe(MID);
+  });
+
+  it("nonexistent path is not denied (native Read error path preserved)", () => {
+    const d = routing.routePreToolUse("Read", { file_path: join(tmpdir(), "r3-no-such-file-xyz.ts") }, tmpdir(), "claude-code", randomUUID(), { isSubagent: false });
+    expect(d?.action).not.toBe("deny");
+  });
+});
