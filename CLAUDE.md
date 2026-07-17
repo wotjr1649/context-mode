@@ -55,6 +55,8 @@ GitHub API rate-limit: cap at 4 for `gh` calls.
 
 Routing block auto-injected into subagent prompts. Bash-type subagents upgraded to general-purpose. No manual instruction needed.
 
+Spawn rule (ADR-0008 R2): spawn a subagent only when expected exploration exceeds ~200KB (≈50K tok) of tool output, or when parent context-window pressure is the bottleneck. Each spawn costs ~53K tok of fixed overhead — cut it by giving the subagent definition a `tools:`/`disallowedTools:` allowlist.
+
 ## Output
 
 Write artifacts to FILES — never inline. Return: file path + 1-line description.
@@ -99,7 +101,7 @@ This repository is a hard fork of `mksglu/context-mode`. Supported clients: **Cl
 - NEVER `git fetch upstream --tags` or `git push origin --tags`. Upstream's 198 tags would flood this fork's tag namespace.
 - After every fresh clone, run `gh repo set-default wotjr1649/ctxscribe`. With both `origin` (fork) and `upstream` remotes present and no gh default set, `gh pr create` cannot resolve the base repo and may open a PR against `mksglu/context-mode` (upstream). This setting lives only in local `.git/config`, so it does NOT survive re-clone. Verify with `gh repo set-default --view`.
 - No automation in this fork may call upstream infrastructure — no jsDelivr purge of `mksglu/context-mode`, no shields.io badges pointing at it, no links funnelling issues or sponsorship to it.
-- `npm version <bump>` WORKS again. The colliding context-mode-era tags (`v1.0.0`–`v1.0.3`) were deleted during the ctxscribe rename; the only tag now is `v1.0.0`, on the ctxscribe release. The `version` lifecycle script already runs `scripts/version-sync.mjs` and stages the 4 manifests, so `npm version patch` bumps + syncs + commits + tags in one step. Push the SINGLE tag (`git push origin vX.Y.Z`) — never `--tags` (see above).
+- `npm version <bump>` WORKS again. The colliding context-mode-era tags (`v1.0.0`–`v1.0.3`) were deleted during the ctxscribe rename; the only tags now are ctxscribe release tags (`v1.0.0`+). The `version` lifecycle script already runs `scripts/version-sync.mjs` and stages the 4 manifests, so `npm version patch` bumps + syncs + commits + tags in one step. Push the SINGLE tag (`git push origin vX.Y.Z`) — never `--tags` (see above).
 - The Claude marketplace for this fork is named `wotjr1649`, so its plugin cache lives at `~/.claude/plugins/cache/wotjr1649/ctxscribe/` and its registry key is `ctxscribe@wotjr1649`.
 - NEVER hand-edit `~/.claude/hooks/ctxscribe-cache-heal.mjs`. `start.mjs` overwrites it on every boot.
 - `assert-bundle` does NOT compare committed bundles against a rebuild — it only scans for the esbuild `__require("node:...")` shim. Stale bundles pass CI and ship broken code. Always run `npm run build` before committing a change under `src/`.
