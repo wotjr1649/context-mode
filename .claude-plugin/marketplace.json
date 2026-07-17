@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Claude Code plugins by Kim Jae Seok",
-    "version": "1.2.0"
+    "version": "1.3.0"
   },
   "plugins": [
     {
       "name": "ctxscribe",
       "source": "./",
       "description": "Claude Code MCP plugin that keeps large tool output out of your context window — process it in a sandbox, return only the answer. Sandboxed multi-language code execution, FTS5 knowledge base with BM25 ranking, and intent-driven search.",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": {
         "name": "Kim Jae Seok"
       },
