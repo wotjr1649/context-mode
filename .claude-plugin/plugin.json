@@ -1,6 +1,6 @@
 {
   "name": "ctxscribe",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "MCP server that keeps large tool output out of your context window — process it in a sandbox, return only the answer. Sandboxed multi-language code execution, FTS5 knowledge base with BM25 ranking, and automatic state restore across compactions.",
   "author": {
     "name": "Kim Jae Seok",
