@@ -1,9 +1,12 @@
 /**
- * R1 read-guard sidecar state (ADR-0008 R1 amendment).
+ * R1/R3 read guards and sidecar state (ADR-0008 amendments).
  *
- * PostToolUse records each successfully indexed full-file Read here (per
+ * R1: PostToolUse records each successfully indexed full-file Read here (per
  * session, main conversation only); the PreToolUse Read branch consults it
  * to deny byte-identical full-file re-reads with a recall recipe.
+ * R3: stateless large-read guard — a full Read of a text file too large for
+ * R1 to index (> MAX_INDEX_FILE_BYTES) is denied with an execute_file /
+ * windowed recipe (evaluated after R1 in the Read branch).
  *
  * Plain node builtins ONLY — PreToolUse must never load native modules
  * (native module load breaks the hook's stdout JSON, see pretooluse.mjs).
@@ -11,7 +14,7 @@
  */
 import { readFileSync, writeFileSync, renameSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve, join } from "node:path";
+import { resolve, join, extname } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 
 export const SESSION_MAX_FILES = 300;
@@ -20,6 +23,27 @@ export const STATE_TTL_MS = 48 * 60 * 60 * 1000;
 // Files above this are never indexed nor recorded (partial indexing would
 // make the deny recipe lie about searchability).
 export const MAX_INDEX_FILE_BYTES = 1_048_576;
+
+// ─── ADR-0008 R3 large-read guard ───
+// R3 denies full-file Reads of exactly the band R1 can never index: a
+// > 1 MiB payload (≈ 269K tok at 3.9 B/tok) exceeds any usable context
+// window, and no FTS5 recall exists up there to regress. Lower this only
+// with a raw-source recall path for denied files (see ADR-0008 R3).
+export const LARGE_READ_GUARD_BYTES = MAX_INDEX_FILE_BYTES;
+
+// Read renders these visually (images/PDF) or as structured cells (ipynb) —
+// no ctx tool substitutes for that, so the large-read guard lets them
+// through. Deliberately narrower than toolindex BINARY_EXTS: an archive or
+// executable full Read SHOULD be denied (ctx_execute_file analyzes those).
+const VISUAL_READ_EXTS = new Set([
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".pdf", ".ipynb",
+]);
+
+/** The single definition of "windowed" shared by both Read guards. */
+export function isWindowedRead(toolInput) {
+  const ti = toolInput ?? {};
+  return ti.offset != null || ti.limit != null;
+}
 
 export function statePath(sessionId) {
   return join(tmpdir(), `ctxscribe-readstate-${sessionId}.json`);
@@ -135,8 +159,7 @@ export function evaluateReadGuard({ toolInput, filePath, sessionId, isSubagent }
   try {
     if (process.env.CONTEXT_MODE_READ_GUARD === "0") return null;
     if (isSubagent || !sessionId || !filePath) return null;
-    const ti = toolInput ?? {};
-    if (ti.offset != null || ti.limit != null) return null;
+    if (isWindowedRead(toolInput)) return null;
     const entry = lookupEntry(sessionId, filePath);
     if (!entry) return null;
     if (!entry.dbPath || fileIdOf(entry.dbPath) !== entry.dbFileId) return null;
@@ -154,6 +177,42 @@ export function evaluateReadGuard({ toolInput, filePath, sessionId, isSubagent }
       redirectMeta: {
         tool: "Read",
         type: "read-guard-denied",
+        bytesAvoided: st.size,
+        commandSummary: String(abs).slice(0, 200),
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ADR-0008 R3: deny a full-file Read of a text file too large for R1 to
+ * index. Stateless — evaluated after the R1 read-guard (an armed re-read
+ * keeps R1's ctx_search recipe; overlap is impossible anyway since R1 only
+ * arms ≤ MAX_INDEX_FILE_BYTES) and before the 50 KB nudge. `st` comes from
+ * the caller's statSync so the Read branch stays at one stat syscall.
+ * Anything ambiguous → null (allow); fail open like everything else here.
+ */
+export function evaluateLargeReadGuard({ toolInput, filePath, st, isSubagent }) {
+  try {
+    if (process.env.CONTEXT_MODE_LARGE_READ_GUARD === "0") return null;
+    if (isSubagent || !filePath) return null;
+    if (isWindowedRead(toolInput)) return null;
+    if (!st || !st.isFile() || st.size <= LARGE_READ_GUARD_BYTES) return null;
+    const abs = resolve(String(filePath));
+    if (VISUAL_READ_EXTS.has(extname(abs).toLowerCase())) return null;
+    return {
+      action: "deny",
+      reason:
+        `ctxscribe large-read guard: ${abs} is ${Math.round(st.size / 1024)} KB — a full Read would flood the context window. ` +
+        `For analysis, call ctx_execute_file(path, language, code) and print only the answer. ` +
+        `For editing, Read a window with offset/limit around the target lines — a windowed Read re-arms Edit for the whole file. ` +
+        `This file's content is NOT indexed, so do not try ctx_search for it. ` +
+        `Set CONTEXT_MODE_LARGE_READ_GUARD=0 to disable this guard.`,
+      redirectMeta: {
+        tool: "Read",
+        type: "large-read-denied",
         bytesAvoided: st.size,
         commandSummary: String(abs).slice(0, 200),
       },
