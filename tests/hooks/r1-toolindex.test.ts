@@ -222,4 +222,20 @@ describe("toolindex: indexing + recording", () => {
     expect(["outside-project", "sensitive"]).toContain(r?.skipped);
     expect(rs.lookupEntry(sessionId, link)).toBeNull();
   });
+
+  it("indexes normally when the project dir itself is reached via a symlink (macOS /var→/private/var)", async () => {
+    const { projectDir: realProject, deps, sessionId } = setup();
+    const aliasParent = tempDir("r1-ti-alias-");
+    const alias = join(aliasParent, "proj-link");
+    const { symlinkSync } = await import("node:fs");
+    try {
+      symlinkSync(realProject, alias, "dir");
+    } catch {
+      return; // no symlink privilege on this runner — covered on POSIX CI
+    }
+    const file = join(alias, "via-alias.ts");
+    writeFileSync(file, "export const alias = 1;\n".repeat(400), "utf-8");
+    const r = await ti.maybeIndexToolResult({ input: readInput(file), projectDir: alias, sessionId, deps });
+    expect(r).toMatchObject({ indexed: true, recorded: true });
+  });
 });

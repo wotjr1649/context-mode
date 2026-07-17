@@ -122,18 +122,25 @@ export async function maybeIndexToolResult({ input, projectDir, sessionId, hookD
     // Containment/sensitivity checks run on the lexical path AND the real
     // path: a symlink with an innocent in-project name can point at an
     // external credential file — readFileSync/store.index follow the target,
-    // so the gates must too.
+    // so the gates must too. Containment compares lexical-vs-lexical and
+    // real-vs-real (macOS tmpdir lives under the /var → /private/var symlink,
+    // so comparing a real file path against a lexical project dir would
+    // wrongly reject every in-project file).
     let real = abs;
     try { real = realpathSync(abs); } catch { return { indexed: false, recorded: false, skipped: "unreadable" }; }
-    const projectKey = canonicalKey(projectDir) + "/";
-    for (const candidate of real === abs ? [abs] : [abs, real]) {
-      if (!canonicalKey(candidate).startsWith(projectKey)) {
-        return { indexed: false, recorded: false, skipped: "outside-project" };
-      }
-      if (isSensitiveBasename(basename(candidate))) {
+    let realProject = projectDir;
+    try { realProject = realpathSync(projectDir); } catch { /* keep lexical */ }
+    if (
+      !canonicalKey(abs).startsWith(canonicalKey(projectDir) + "/") ||
+      !canonicalKey(real).startsWith(canonicalKey(realProject) + "/")
+    ) {
+      return { indexed: false, recorded: false, skipped: "outside-project" };
+    }
+    for (const name of new Set([abs, real])) {
+      if (isSensitiveBasename(basename(name))) {
         return { indexed: false, recorded: false, skipped: "sensitive" };
       }
-      if (BINARY_EXTS.has(extname(candidate).toLowerCase())) {
+      if (BINARY_EXTS.has(extname(name).toLowerCase())) {
         return { indexed: false, recorded: false, skipped: "binary" };
       }
     }
