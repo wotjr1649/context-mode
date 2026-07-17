@@ -27,6 +27,7 @@ Otherwise: `ctx_batch_execute(commands, queries)` or `ctx_execute(language: "she
 
 ### Read (for analysis)
 Reading to **Edit** → Read correct. Reading to **analyze/explore/summarize** → `ctx_execute_file(path, language, code)`.
+Full Read of a >1MiB text file → denied with a recipe (`ctx_execute_file` for analysis, offset/limit windowed Read for editing). `CONTEXT_MODE_LARGE_READ_GUARD=0` disables.
 
 ### Grep — may flood context
 Use `ctx_execute(language: "shell", code: "grep ...")` in sandbox.
