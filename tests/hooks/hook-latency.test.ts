@@ -12,7 +12,7 @@
  *   - Overhead margin kept for stdin parse + SQLite write in production.
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { writeFileSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -38,11 +38,20 @@ beforeAll(async () => {
 
   const extract = await import("../../src/session/extract.js");
   extractEvents = extract.extractEvents;
+
+  writeFileSync(r3BigFile, "x".repeat(1_200_000), "utf-8");
+});
+
+afterAll(() => {
+  try { unlinkSync(r3BigFile); } catch {}
 });
 
 // MCP readiness sentinel — routing depends on this
 const _sentinelDir = process.platform === "win32" ? tmpdir() : "/tmp";
 const mcpSentinel = resolve(_sentinelDir, `ctxscribe-mcp-ready-${process.pid}`);
+
+// R3 large-read deny path — must stay inside the same p95 budget (stat-only).
+const r3BigFile = resolve(_sentinelDir, `ctxscribe-r3-latency-${process.pid}.txt`);
 
 beforeEach(() => {
   if (typeof resetGuidanceThrottle === "function") resetGuidanceThrottle();
@@ -76,6 +85,7 @@ const PRETOOL_CASES = [
   { name: "Bash (short command)", tool: "Bash", input: { command: "git status" } },
   { name: "Bash (large output)", tool: "Bash", input: { command: "find . -type f | head -500" } },
   { name: "Read file", tool: "Read", input: { file_path: "/tmp/test.ts" } },
+  { name: "Read large file (R3 deny)", tool: "Read", input: { file_path: r3BigFile } },
   { name: "Grep search", tool: "Grep", input: { pattern: "TODO", path: "/tmp" } },
   { name: "Write file", tool: "Write", input: { file_path: "/tmp/out.ts", content: "hello" } },
   { name: "Edit file", tool: "Edit", input: { file_path: "/tmp/out.ts", old_string: "a", new_string: "b" } },

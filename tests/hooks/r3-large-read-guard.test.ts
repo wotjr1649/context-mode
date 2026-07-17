@@ -157,3 +157,94 @@ describe("R3 large-read guard inside routePreToolUse", () => {
     expect(d?.action).not.toBe("deny");
   });
 });
+
+describe("R3 livefire — real pretooluse.mjs child process", () => {
+  const PRETOOL_PATH = resolve(__dirname, "..", "..", "hooks", "pretooluse.mjs");
+
+  function livefireSetup(bytes: number) {
+    const fakeHome = mkdtempSync(join(tmpdir(), "r3-lf-home-"));
+    const fakeProject = mkdtempSync(join(tmpdir(), "r3-lf-proj-"));
+    cleanups.push(() => rmSync(fakeHome, { recursive: true, force: true }));
+    cleanups.push(() => rmSync(fakeProject, { recursive: true, force: true }));
+    const file = join(fakeProject, "big.txt");
+    writeFileSync(file, "x".repeat(bytes), "utf-8");
+    const sessionId = `r3-lf-${randomUUID()}`;
+    cleanups.push(() => { try { unlinkSync(resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`)); } catch {} });
+    return { file, sessionId, fakeHome, fakeProject };
+  }
+
+  function runPre(
+    ctx: { file: string; sessionId: string; fakeHome: string; fakeProject: string },
+    toolInput: Record<string, unknown>,
+    extra: { env?: Record<string, string>; payload?: Record<string, unknown> } = {},
+  ) {
+    return spawnSync("node", [PRETOOL_PATH], {
+      input: JSON.stringify({
+        session_id: ctx.sessionId,
+        tool_name: "Read",
+        tool_input: toolInput,
+        ...(extra.payload ?? {}),
+      }),
+      encoding: "utf-8",
+      timeout: 30_000,
+      env: {
+        ...process.env,
+        HOME: ctx.fakeHome,
+        USERPROFILE: ctx.fakeHome,
+        CLAUDE_CONFIG_DIR: join(ctx.fakeHome, ".claude"),
+        CLAUDE_PROJECT_DIR: ctx.fakeProject,
+        CLAUDE_SESSION_ID: ctx.sessionId,
+        CONTEXT_MODE_SESSION_SUFFIX: "",
+        ...(extra.env ?? {}),
+      },
+    });
+  }
+
+  function markerOf(sessionId: string): string {
+    return readFileSync(resolve(tmpdir(), `ctxscribe-redirect-${sessionId}.txt`), "utf-8");
+  }
+
+  it("1.5MB file: shipped hook denies with ~0.6KB JSON instead of a 1.5MB payload", () => {
+    const ctx = livefireSetup(BIG);
+    const started = performance.now();
+    const r = runPre(ctx, { file_path: ctx.file });
+    const elapsedMs = performance.now() - started;
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out?.hookSpecificOutput?.permissionDecision).toBe("deny");
+    expect(out?.hookSpecificOutput?.permissionDecisionReason).toContain("ctx_execute_file");
+    expect(Buffer.byteLength(r.stdout, "utf8")).toBeLessThan(2_048);
+    expect(markerOf(ctx.sessionId).startsWith(`Read:large-read-denied:${BIG}:`)).toBe(true);
+    console.log(`[livefire] 1.5MB deny: ${elapsedMs.toFixed(1)}ms, stdout ${Buffer.byteLength(r.stdout, "utf8")}B vs ${BIG}B payload`);
+  });
+
+  it("deny marker survives the windowed retry (telemetry fix, Codex finding 1)", () => {
+    const ctx = livefireSetup(BIG);
+    const denied = runPre(ctx, { file_path: ctx.file });
+    expect(JSON.parse(denied.stdout)?.hookSpecificOutput?.permissionDecision).toBe("deny");
+    const retry = runPre(ctx, { file_path: ctx.file, offset: 1, limit: 100 });
+    expect(retry.status).toBe(0);
+    if (retry.stdout.trim() !== "") {
+      expect(JSON.parse(retry.stdout)?.hookSpecificOutput?.permissionDecision).not.toBe("deny");
+    }
+    expect(markerOf(ctx.sessionId).startsWith(`Read:large-read-denied:${BIG}:`)).toBe(true);
+  });
+
+  it("kill-switch reaches the shipped hook (CONTEXT_MODE_LARGE_READ_GUARD=0 → no deny)", () => {
+    const ctx = livefireSetup(BIG);
+    const r = runPre(ctx, { file_path: ctx.file }, { env: { CONTEXT_MODE_LARGE_READ_GUARD: "0" } });
+    expect(r.status).toBe(0);
+    if (r.stdout.trim() !== "") {
+      expect(JSON.parse(r.stdout)?.hookSpecificOutput?.permissionDecision).not.toBe("deny");
+    }
+  });
+
+  it("subagent payload is exempt through the shipped hook (R1 parity)", () => {
+    const ctx = livefireSetup(BIG);
+    const r = runPre(ctx, { file_path: ctx.file }, { payload: { agent_id: "sub-1", agent_type: "general-purpose" } });
+    expect(r.status).toBe(0);
+    if (r.stdout.trim() !== "") {
+      expect(JSON.parse(r.stdout)?.hookSpecificOutput?.permissionDecision).not.toBe("deny");
+    }
+  });
+});
