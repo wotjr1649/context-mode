@@ -158,3 +158,52 @@ design before implementation:
    vs 102,442 B re-entering the window — 98.8% recovered, deny decision
    68.6 ms, windowed escape verified live against the armed guard. The
    recall size matches the R1 paragraph's ~0.8 KB/hit estimate.
+
+## Amendment (R3 implemented — large-read guard at > 1 MiB, 2026-07-17)
+
+R3 shipped as a hard deny scoped to exactly the band R1 can never index,
+after an independent adversarial review rejected the original > 100 KB
+scope:
+
+1. **Threshold = `MAX_INDEX_FILE_BYTES` (1 MiB), not 100 KB.** The review's
+   core finding stood: for 100 KB–1 MiB, a successful first Read is indexed
+   and armed by R1 (98.8% measured repeat recovery), so denying first reads
+   there would trade a working recall path for an unmeasured savings slice.
+   Above 1 MiB nothing is indexed or recallable today, a full-Read payload
+   (≈ 269K tok at 3.9 B/tok) exceeds any usable context window, and current
+   Claude Code truncates or rejects over-limit ranges at the tool layer —
+   the deny converts a guaranteed window blowout into a ~0.6 KB recipe.
+   `LARGE_READ_GUARD_BYTES` is defined as `MAX_INDEX_FILE_BYTES`, so the two
+   guards cannot drift apart. Lowering it requires a raw-source recall path
+   for denied files (marker-delegated indexing) or a corpus dry-run with
+   defined retry/abandonment ceilings — pre-registered here.
+2. **Stateless deny, R1-shaped exemptions.** Evaluated in the Read branch
+   after the R1 read-guard, before the 50 KB nudge. Fail-open on everything
+   ambiguous; subagents exempt (`agent_id`/`agent_type`); windowed reads
+   exempt via the shared `isWindowedRead` predicate (presence-only — the
+   `offset:0, limit:huge` bypass is an accepted residual, backstopped by the
+   tool-layer range rejection above); Read-renderable files exempt
+   (`VISUAL_READ_EXTS`: png jpg jpeg gif webp bmp ico pdf ipynb — narrower
+   than `BINARY_EXTS` on purpose: an archive or executable full Read SHOULD
+   be denied since ctx_execute_file analyzes those fine).
+   `CONTEXT_MODE_LARGE_READ_GUARD=0` disables. No MCP-readiness gating:
+   unlike WebFetch, the windowed-Read escape hatch is a native tool, valid
+   even with MCP down.
+3. **Nudge accounting fixed (review finding).** A PreToolUse deny produces
+   no PostToolUse of its own; the redirect marker is flushed by the NEXT
+   successful call. The 50 KB nudge used to attach `read-redirected`
+   redirectMeta to windowed reads too, claiming the whole file as
+   `bytes_avoided` on a read that returned a slice AND clobbering a pending
+   `large-read-denied` marker (single marker file, last-write-wins) — the
+   deny's own telemetry would have been destroyed by its documented recovery
+   path. redirectMeta is now attached to full reads only. Parallel-call
+   marker races remain a pre-existing residual across all redirect types.
+4. **Measured (livefire, 2026-07-17, maintainer machine).** Through the
+   shipped `pretooluse.mjs`: 1.5 MB and 2.5 MB full Reads each deny with
+   596 B of stdout (~80 ms wall including node spawn; R1's in-hook deny
+   decision was 68.6 ms); the deny marker survives a windowed retry;
+   kill-switch and subagent exemption verified end-to-end. The in-process
+   deny path holds the hook-latency budget (p95 < 3 ms, stat-only). The
+   > 1 MiB corpus slice was not separately measured — no MB savings claim;
+   the lever is eliminating a guaranteed-fatal call class, with real effect
+   measured post-deploy via `large-read-denied` `bytes_avoided` events.
